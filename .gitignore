@@ -4,6 +4,11 @@
 #IDE Specific
 .idea
 
+
+#Generated Files
+projects/
+configs/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
