@@ -1,6 +1,7 @@
 package main
 
 import (
+	"NovellaForge/pkg/project"
 	"NovellaForge/pkg/utils/editor"
 	"bytes"
 	"fmt"
@@ -8,27 +9,27 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
-	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
-	"sort"
 )
 
 /*
 Todo:
-	- Implement Create Project logic
-	  	- Should check if the user has GO installed and tell them to install it if they don't (Will need to add max and min version checks)
-		- Should prompt user for project name
-	  	- Should create a project subdirectory in the projects directory based on the name they give it
-	  		- Should create a project.go file with a default project they can begin working on as well as the predefined go mod file (Named according to the name they give the project)
-	  		- Will also create a project.novel file with the project metadata including scenes Game name, game version, author, credits, etc. (Also named according to the name they give the project)
-			- Will also create an assets folder a scenes folder and a characters folder (Need to define basic character structure and scene structure) inside the project subdirectory
+	- Check for the proper fyne setup and install it if it is not there (fyne setup)
+	- Check for the fyne dependencies and install them if they are not there (fyne install)
+	- Begin work on the open project functionality
+		- It should show a list of all scenes in the project in a tree view and allow the user to open them in a scene editor tab
+		- The user can only be in one scene tab at a time and can switch between it and the tree view at any time.
+		- The left side of the screen will be a slide out menu that will allow the user to switch between any other project or editor settings
+		- It should also allow the user to open the project settings
+		- It should also allow the user to open the project credits
+		- It should also have a build button with checkboxes for windows, mac, and linux (The build button should be disabled if the project has not been saved and each os will build for all architectures)
+
 Todo IDEAS:
 	- Engine should eventually support mac os and linux as well as windows
+
 	- Scenes should have an enum to switch between layout styles, and then a list of content objects that will be displayed in the scene according to the slots available in that layout style
 	- The scenes will be opened using a populateScene function that takes in a Scene and args and just sets the game field contents to the scene contents
 	- A game window will have a main menu at the top with options to save, load, view credits, set preferences, exit, etc.
@@ -38,6 +39,7 @@ Todo IDEAS:
 	- The game will have a credits menu that will display the credits from the project.novel file
 	- The game will allow normal saves that will be stored in the game directory in a saves folder there will be no limit to the number of saves the user can make they will be named save1.novella save2.novella etc. The user can name their saves whatever they want (Saves will just be json arrays anyway)
 	- The game will have a load menu that will display all saves in the saves folder and allow the user to load them
+	- When building check if the author/credits etc are empty and if they are prompt the user to fill them in
 
 
 
@@ -45,6 +47,8 @@ Todo IDEAS:
 */
 
 const EditorVersion = "0.0.1"
+const MinGoVersion = "1.16"
+const MaxGoVersion = "1.21"
 
 var Config editor.Config
 var LastProject string
@@ -64,7 +68,7 @@ func main() {
 	application := app.New()
 	window := application.NewWindow(fmt.Sprintf("NovellaForge Editor %s", EditorVersion))
 
-	err := createEditorWindow(window)
+	err := createMainWindow(window)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return
@@ -73,8 +77,8 @@ func main() {
 	window.ShowAndRun()
 }
 
-// createEditorWindow creates the main editor window
-func createEditorWindow(w fyne.Window) error {
+// createMainWindow creates the main editor window
+func createMainWindow(w fyne.Window) error {
 	// Initialize Config here
 	var err error
 	Config, err = editor.LoadConfig(EditorVersion)
@@ -85,10 +89,14 @@ func createEditorWindow(w fyne.Window) error {
 		LastProject = Config.LastProject
 	}
 
-	projectList := scanProjects()
+	projectList, err := project.ScanProjects()
+	if err != nil {
+		//Show an error dialog
+		dialog.ShowError(err, w)
+	}
 	var projectItems []*fyne.MenuItem
-	for _, project := range projectList {
-		projectItems = append(projectItems, fyne.NewMenuItem(project, func() {
+	for _, p := range projectList {
+		projectItems = append(projectItems, fyne.NewMenuItem(p, func() {
 			// TODO: Implement opening of this project
 		}))
 	}
@@ -99,15 +107,19 @@ func createEditorWindow(w fyne.Window) error {
 			&fyne.MenuItem{
 				Label:     "Open Recent...",
 				ChildMenu: fyne.NewMenu("Recent Projects", projectItems...),
-				Action: func() {
-					projectList = scanProjects()
-				},
 			},
 			fyne.NewMenuItem("Open Project", func() {
-				showOpenProjectDialog(w)
+				project.ShowOpenProjectDialog(w)
 			}),
 			fyne.NewMenuItem("Create Project", func() {
-				createProject(w)
+				// Check Go version
+				isValid, message := checkGoVersion(MinGoVersion, MaxGoVersion)
+				if !isValid {
+					dialog.ShowInformation("Go Version Check Failed", message, w)
+					return
+				} else {
+					project.CreateProject(w)
+				}
 			}),
 			fyne.NewMenuItem("Editor Settings", func() {
 				showSettings(w)
@@ -118,10 +130,16 @@ func createEditorWindow(w fyne.Window) error {
 
 	// Content
 	createProjectButton := widget.NewButton("Create Project", func() {
-		createProject(w)
+		// Check Go version
+		isValid, message := checkGoVersion(MinGoVersion, MaxGoVersion)
+		if !isValid {
+			dialog.ShowInformation("Go Version Check Failed", message, w)
+			return
+		}
+		project.CreateProject(w)
 	})
 	openProjectButton := widget.NewButton("Open Project", func() {
-		showOpenProjectDialog(w)
+		project.ShowOpenProjectDialog(w)
 	})
 	continueProjectButton := widget.NewButton("Continue Project", func() {
 		// TODO: Implement Continue Project logic
@@ -154,18 +172,8 @@ func createEditorWindow(w fyne.Window) error {
 	return nil
 }
 
-// showOpenProjectDialog opens up a small popup window for opening a project
-func showOpenProjectDialog(w fyne.Window) {
-	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		//TODO Implement opening of project
-	}, w)
-	//Set the location to the local projects folder
-	listableURI, err := storage.ListerForURI(storage.NewFileURI("projects"))
-	if err == nil {
-		fd.SetLocation(listableURI)
-	}
-	fd.SetFilter(storage.NewExtensionFileFilter([]string{".novel"}))
-	fd.Show()
+func createProjectOverviewWindow(w fyne.Window) {
+
 }
 
 // showSettings opens up a small popup window for editor settings
@@ -201,70 +209,11 @@ func showSettings(w fyne.Window) {
 			}
 
 			// Recreate editor window
-			err = createEditorWindow(w)
+			err = createMainWindow(w)
 			if err != nil {
 				dialog.ShowError(err, w)
 			}
 		}
-	}, w)
-}
-
-// scanProjects returns a list of the last 10 edited projects
-func scanProjects() []string {
-	var projects []string
-	files, err := os.ReadDir("projects")
-	if err != nil {
-		return projects
-	}
-
-	// Filter and sort by modification time
-	var fileInfo []fs.DirEntry
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".novel" {
-			fileInfo = append(fileInfo, file)
-		}
-	}
-	sort.Slice(fileInfo, func(i, j int) bool {
-		infoI, _ := fileInfo[i].Info()
-		infoJ, _ := fileInfo[j].Info()
-		return infoI.ModTime().After(infoJ.ModTime())
-	})
-
-	// Limit to last 10 edited projects
-	limit := 10
-	if len(fileInfo) < 10 {
-		limit = len(fileInfo)
-	}
-
-	for _, file := range fileInfo[:limit] {
-		projects = append(projects, file.Name())
-	}
-
-	return projects
-}
-
-func createProject(w fyne.Window) {
-	// Check Go version
-	isValid, message := checkGoVersion("1.16", "1.18")
-	if !isValid {
-		dialog.ShowInformation("Go Version Check Failed", message, w)
-		return
-	}
-
-	// Prompt user for project name
-	nameEntry := widget.NewEntry()
-	nameEntry.SetPlaceHolder("Enter Project Name")
-
-	dialog.ShowCustomConfirm("New Project", "Create", "Cancel", nameEntry, func(b bool) {
-		if !b {
-			return
-		}
-		projectName := nameEntry.Text
-		if projectName == "" {
-			dialog.ShowInformation("Invalid Name", "Project name cannot be empty", w)
-			return
-		}
-		// TODO: Create project logic here
 	}, w)
 }
 
