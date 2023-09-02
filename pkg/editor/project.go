@@ -31,11 +31,12 @@ type Scene struct {
 }
 
 type Project struct {
-	GameName    string             `json:"gameName"`
-	Version     string             `json:"version"`
-	Author      string             `json:"author"`
-	Credits     string             `json:"credits"`
-	SceneGroups map[string][]Scene `json:"sceneGroups"`
+	GameName          string             `json:"gameName"`
+	Version           string             `json:"version"`
+	Author            string             `json:"author"`
+	Credits           string             `json:"credits"`
+	SceneGroups       map[string][]Scene `json:"sceneGroups"`
+	SceneGroupIndices map[string]int     `json:"sceneGroupIndices"`
 }
 
 // CreateDefaultMainMenu creates a default "Main Menu" scene
@@ -77,6 +78,9 @@ func NewProject(gameName string) Project {
 		SceneGroups: map[string][]Scene{
 			"Menus": {mainMenuScene},
 		},
+		SceneGroupIndices: map[string]int{
+			"Menus": 0,
+		},
 	}
 }
 
@@ -89,10 +93,14 @@ func main() {
 }`
 
 var ActiveProject Project
+var ActiveProjectPath string
 
 // serializeProject Serialize Project to JSON
 func serializeProject(project Project) (string, error) {
-	jsonData, err := json.MarshalIndent(project, "", "  ")
+
+	validatedProject := ValidateProject(project)
+
+	jsonData, err := json.MarshalIndent(validatedProject, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -103,10 +111,13 @@ func serializeProject(project Project) (string, error) {
 func deserializeProject(jsonData string) (Project, error) {
 	var project Project
 	err := json.Unmarshal([]byte(jsonData), &project)
+
 	if err != nil {
 		return Project{}, err
 	}
-	return project, nil
+
+	validatedProject := ValidateProject(project)
+	return validatedProject, nil
 }
 
 // ScanProjects scans the projects directory
@@ -280,6 +291,7 @@ func OpenProject(projectName string, w fyne.Window, fromPath bool) error {
 	}
 	// Set the active project
 	ActiveProject = project
+	ActiveProjectPath = projectPath
 
 	// Populate the tree view for this project
 	tree := populateProjectTree(w)
@@ -306,6 +318,12 @@ func OpenProject(projectName string, w fyne.Window, fromPath bool) error {
 		if err != nil {
 			dialog.ShowError(err, w)
 		}
+	}
+
+	//After all that save the project just in case
+	err = SaveProject()
+	if err != nil {
+		dialog.ShowError(err, w)
 	}
 
 	return nil
@@ -436,7 +454,7 @@ func _(projectName string, groupName string) ([]Scene, error) {
 	return scenes, nil
 }
 
-func populateProjectTree(_ fyne.Window) *widget.Tree {
+func populateProjectTree(w fyne.Window) *widget.Tree {
 	tree := widget.NewTree(
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
 			// Handle the root node
@@ -447,19 +465,31 @@ func populateProjectTree(_ fyne.Window) *widget.Tree {
 			// Handle SceneGroups
 			if id == "SceneGroups" {
 				// Convert map keys to a slice
-				var groupNames []widget.TreeNodeID
+				var groupNames []string
 				for key := range ActiveProject.SceneGroups {
-					groupNames = append(groupNames, widget.TreeNodeID(key))
+					groupNames = append(groupNames, key)
 				}
-				return groupNames
+
+				// Sort groupNames based on indices
+				sort.Slice(groupNames, func(i, j int) bool {
+					return ActiveProject.SceneGroupIndices[groupNames[i]] < ActiveProject.SceneGroupIndices[groupNames[j]]
+				})
+
+				// Convert sorted group names to TreeNodeID slice
+				var sortedGroupNames []widget.TreeNodeID
+				for _, name := range groupNames {
+					sortedGroupNames = append(sortedGroupNames, name)
+				}
+
+				return sortedGroupNames
 			}
 
 			// Handle individual SceneGroups
-			if scenes, exists := ActiveProject.SceneGroups[string(id)]; exists {
+			if scenes, exists := ActiveProject.SceneGroups[id]; exists {
 				var sceneIDs []widget.TreeNodeID
 				for _, scene := range scenes {
 					// Create a unique ID by concatenating the group name and the scene ID
-					uniqueID := widget.TreeNodeID(string(id) + "_" + scene.ID)
+					uniqueID := string(id) + "_" + scene.ID
 					sceneIDs = append(sceneIDs, uniqueID)
 				}
 				return sceneIDs
@@ -472,7 +502,7 @@ func populateProjectTree(_ fyne.Window) *widget.Tree {
 			if id == "" || id == "SceneGroups" {
 				return true
 			}
-			if _, exists := ActiveProject.SceneGroups[string(id)]; exists {
+			if _, exists := ActiveProject.SceneGroups[id]; exists {
 				return true
 			}
 			return false
@@ -487,15 +517,238 @@ func populateProjectTree(_ fyne.Window) *widget.Tree {
 
 			// Extract the display text from the id
 			displayText := id
-			if strings.Contains(string(id), "_") {
-				parts := strings.Split(string(id), "_")
+			if strings.Contains(id, "_") {
+				parts := strings.Split(id, "_")
 				if len(parts) > 1 {
-					displayText = widget.TreeNodeID(parts[1])
+					displayText = parts[1]
 				}
 			}
+
+			switch id {
+			case "GameName":
+				displayText = "Game Name: " + ActiveProject.GameName
+			case "Version":
+				displayText = "Version: " + ActiveProject.Version
+			case "Author":
+				displayText = "Author: " + ActiveProject.Author
+			}
+
 			o.(*widget.Label).SetText(displayText)
 		},
 	)
 
+	tree.OnSelected = func(id string) {
+		if id == "SceneGroups" {
+			nameEntry := widget.NewEntry()
+			nameEntry.SetPlaceHolder("Name")
+			dialog.ShowCustomConfirm("New Scene Group", "Add", "Cancel", nameEntry, func(b bool) {
+				if !b {
+					return
+				}
+				groupName := strings.ReplaceAll(nameEntry.Text, "_", " ")
+				if groupName == "" {
+					dialog.ShowInformation("Invalid Name", "Scene Group name cannot be empty", w)
+					return
+				}
+
+				//Make sure the scene group name does not already exist
+				if _, exists := ActiveProject.SceneGroups[groupName]; exists {
+					dialog.ShowInformation("Invalid Name", "Scene Group already exists", w)
+					return
+				}
+
+				//Append the new scene group to the project
+				ActiveProject.SceneGroups[groupName] = []Scene{}
+
+				err := SaveProject()
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+
+				tree.Refresh()
+
+			}, w)
+		} else if _, exists := ActiveProject.SceneGroups[id]; exists {
+			// This is a Scene Group; open dialog for editing or deleting
+			// TODO: Open dialog to either delete the Scene Group or add a new Scene
+		} else if strings.Contains(id, "_") {
+			// This is a Scene; open dialog for editing, renaming or deleting
+			// TODO: Open dialog to edit, rename, or delete the Scene
+		} else if id == "GameName" || id == "Version" || id == "Author" {
+			// Open the dialog
+			valueEntry := widget.NewEntry()
+			valueEntry.SetPlaceHolder(fmt.Sprintf("Edit %s", id))
+
+			dialog.ShowCustomConfirm(fmt.Sprintf("Edit %s", id), "Update", "Cancel", valueEntry, func(b bool) {
+				if !b {
+					return
+				}
+				newValue := valueEntry.Text
+				if newValue == "" {
+					dialog.ShowInformation("Invalid Value", fmt.Sprintf("%s cannot be empty", id), w)
+					return
+				}
+
+				switch id {
+				case "GameName":
+					ActiveProject.GameName = newValue
+				case "Version":
+					ActiveProject.Version = newValue
+				case "Author":
+					ActiveProject.Author = newValue
+				}
+
+				err := SaveProject()
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+				tree.Refresh()
+			}, w)
+		}
+		tree.UnselectAll()
+	}
+
 	return tree
+}
+
+// SaveProject saves the active project to the .novel file
+func SaveProject() error {
+	// Serialize the project struct to JSON
+	jsonData, err := serializeProject(ActiveProject)
+	if err != nil {
+		return err
+	}
+
+	// Write the JSON data to the file
+	err = os.WriteFile(ActiveProjectPath, []byte(jsonData), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateProject ensures that there are no duplicate scene groups and no duplicate scenes within a specific scene group.
+// It takes in a project as a parameter and returns the modified project.
+func ValidateProject(project Project) Project {
+	// A map to keep track of scene group names and their counts
+	sceneGroupCount := make(map[string]int)
+	// A new map to store the validated scene groups
+	validatedSceneGroups := make(map[string][]Scene)
+	for group, scenes := range project.SceneGroups {
+		// Remove underscores from scene group names
+		cleanGroupName := strings.ReplaceAll(group, "_", " ")
+
+		// Resolve duplicate scene group names
+		if count, exists := sceneGroupCount[cleanGroupName]; exists {
+			cleanGroupName = fmt.Sprintf("%s%d", cleanGroupName, count+1)
+			sceneGroupCount[cleanGroupName] = count + 1
+		} else {
+			sceneGroupCount[cleanGroupName] = 1
+		}
+
+		// A map to keep track of scene IDs and their counts within this group
+		sceneIDCount := make(map[string]int)
+		// A new slice to store the validated scenes for this group
+		var validatedScenes []Scene
+
+		for _, scene := range scenes {
+			// Remove underscores from scene IDs
+			cleanSceneID := strings.ReplaceAll(scene.ID, "_", "")
+
+			// Resolve duplicate scene IDs within this group
+			if count, exists := sceneIDCount[cleanSceneID]; exists {
+				cleanSceneID = fmt.Sprintf("%s%d", cleanSceneID, count+1)
+				sceneIDCount[cleanSceneID] = count + 1
+			} else {
+				sceneIDCount[cleanSceneID] = 1
+			}
+
+			// Update the scene ID and add to the validated scenes slice
+			scene.ID = cleanSceneID
+			validatedScenes = append(validatedScenes, scene)
+		}
+
+		// Add the validated scenes to the validated scene groups map
+		validatedSceneGroups[cleanGroupName] = validatedScenes
+	}
+	// Update the project with the validated scene groups
+	project.SceneGroups = validatedSceneGroups
+	updatedProject := UpdateSceneGroupIndices(project)
+	return updatedProject
+}
+
+func UpdateSceneGroupIndices(project Project) Project {
+	//Make sure the scene group indices map exists
+	if project.SceneGroupIndices == nil {
+		project.SceneGroupIndices = make(map[string]int)
+	}
+	// Step 2: Remove duplicate indices and maintain order
+	usedIndexes := make(map[int]bool)
+	for {
+		duplicateFound := false
+		for _, index := range project.SceneGroupIndices {
+			if usedIndexes[index] {
+				duplicateFound = true
+				// Increment this index and all subsequent indices by 1
+				for g, i := range project.SceneGroupIndices {
+					if i >= index {
+						project.SceneGroupIndices[g] = i + 1
+					}
+				}
+				break
+			}
+			usedIndexes[index] = true
+		}
+		if !duplicateFound {
+			break
+		}
+		usedIndexes = make(map[int]bool) // Clear usedIndexes for the next iteration
+	}
+
+	highestIndex := 0
+	//If the scene group indices map is empty, then we need to set the highest index to 0 and skip the next step
+	if len(project.SceneGroupIndices) == 0 {
+	} else {
+		for _, index := range project.SceneGroupIndices {
+			if index > highestIndex {
+				highestIndex = index
+			}
+		}
+	}
+	// Step 3: Close any gaps in the indices
+	expectedIndex := 1 // Start from 1
+	for {
+		if expectedIndex > highestIndex {
+			break
+		}
+		// Check if expectedIndex is not used
+		if !usedIndexes[expectedIndex] {
+			// Decrement all indices that are greater than the expected index
+			for group, index := range project.SceneGroupIndices {
+				if index > expectedIndex {
+					project.SceneGroupIndices[group] = index - 1
+				}
+			}
+			// Update usedIndexes map to reflect the new state
+			usedIndexes = make(map[int]bool)
+			for _, index := range project.SceneGroupIndices {
+				usedIndexes[index] = true
+			}
+		}
+		// Increment expectedIndex for the next iteration
+		expectedIndex++
+	}
+
+	// Step 4: Assign indices to scene groups that do not have one
+	for group := range project.SceneGroups {
+		if _, exists := project.SceneGroupIndices[group]; !exists {
+			highestIndex++
+			project.SceneGroupIndices[group] = highestIndex
+		}
+	}
+
+	return project
 }

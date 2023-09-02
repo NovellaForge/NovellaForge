@@ -19,6 +19,7 @@ Todo:
 		- It should also have a build button with checkboxes for windows, mac, and linux (The build button should be disabled if the project has not been saved and each os will build for all architectures)
 
 Todo IDEAS:
+	- Update Regex for project creation to allow only the valid characters that are a union of the valid characters for all operating systems we want to support
 	- Engine should eventually support mac os and linux as well as windows
 	- Scenes should have an enum to switch between layout styles, and then a list of content objects that will be displayed in the scene according to the slots available in that layout style
 	- The scenes will be opened using a populateScene function that takes in a Scene and args and just sets the game field contents to the scene contents
