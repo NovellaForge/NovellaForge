@@ -8,16 +8,18 @@ import (
 	"path/filepath"
 )
 
-type Config struct {
+type ConfigType struct {
 	Version     string             `toml:"version"`
 	Resolution  map[string]float32 `toml:"resolution"`
 	Fullscreen  bool               `toml:"fullscreen"`
 	LastProject string             `toml:"last_project"`
 }
 
+var Config ConfigType
+
 // NewConfig creates a new configuration struct
-func NewConfig(version string, resolution map[string]float32, fullscreen bool) Config {
-	return Config{
+func NewConfig(version string, resolution map[string]float32, fullscreen bool) ConfigType {
+	return ConfigType{
 		Version:    version,
 		Resolution: resolution,
 		Fullscreen: fullscreen,
@@ -25,7 +27,7 @@ func NewConfig(version string, resolution map[string]float32, fullscreen bool) C
 }
 
 // SaveConfig saves the configuration to a TOML file
-func SaveConfig(cfg Config) error {
+func SaveConfig(cfg ConfigType) error {
 	configDir := "configs"
 	configFile := filepath.Join(configDir, "config.toml")
 
@@ -48,10 +50,10 @@ func SaveConfig(cfg Config) error {
 }
 
 // LoadConfig loads the configuration file for the editor or game
-func LoadConfig(version string) (Config, error) {
+func LoadConfig(version string) (ConfigType, error) {
 	configDir := "configs"
 	configFile := filepath.Join(configDir, "config.toml")
-	var cfg Config
+	var cfg ConfigType
 
 	// Check if configs directory exists
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
