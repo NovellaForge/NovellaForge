@@ -17,39 +17,45 @@ import (
 	"strings"
 )
 
-type SceneContent struct {
-	Name  string      `json:"name"`
-	Type  string      `json:"type"`
-	Text  string      `json:"text"`
-	Value interface{} `json:"value"`
+type SceneComponent struct {
+	Name  string `json:"Name"`
+	Type  string `json:"Type"`
+	Text  string `json:"Text"`
+	Value string `json:"Value"`
 }
 
 type Scene struct {
-	ID          string         `json:"id"`
-	SceneType   string         `json:"sceneType"`
-	ContentList []SceneContent `json:"contentList"`
+	Name        string           `json:"Name"`
+	SceneType   string           `json:"Scene Type"`
+	ContentList []SceneComponent `json:"Component List"`
+}
+
+type SceneGroup struct {
+	Name   string  `json:"Name"`
+	Scenes []Scene `json:"Scenes"`
 }
 
 type Project struct {
-	GameName          string             `json:"gameName"`
-	Version           string             `json:"version"`
-	Author            string             `json:"author"`
-	Credits           string             `json:"credits"`
-	SceneGroups       map[string][]Scene `json:"sceneGroups"`
-	SceneGroupIndices map[string]int     `json:"sceneGroupIndices"`
+	GameName     string       `json:"Game Name"`
+	Version      string       `json:"Version"`
+	Author       string       `json:"Author"`
+	Credits      string       `json:"Credits"`
+	SceneTypes   []string     `json:"Scene Types"`
+	ContentTypes []string     `json:"Content Types"`
+	SceneGroups  []SceneGroup `json:"Scene Groups"`
 }
 
 // CreateDefaultMainMenu creates a default "Main Menu" scene
 func CreateDefaultMainMenu() Scene {
 	return Scene{
-		ID:        "MainMenu",
+		Name:      "MainMenu",
 		SceneType: "Menu",
-		ContentList: []SceneContent{
+		ContentList: []SceneComponent{
 			{
 				Name:  "Title",
 				Type:  "Label",
 				Text:  "Welcome to the Main Menu",
-				Value: nil,
+				Value: "",
 			},
 			{
 				Name:  "StartButton",
@@ -75,22 +81,26 @@ func NewProject(gameName string) Project {
 		Version:  "1.0",
 		Author:   "Anonymous",
 		Credits:  "Made with NovellaForge",
-		SceneGroups: map[string][]Scene{
-			"Menus": {mainMenuScene},
+		SceneGroups: []SceneGroup{
+			{
+				Name:   "Default",
+				Scenes: []Scene{mainMenuScene},
+			},
 		},
-		SceneGroupIndices: map[string]int{
-			"Menus": 0,
+		SceneTypes: []string{
+			"Menu",
+			"Default",
+		},
+		ContentTypes: []string{
+			"Label",
+			"Button",
+			"Image",
+			"Video",
+			"Audio",
+			"Text",
 		},
 	}
 }
-
-const DefaultGameGO = `package main
-	
-import "fmt"
-	
-func main() {
-	fmt.Println("This is your game.")
-}`
 
 var ActiveProject Project
 var ActiveProjectPath string
@@ -293,20 +303,20 @@ func OpenProject(projectName string, w fyne.Window, fromPath bool) error {
 	ActiveProject = project
 	ActiveProjectPath = projectPath
 
+	// Create the main content area
+	mainContent := container.NewMax()
+
 	// Populate the tree view for this project
-	tree := populateProjectTree(w)
+	tree := populateProjectTree(w, mainContent)
 	if tree == nil {
 		return fmt.Errorf("failed to create project tree")
 	}
 
 	tree.Refresh()
+	tree.OpenAllBranches()
 
 	// Create a split container with the sidebar and main content area
-	mainHSplit := container.NewHSplit(tree, container.NewVBox(
-		// TODO: Place other UI components here
-		//Add a label with the project name
-		widget.NewLabel(ActiveProject.GameName),
-	))
+	mainHSplit := container.NewHSplit(tree, mainContent)
 	mainHSplit.Offset = 0.25 // set the default size of the sidebar to 1/4 of the window
 
 	w.SetContent(mainHSplit)
@@ -364,6 +374,7 @@ func checkAndCreateProjectFiles(projectName string, fromPath bool) (error, strin
 		"assets",
 		"scenes",
 		"characters",
+		"cmd",
 	}
 	requiredFiles := []string{
 		fmt.Sprintf("%s.novel", projectName),
@@ -429,89 +440,54 @@ func checkAndCreateProjectFiles(projectName string, fromPath bool) (error, strin
 	return nil, projectPath
 }
 
-// GetScenes reads the .novel file and returns a list of scenes for a given group
-func _(projectName string, groupName string) ([]Scene, error) {
-	// Path to the .novel file
-	projectPath := filepath.Join("projects", projectName, projectName+".novel")
-
-	// Read the .novel file
-	jsonData, err := os.ReadFile(projectPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Deserialize the JSON data to a Project struct
-	project, err := deserializeProject(string(jsonData))
-	if err != nil {
-		return nil, err
-	}
-
-	scenes, ok := project.SceneGroups[groupName]
-	if !ok {
-		return nil, fmt.Errorf("scene group '%s' not found in project '%s'", groupName, projectName)
-	}
-
-	return scenes, nil
-}
-
-func populateProjectTree(w fyne.Window) *widget.Tree {
-	tree := widget.NewTree(
+func populateProjectTree(w fyne.Window, mainContent *fyne.Container) *widget.Tree {
+	var tree *widget.Tree
+	tree = widget.NewTree(
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
-			// Handle the root node
 			if id == "" {
-				return []widget.TreeNodeID{"GameName", "Version", "Author", "Credits", "SceneGroups"}
+				return []widget.TreeNodeID{"GameName", "Version", "Author", "Credits", "SceneTypes", "SceneGroups"}
 			}
 
-			// Handle SceneGroups
 			if id == "SceneGroups" {
-				// Convert map keys to a slice
 				var groupNames []string
-				for key := range ActiveProject.SceneGroups {
-					groupNames = append(groupNames, key)
+				for _, group := range ActiveProject.SceneGroups {
+					groupNames = append(groupNames, group.Name)
 				}
-
-				// Sort groupNames based on indices
-				sort.Slice(groupNames, func(i, j int) bool {
-					return ActiveProject.SceneGroupIndices[groupNames[i]] < ActiveProject.SceneGroupIndices[groupNames[j]]
-				})
-
-				// Convert sorted group names to TreeNodeID slice
-				var sortedGroupNames []widget.TreeNodeID
-				for _, name := range groupNames {
-					sortedGroupNames = append(sortedGroupNames, name)
-				}
-
-				return sortedGroupNames
+				return groupNames
 			}
 
-			// Handle individual SceneGroups
-			if scenes, exists := ActiveProject.SceneGroups[id]; exists {
-				var sceneIDs []widget.TreeNodeID
-				for _, scene := range scenes {
-					// Create a unique ID by concatenating the group name and the scene ID
-					uniqueID := string(id) + "_" + scene.ID
-					sceneIDs = append(sceneIDs, uniqueID)
+			for _, group := range ActiveProject.SceneGroups {
+				if group.Name == id {
+					var sceneIDs []string
+					for _, scene := range group.Scenes {
+						uniqueID := group.Name + "_" + scene.Name // Concatenating the group name and the scene name
+						sceneIDs = append(sceneIDs, uniqueID)
+					}
+					return sceneIDs
 				}
-				return sceneIDs
 			}
 
 			return []widget.TreeNodeID{}
 		},
 		func(id widget.TreeNodeID) bool {
-			// The root, SceneGroups, and individual SceneGroups are branches
 			if id == "" || id == "SceneGroups" {
 				return true
 			}
-			if _, exists := ActiveProject.SceneGroups[id]; exists {
-				return true
+			for _, group := range ActiveProject.SceneGroups {
+				if group.Name == id {
+					return true
+				}
 			}
 			return false
 		},
 		func(branch bool) fyne.CanvasObject {
+			box := container.NewHBox()
 			if branch {
-				return widget.NewLabel("Branch template")
+				box.Add(widget.NewLabel("Branch template"))
+			} else {
+				box.Add(widget.NewLabel("Leaf template"))
 			}
-			return widget.NewLabel("Leaf template")
+			return box
 		},
 		func(id widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
 
@@ -532,55 +508,392 @@ func populateProjectTree(w fyne.Window) *widget.Tree {
 			case "Author":
 				displayText = "Author: " + ActiveProject.Author
 			}
+			o.(*fyne.Container).Objects[0].(*widget.Label).SetText(displayText)
 
-			o.(*widget.Label).SetText(displayText)
+			//Check if the id is a scene
+			for _, group := range ActiveProject.SceneGroups {
+				for _, scene := range group.Scenes {
+					if id == group.Name+"_"+scene.Name {
+						//Check the length of the object's objects
+						if len(o.(*fyne.Container).Objects) == 1 {
+							//Add an edit button
+							editButton := widget.NewButton("Edit", func() {
+								//Open the scene editor tab for this scene
+								mainContent.Objects = nil
+								mainContent.Add(SceneEditor(w, id))
+
+								mainContent.Refresh()
+							})
+							o.(*fyne.Container).Add(editButton)
+						}
+					}
+				}
+			}
 		},
 	)
 
 	tree.OnSelected = func(id string) {
 		if id == "SceneGroups" {
 			nameEntry := widget.NewEntry()
-			nameEntry.SetPlaceHolder("Name")
-			dialog.ShowCustomConfirm("New Scene Group", "Add", "Cancel", nameEntry, func(b bool) {
+			nameEntry.SetPlaceHolder(id)
+			sceneGroupNames := []string{"None"}
+			for _, group := range ActiveProject.SceneGroups {
+				sceneGroupNames = append(sceneGroupNames, group.Name)
+			}
+			deleteGroupDropDown := widget.NewSelect(sceneGroupNames, func(s string) {})
+			deleteGroupDropDown.SetSelected(sceneGroupNames[0])
+
+			//Create the form for the dialog
+			form := &widget.Form{
+				Items: []*widget.FormItem{
+					{Text: "New Scene Group:", Widget: nameEntry},
+					{Text: "Delete Scene Group:", Widget: deleteGroupDropDown},
+				},
+			}
+
+			dialog.ShowCustomConfirm("Edit Groups", "Apply", "Cancel", form, func(b bool) {
+				tree.UnselectAll()
 				if !b {
 					return
 				}
 				groupName := strings.ReplaceAll(nameEntry.Text, "_", " ")
-				if groupName == "" {
-					dialog.ShowInformation("Invalid Name", "Scene Group name cannot be empty", w)
+				if groupName == "" && deleteGroupDropDown.Selected == "None" {
 					return
+				} else if groupName == "" {
+
+					//Pop up a confirmation dialog to make sure the user wants to delete the selected scene group
+					dialog.ShowConfirm("Delete Scene Group", "Are you sure you want to delete this scene group?\nDoing so will also delete all scenes within it", func(b bool) {
+						if !b {
+							return
+						}
+						//Delete the selected scene group
+						for i, group := range ActiveProject.SceneGroups {
+							if group.Name == deleteGroupDropDown.Selected {
+								ActiveProject.SceneGroups = append(ActiveProject.SceneGroups[:i], ActiveProject.SceneGroups[i+1:]...)
+							}
+						}
+						err := SaveProject()
+						if err != nil {
+							dialog.ShowError(err, w)
+							return
+						}
+						tree.Refresh()
+					}, w)
+				} else {
+					//Make sure the scene group name does not already exist using the new name field
+					for _, group := range ActiveProject.SceneGroups {
+						if group.Name == groupName {
+							dialog.ShowInformation("Invalid Name", "Scene Group already exists", w)
+							return
+						}
+					}
+					//Append the new scene group to the project
+					newSceneGroup := SceneGroup{
+						Name:   groupName,
+						Scenes: []Scene{},
+					}
+					ActiveProject.SceneGroups = append(ActiveProject.SceneGroups, newSceneGroup)
+					err := SaveProject()
+					if err != nil {
+						dialog.ShowError(err, w)
+						return
+					}
+					tree.Refresh()
+				}
+			}, w)
+		}
+		for _, group := range ActiveProject.SceneGroups {
+			if group.Name == id {
+				// This is a Scene Group; open dialog for editing or deleting
+				var newSceneButton *widget.Button
+				var upButton *widget.Button
+				var downButton *widget.Button
+				//Get the current index of the scene group
+				var index int
+				for i, g := range ActiveProject.SceneGroups {
+					if g.Name == id {
+						index = i
+					}
 				}
 
-				//Make sure the scene group name does not already exist
-				if _, exists := ActiveProject.SceneGroups[groupName]; exists {
-					dialog.ShowInformation("Invalid Name", "Scene Group already exists", w)
-					return
+				//Create the up button
+				upButton = widget.NewButton("Up", func() {
+					//Shift the current scene group up in the slice
+					for i, g := range ActiveProject.SceneGroups {
+						if g.Name == id {
+							if i == 0 {
+								return
+							}
+							ActiveProject.SceneGroups[i], ActiveProject.SceneGroups[i-1] = ActiveProject.SceneGroups[i-1], ActiveProject.SceneGroups[i]
+							err := SaveProject()
+							if err != nil {
+								dialog.ShowError(err, w)
+								return
+							}
+							tree.Refresh()
+							return
+						}
+					}
+				})
+
+				//Create the down button
+				downButton = widget.NewButton("Down", func() {
+					//Shift the current scene group down in the slice
+					for i, g := range ActiveProject.SceneGroups {
+						if g.Name == id {
+							if i == len(ActiveProject.SceneGroups)-1 {
+								return
+							}
+							ActiveProject.SceneGroups[i], ActiveProject.SceneGroups[i+1] = ActiveProject.SceneGroups[i+1], ActiveProject.SceneGroups[i]
+							err := SaveProject()
+							if err != nil {
+								dialog.ShowError(err, w)
+								return
+							}
+							tree.Refresh()
+							return
+						}
+					}
+				})
+
+				//Create the new scene button
+				newSceneButton = widget.NewButton("New Scene", func() {
+					//Pops up a new dialog to create a new scene
+					nameEntry := widget.NewEntry()
+					nameEntry.SetPlaceHolder("Scene Name")
+					typeDropDown := widget.NewSelect(ActiveProject.SceneTypes, func(s string) {})
+					typeDropDown.SetSelected(ActiveProject.SceneTypes[0])
+					dialog.ShowCustomConfirm("New Scene", "Add", "Cancel", container.NewVBox(nameEntry, typeDropDown), func(b bool) {
+						tree.UnselectAll()
+						if !b {
+							return
+						}
+						sceneName := strings.ReplaceAll(nameEntry.Text, "_", " ")
+						if sceneName == "" {
+							dialog.ShowInformation("Invalid Name", "Scene name cannot be empty", w)
+							return
+						}
+
+						//Make sure the scene name does not already exist
+						for _, scene := range group.Scenes {
+							if scene.Name == sceneName {
+								dialog.ShowInformation("Invalid Name", "Scene already exists", w)
+								return
+							}
+						}
+
+						//Add the new scene to the scene group
+						newScene := Scene{
+							Name:      sceneName,
+							SceneType: typeDropDown.Selected,
+						}
+
+						//Add the scene to the active project
+						group.Scenes = append(group.Scenes, newScene)
+						//replace the scene group in the active project
+						for i, g := range ActiveProject.SceneGroups {
+							if g.Name == group.Name {
+								ActiveProject.SceneGroups[i] = group
+							}
+						}
+
+						err := SaveProject()
+						if err != nil {
+							dialog.ShowError(err, w)
+							return
+						}
+
+						tree.Refresh()
+
+					}, w)
+
+				})
+
+				// Create an entry field for renaming the Scene Group
+				renameEntry := widget.NewEntry()
+				renameEntry.SetPlaceHolder("New Name")
+
+				// Create a form for the dialog
+				form := &widget.Form{
+					Items: []*widget.FormItem{
+						{Text: "Rename:", Widget: renameEntry},
+						{Text: "", Widget: newSceneButton},
+						{Text: "Shift:", Widget: upButton},
+						{Text: "", Widget: downButton},
+					},
 				}
 
-				//Append the new scene group to the project
-				ActiveProject.SceneGroups[groupName] = []Scene{}
+				// Show the dialog with the custom form
+				dialog.ShowCustomConfirm("Edit Scene Group", "Apply Changes", "Cancel", form, func(b bool) {
+					tree.UnselectAll()
+					if !b {
+						//If the index is not the same as the original index, then we need to shift the scene group back to its original index
+						var newIndex int
+						for i, g := range ActiveProject.SceneGroups {
+							if g.Name == id {
+								newIndex = i
+							}
+						}
+						if newIndex != index {
+							//Check if it is above or below the original index
+							if newIndex < index {
+								//Shift the scene group down in the slice one index at a time until it is back at its original index
+								for i := newIndex; i < index; i++ {
+									ActiveProject.SceneGroups[i], ActiveProject.SceneGroups[i+1] = ActiveProject.SceneGroups[i+1], ActiveProject.SceneGroups[i]
+								}
+							} else {
+								//Shift the scene group up in the slice one index at a time until it is back at its original index
+								for i := newIndex; i > index; i-- {
+									ActiveProject.SceneGroups[i], ActiveProject.SceneGroups[i-1] = ActiveProject.SceneGroups[i-1], ActiveProject.SceneGroups[i]
+								}
+							}
+						}
+						//Save and refresh the tree
+						err := SaveProject()
+						if err != nil {
+							dialog.ShowError(err, w)
+							return
+						}
+						tree.Refresh()
+						return
+					}
 
+					// Rename the Scene Group
+					newName := renameEntry.Text
+					if newName != "" {
+						//Make sure the scene group name does not already exist
+						for _, g := range ActiveProject.SceneGroups {
+							if g.Name == newName {
+								dialog.ShowInformation("Invalid Name", "Scene Group already exists", w)
+								return
+							}
+						}
+						//Rename the scene group
+						group.Name = newName
+						//replace the scene group in the active project
+						for i, g := range ActiveProject.SceneGroups {
+							if g.Name == id {
+								ActiveProject.SceneGroups[i] = group
+							}
+						}
+					}
+
+					// Save the project
+					err := SaveProject()
+					if err != nil {
+						dialog.ShowError(err, w)
+						return
+					}
+
+					// Refresh the tree
+					tree.Refresh()
+
+				}, w)
+			}
+		}
+
+		if strings.Contains(id, "_") {
+			// This is a Scene; open dialog for editing, renaming or deleting
+			nameEntry := widget.NewEntry()
+			nameEntry.SetPlaceHolder("Name")
+			typeDropDown := widget.NewSelect(ActiveProject.SceneTypes, func(s string) {})
+			currentType := ActiveProject.SceneTypes[0]
+			for _, group := range ActiveProject.SceneGroups {
+				for _, scene := range group.Scenes {
+					if group.Name+"_"+scene.Name == id {
+						currentType = scene.SceneType
+					}
+				}
+			}
+			typeDropDown.SetSelected(currentType)
+
+			//Create the form for the dialog
+			form := &widget.Form{
+				Items: []*widget.FormItem{
+					{Text: "Rename:", Widget: nameEntry},
+					{Text: "Type:", Widget: typeDropDown},
+				},
+			}
+
+			dialog.ShowCustomConfirm("Edit Scene", "Apply", "Cancel", form, func(b bool) {
+				if !b {
+					return
+				}
+				sceneName := strings.ReplaceAll(nameEntry.Text, "_", " ")
+				//if the scene name is blank and the type is the same as the current type, then we don't need to do anything
+				if sceneName == "" && typeDropDown.Selected == currentType {
+					return
+				} else if sceneName == "" {
+					//Update the scene type asking for confirmation first
+					dialog.ShowConfirm("Update Scene Type", "Are you sure you want to update the scene type?\nDoing so may break content in the scene", func(b bool) {
+						if !b {
+							return
+						}
+						//Update the scene type
+						for _, group := range ActiveProject.SceneGroups {
+							for i, scene := range group.Scenes {
+								if group.Name+"_"+scene.Name == id {
+									group.Scenes[i].SceneType = typeDropDown.Selected
+								}
+							}
+						}
+					}, w)
+				} else {
+					//Make sure the scene name does not already exist
+					for _, group := range ActiveProject.SceneGroups {
+						for _, scene := range group.Scenes {
+							if group.Name+"_"+scene.Name == id {
+								continue
+							}
+							if scene.Name == sceneName {
+								dialog.ShowInformation("Invalid Name", "Scene already exists", w)
+								return
+							}
+						}
+					}
+					//Update the scene name
+					for _, group := range ActiveProject.SceneGroups {
+						for i, scene := range group.Scenes {
+							if group.Name+"_"+scene.Name == id {
+								group.Scenes[i].Name = sceneName
+							}
+						}
+					}
+
+					//Check if the scene type is the same as the current type
+					if typeDropDown.Selected != currentType {
+						//Update the scene type asking for confirmation first
+						dialog.ShowConfirm("Update Scene Type", "Are you sure you want to update the scene type?\nDoing so may break content in the scene", func(b bool) {
+							if !b {
+								return
+							}
+							//Update the scene type
+							for _, group := range ActiveProject.SceneGroups {
+								for i, scene := range group.Scenes {
+									if group.Name+"_"+scene.Name == id {
+										group.Scenes[i].SceneType = typeDropDown.Selected
+									}
+								}
+							}
+						}, w)
+					}
+
+				}
 				err := SaveProject()
 				if err != nil {
 					dialog.ShowError(err, w)
 					return
 				}
-
 				tree.Refresh()
-
 			}, w)
-		} else if _, exists := ActiveProject.SceneGroups[id]; exists {
-			// This is a Scene Group; open dialog for editing or deleting
-			// TODO: Open dialog to either delete the Scene Group or add a new Scene
-		} else if strings.Contains(id, "_") {
-			// This is a Scene; open dialog for editing, renaming or deleting
-			// TODO: Open dialog to edit, rename, or delete the Scene
-		} else if id == "GameName" || id == "Version" || id == "Author" {
+		}
+		if id == "GameName" || id == "Version" || id == "Author" {
 			// Open the dialog
 			valueEntry := widget.NewEntry()
 			valueEntry.SetPlaceHolder(fmt.Sprintf("Edit %s", id))
 
 			dialog.ShowCustomConfirm(fmt.Sprintf("Edit %s", id), "Update", "Cancel", valueEntry, func(b bool) {
+				tree.UnselectAll()
 				if !b {
 					return
 				}
@@ -607,7 +920,6 @@ func populateProjectTree(w fyne.Window) *widget.Tree {
 				tree.Refresh()
 			}, w)
 		}
-		tree.UnselectAll()
 	}
 
 	return tree
@@ -633,122 +945,184 @@ func SaveProject() error {
 // ValidateProject ensures that there are no duplicate scene groups and no duplicate scenes within a specific scene group.
 // It takes in a project as a parameter and returns the modified project.
 func ValidateProject(project Project) Project {
-	// A map to keep track of scene group names and their counts
-	sceneGroupCount := make(map[string]int)
-	// A new map to store the validated scene groups
-	validatedSceneGroups := make(map[string][]Scene)
-	for group, scenes := range project.SceneGroups {
-		// Remove underscores from scene group names
-		cleanGroupName := strings.ReplaceAll(group, "_", " ")
-
-		// Resolve duplicate scene group names
-		if count, exists := sceneGroupCount[cleanGroupName]; exists {
-			cleanGroupName = fmt.Sprintf("%s%d", cleanGroupName, count+1)
-			sceneGroupCount[cleanGroupName] = count + 1
-		} else {
-			sceneGroupCount[cleanGroupName] = 1
+	// Loop through all group names making sure there are no duplicates
+	var validatedSceneGroups []SceneGroup
+	for _, group := range project.SceneGroups {
+		// Make sure the group name is not empty
+		if group.Name == "" {
+			group.Name = "Default"
+		}
+		// Make sure the group name is unique
+		for _, validatedGroup := range validatedSceneGroups {
+			if group.Name == validatedGroup.Name {
+				// The group name is not unique, so we need to rename it
+				group.Name = group.Name + " (Duplicate)"
+			}
 		}
 
-		// A map to keep track of scene IDs and their counts within this group
-		sceneIDCount := make(map[string]int)
-		// A new slice to store the validated scenes for this group
+		// Loop through all scene names making sure there are no duplicates
 		var validatedScenes []Scene
-
-		for _, scene := range scenes {
-			// Remove underscores from scene IDs
-			cleanSceneID := strings.ReplaceAll(scene.ID, "_", "")
-
-			// Resolve duplicate scene IDs within this group
-			if count, exists := sceneIDCount[cleanSceneID]; exists {
-				cleanSceneID = fmt.Sprintf("%s%d", cleanSceneID, count+1)
-				sceneIDCount[cleanSceneID] = count + 1
-			} else {
-				sceneIDCount[cleanSceneID] = 1
+		for _, scene := range group.Scenes {
+			// Make sure the scene name is not empty
+			if scene.Name == "" {
+				scene.Name = "Default"
 			}
-
-			// Update the scene ID and add to the validated scenes slice
-			scene.ID = cleanSceneID
+			// Make sure the scene name is unique
+			for _, validatedScene := range validatedScenes {
+				if scene.Name == validatedScene.Name {
+					// The scene name is not unique, so we need to rename it
+					scene.Name = scene.Name + " (Duplicate)"
+				}
+			}
 			validatedScenes = append(validatedScenes, scene)
 		}
-
-		// Add the validated scenes to the validated scene groups map
-		validatedSceneGroups[cleanGroupName] = validatedScenes
+		group.Scenes = validatedScenes
+		validatedSceneGroups = append(validatedSceneGroups, group)
 	}
 	// Update the project with the validated scene groups
 	project.SceneGroups = validatedSceneGroups
-	updatedProject := UpdateSceneGroupIndices(project)
-	return updatedProject
+	return project
 }
 
-func UpdateSceneGroupIndices(project Project) Project {
-	//Make sure the scene group indices map exists
-	if project.SceneGroupIndices == nil {
-		project.SceneGroupIndices = make(map[string]int)
-	}
-	// Step 2: Remove duplicate indices and maintain order
-	usedIndexes := make(map[int]bool)
-	for {
-		duplicateFound := false
-		for _, index := range project.SceneGroupIndices {
-			if usedIndexes[index] {
-				duplicateFound = true
-				// Increment this index and all subsequent indices by 1
-				for g, i := range project.SceneGroupIndices {
-					if i >= index {
-						project.SceneGroupIndices[g] = i + 1
-					}
-				}
-				break
+// SceneEditor creates a new Scene Editor interface
+func SceneEditor(w fyne.Window, SceneID string) fyne.CanvasObject {
+	//get the selected scene from the active project
+	var selectedScene Scene
+	for _, group := range ActiveProject.SceneGroups {
+		for _, scene := range group.Scenes {
+			if group.Name+"_"+scene.Name == SceneID {
+				selectedScene = scene
 			}
-			usedIndexes[index] = true
 		}
-		if !duplicateFound {
-			break
-		}
-		usedIndexes = make(map[int]bool) // Clear usedIndexes for the next iteration
+	}
+	//If the selected scene is empty, then we need to return an empty container
+	if selectedScene.Name == "" {
+		return container.NewVBox(widget.NewLabel("Invalid Scene"))
 	}
 
-	highestIndex := 0
-	//If the scene group indices map is empty, then we need to set the highest index to 0 and skip the next step
-	if len(project.SceneGroupIndices) == 0 {
-	} else {
-		for _, index := range project.SceneGroupIndices {
-			if index > highestIndex {
-				highestIndex = index
-			}
+	// Placeholder for the list of elements
+	elementList := widget.NewList(
+		func() int {
+			return len(selectedScene.ContentList)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("element")
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			o.(*widget.Label).SetText(selectedScene.ContentList[i].Name)
+		},
+	)
+
+	// Placeholder for properties editor
+	nameEntry := widget.NewEntry()
+	//TypeEntry Dropdown Menu
+	typeEntry := widget.NewSelect(ActiveProject.ContentTypes, func(s string) {})
+
+	//If the selected type is not in the content types, then we need to pop up a warning dialog and set the type to the first type in the list
+	var typeFound bool
+	for _, t := range ActiveProject.ContentTypes {
+		if t == selectedScene.ContentList[0].Type {
+			typeFound = true
 		}
 	}
-	// Step 3: Close any gaps in the indices
-	expectedIndex := 1 // Start from 1
-	for {
-		if expectedIndex > highestIndex {
-			break
-		}
-		// Check if expectedIndex is not used
-		if !usedIndexes[expectedIndex] {
-			// Decrement all indices that are greater than the expected index
-			for group, index := range project.SceneGroupIndices {
-				if index > expectedIndex {
-					project.SceneGroupIndices[group] = index - 1
-				}
-			}
-			// Update usedIndexes map to reflect the new state
-			usedIndexes = make(map[int]bool)
-			for _, index := range project.SceneGroupIndices {
-				usedIndexes[index] = true
-			}
-		}
-		// Increment expectedIndex for the next iteration
-		expectedIndex++
+	if !typeFound {
+		//Say that the type for this element is invalid and that it is being reset to the first type in the list
+		dialog.ShowInformation("Invalid Type", "The type for this element is invalid and is being reset to the first type in the list, but it will not be saved until you click save", w)
+		typeEntry.SetSelected(ActiveProject.ContentTypes[0])
 	}
 
-	// Step 4: Assign indices to scene groups that do not have one
-	for group := range project.SceneGroups {
-		if _, exists := project.SceneGroupIndices[group]; !exists {
-			highestIndex++
-			project.SceneGroupIndices[group] = highestIndex
+	textEntry := widget.NewEntry()
+	valueEntry := widget.NewEntry()
+	valueEntry.MultiLine = true
+
+	nameEntry.SetPlaceHolder("Name")
+	typeEntry.SetSelected(ActiveProject.ContentTypes[0])
+	textEntry.SetPlaceHolder("Text")
+	valueEntry.SetPlaceHolder("Value")
+
+	// Update property editor when an element is selected
+	var selectedItem widget.ListItemID
+	//Default everything to the first element
+	nameEntry.SetText(selectedScene.ContentList[0].Name)
+	typeEntry.SetSelected(selectedScene.ContentList[0].Type)
+	textEntry.SetText(selectedScene.ContentList[0].Text)
+	valueEntry.SetText(selectedScene.ContentList[0].Value)
+	selectedItem = 0
+
+	// To keep track of the selected item
+	addButton := widget.NewButton("Add", func() {
+		// Create a new element with default values
+		newElement := SceneComponent{
+			Name: "New Element",
+			Type: "Label",
+			Text: "Default Text",
+			// TODO: Add default values for other fields
 		}
+
+		// Append the new element to selectedScene.ContentList
+		selectedScene.ContentList = append(selectedScene.ContentList, newElement)
+
+		// Refresh the list to display the new element
+		elementList.Refresh()
+	})
+
+	removeButton := widget.NewButton("Remove", func() {
+		if selectedItem < 0 || selectedItem >= len(selectedScene.ContentList) {
+			// Invalid selection
+			return
+		}
+
+		// Remove the selected element from selectedScene.ContentList
+		selectedScene.ContentList = append(selectedScene.ContentList[:selectedItem], selectedScene.ContentList[selectedItem+1:]...)
+
+		// Refresh the list to update the display
+		elementList.Refresh()
+	})
+
+	// Update property editor when an element is selected
+	elementList.OnSelected = func(id widget.ListItemID) {
+		selectedItem = id // Update the selected item
+		nameEntry.SetText(selectedScene.ContentList[id].Name)
+		typeEntry.SetSelected(selectedScene.ContentList[id].Type)
+		textEntry.SetText(selectedScene.ContentList[id].Text)
+		valueEntry.SetText(selectedScene.ContentList[id].Value)
 	}
 
-	return project
+	saveButton := widget.NewButton("Save", func() {
+		// Update the selected element with the new values
+		selectedScene.ContentList[selectedItem].Name = nameEntry.Text
+		selectedScene.ContentList[selectedItem].Type = typeEntry.Selected
+		selectedScene.ContentList[selectedItem].Text = textEntry.Text
+		selectedScene.ContentList[selectedItem].Value = valueEntry.Text
+		// Refresh the list to update the display
+		elementList.Refresh()
+
+		//Save the project
+		err := SaveProject()
+		if err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+	})
+
+	// Combine everything into a layout
+	box :=
+		container.NewVBox(
+			container.NewHBox(addButton, removeButton, saveButton),
+			container.NewGridWithColumns(2,
+				widget.NewLabel("Name:"), nameEntry,
+				widget.NewLabel("Type:"), typeEntry,
+				widget.NewLabel("Text:"), textEntry,
+			),
+			valueEntry,
+		)
+
+	editorLayout := container.NewHSplit(
+		box,
+		elementList)
+
+	//make the split 25 75
+	editorLayout.Offset = 0.75
+
+	return editorLayout
 }
