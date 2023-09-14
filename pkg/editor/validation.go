@@ -8,53 +8,48 @@ import (
 )
 
 // sanitizeProjectName sanitizes the project name to ensure it's a valid Go identifier
-func sanitizeProjectName(name string) (string, error) {
+func sanitizeProjectName(name string) (bool, error) {
 	// Initialize Regular Expression (rgx)
 	rgx := regexp.MustCompile(`[^\w\s]`)
+	if rgx.MatchString(name) {
+		return false, errors.New("project name contains invalid characters")
+	}
 	sanitizedName := rgx.ReplaceAllString(name, " ")
 
 	// Remove space
 	rgx = regexp.MustCompile(`\s`)
+	if rgx.MatchString(sanitizedName) {
+		return false, errors.New("project name contains spaces")
+	}
 	sanitizedName = rgx.ReplaceAllString(sanitizedName, "")
 
 	// Remove leading non-alphabetic characters
 	rgx = regexp.MustCompile(`^[^a-zA-Z]`)
+	if rgx.MatchString(sanitizedName) {
+		return false, errors.New("project name starts with a non-alphabetic character")
+	}
 	sanitizedName = rgx.ReplaceAllString(sanitizedName, "")
 
-	// Remove Go-specific keywords and built-in function names if they are at the start of the name
-	goKeywords := []string{"break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var"}
-	goBuiltInFuncs := []string{"append", "cap", "close", "complex", "copy", "delete", "imag", "len", "make", "new", "panic", "print", "println", "real", "recover"}
-	for _, keyword := range append(goKeywords, goBuiltInFuncs...) {
-		if strings.HasPrefix(sanitizedName, keyword) {
-			sanitizedName = strings.Replace(sanitizedName, keyword, "", 1)
-		}
-	}
-
 	// Check for reserved file names (Windows)
-	// TODO: may want to expand this list for other operating systems
 	reservedNames := []string{"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
 	for _, reserved := range reservedNames {
 		if strings.EqualFold(sanitizedName, reserved) {
-			return "", errors.New("project name cannot be a reserved name")
+			return false, errors.New("project name cannot be a reserved name")
 		}
 	}
 
 	// Check for length limitations
-	// TODO: Update the max length according to os specific limitations
 	maxLength := 255
 	if len(sanitizedName) > maxLength {
-		return "", errors.New("project name cannot exceed maximum length")
+		return false, errors.New("project name cannot exceed maximum length")
 	}
 
 	if sanitizedName == "" {
-		return "", errors.New("project name cannot be empty")
+		return false, errors.New("project name cannot be empty")
 	}
 
-	//lowercase the whole name
-	sanitizedName = strings.ToLower(sanitizedName)
-
-	// Return the sanitized name
-	return sanitizedName, nil
+	// All checks passed, return true and nil error
+	return true, nil
 }
 
 // CreateFileIfNotExist creates a file if it does not exist

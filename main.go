@@ -1,7 +1,7 @@
 package main
 
 import (
-	editor2 "NovellaForge/editor"
+	"NovellaForge/pkg/editor"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/theme"
@@ -38,7 +38,7 @@ TODO New Editor Requirements:
 	- When a scene group is clicked the user should have the option to rename it or group it into another scene group or ungroup it
 	- When a scene is clicked the user should have the option to rename it or move it to another scene group or ungroup it
 	- Right under the search bar should be an add scene button, and each scene group should have an add scene button next to it
-	- When a scene is added first a dialog should pop up asking for the scene name and layout type and then a new scene should be created with the given name and layout type and added to the project struct and the tree view
+	- When a scene is added first a dialog should pop up asking for the scene name and layouts type and then a new scene should be created with the given name and layouts type and added to the project struct and the tree view
 	- When saved the scene should be saved to its appropriate .NFScene file according to where it should be in the scenes folder
 	- Scenes should have an edit button next to them that opens the scene editor for that scene
 	- In the scene editor there should be a tree view on the left side that shows all the objects in the scene and allows the user to select them and edit their values containers should be able to be expanded and collapsed
@@ -76,7 +76,7 @@ const EditorIcon = "assets/icons/editor.png"
 // main is the entry point for the application
 func main() {
 	application := app.New()
-	window := application.NewWindow(editor2.WindowTitle)
+	window := application.NewWindow(editor.WindowTitle)
 
 	//Convert the PNG icon to a fyne resource
 	iconResource, err := fyne.LoadResourceFromPath(EditorIcon)
@@ -88,11 +88,11 @@ func main() {
 	}
 
 	//Create the main menu
-	editor2.CreateMainMenu(window)
+	editor.CreateMainMenu(window)
 
 	application.SetIcon(theme.FileApplicationIcon())
 
-	editor2.CreateMainContent(window)
+	editor.CreateMainContent(window)
 
 	window.ShowAndRun()
 }
