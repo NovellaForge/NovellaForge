@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 )
 
+var editorVersion = "0.0.1"
+var WindowTitle = "Novella Forge" + " V" + editorVersion
+
 type ConfigType struct {
 	Version     string             `toml:"version"`
 	Resolution  map[string]float32 `toml:"resolution"`

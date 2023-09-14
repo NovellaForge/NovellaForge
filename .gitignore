@@ -27,3 +27,8 @@ configs/
 
 # Go workspace file
 go.work
+
+# Debug File
+/cmd/debug.go
+# Build File
+/build/
