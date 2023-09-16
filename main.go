@@ -52,6 +52,12 @@ TODO New Editor Requirements:
 	- Above the search bar in the main project tree, there should be a build game button that will build the game and save it to the project directory in a build folder
 	- When the build button is clicked it should give options for the user to build the game for windows, mac, linux, android, and ios
 
+TODO Secondary Editor Requirements:
+	- The editor should have a terminal window that can be opened and closed from the view menu
+	- All editor config data and projects should be stored in the os.UserConfigDir() directory in a NovellaForge folder
+	- ALL extra editor files outside of the application itself should be generated or downloaded to the os.UserConfigDir() directory in a NovellaForge folder
+
+
 
 
 
@@ -77,22 +83,23 @@ const EditorIcon = "assets/icons/editor.png"
 func main() {
 	application := app.New()
 	window := application.NewWindow(editor.WindowTitle)
+	window.Resize(fyne.NewSize(1280, 720))
+	terminalWindow := application.NewWindow("Terminal")
+	terminalWindow.Resize(fyne.NewSize(1280, 720))
 
 	//Convert the PNG icon to a fyne resource
 	iconResource, err := fyne.LoadResourceFromPath(EditorIcon)
 	if err != nil {
 		log.Printf("Failed to load icon: %v", err)
+		application.SetIcon(theme.FileApplicationIcon())
 	} else {
 		application.SetIcon(iconResource)
 		window.SetIcon(application.Icon())
+		terminalWindow.SetIcon(application.Icon())
 	}
 
-	//Create the main menu
-	editor.CreateMainMenu(window)
-
-	application.SetIcon(theme.FileApplicationIcon())
-
-	editor.CreateMainContent(window)
+	editor.CreateMainContent(window, terminalWindow)
+	editor.CreateTerminalWindow(terminalWindow)
 
 	window.ShowAndRun()
 }

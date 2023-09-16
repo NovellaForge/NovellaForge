@@ -38,15 +38,10 @@ type FunctionGroup struct {
 }
 
 type Project struct {
-	GameName       string          `json:"Game Name"`
-	Version        string          `json:"Version"`
-	Author         string          `json:"Author"`
-	Credits        string          `json:"Credits"`
-	Layouts        []Layout        //Not stored in file, is a list of custom layouts in the project found in the layouts directory
-	Widgets        []Widget        //Not stored in file, is a list of custom widgets in the project found in the widgets directory
-	SceneGroups    []SceneGroup    //Not stored in file, is a list of scene groups in the project found in the scenes directory
-	Scenes         []Scene         //Not stored in file, is a list of scenes in the scenes directory that are not in a group
-	FunctionGroups []FunctionGroup //Not stored in file, is a list of function files in the project found in the functions directory
+	GameName string `json:"Game Name"`
+	Version  string `json:"Version"`
+	Author   string `json:"Author"`
+	Credits  string `json:"Credits"`
 }
 
 // MainGameTemplate is the template for the <project-name>.go file in the project directory it should contain a fyne app and window and the main menu set.

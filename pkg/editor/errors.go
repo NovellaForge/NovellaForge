@@ -6,8 +6,8 @@ import "errors"
 var (
 	//ErrNotImplemented is returned when a method is not implemented.
 	ErrNotImplemented = errors.New("not implemented")
-	//ErrInvalidInput is returned when an invalid input is provided.
-	ErrInvalidInput = errors.New("invalid input")
+	//ErrProjectNotFound is returned when a project is not found.
+	ErrProjectNotFound = errors.New("project not found")
 	//ErrNoProjects is returned when there are no projects.
 	ErrNoProjects = errors.New("no projects found")
 	//ErrProjectAlreadyExists is returned when a project already exists.

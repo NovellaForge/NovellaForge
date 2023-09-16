@@ -1,21 +1,69 @@
 package editor
 
 import (
-	"encoding/json"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"log"
 	"os"
 )
 
-func CreateMainContent(window fyne.Window) {
-	//TODO: Create the main content of the editor
+func CreateMainContent(window fyne.Window, terminalWindow fyne.Window) {
+
+	CheckAndInstallDependencies(window, terminalWindow)
+	CreateMainMenu(window, terminalWindow)
+
+	//Create a grid layout for the four main buttons
+	grid := container.New(layout.NewGridLayout(2))
+	//Create the buttons
+	newProjectButton := widget.NewButton("New Project", func() {
+		NewProjectDialog(window)
+	})
+	openProjectButton := widget.NewButton("Open Project", func() {
+		OpenProjectDialog(window)
+	})
+	openRecentButton := widget.NewButton("Open Recent", func() {
+		OpenRecentDialog(window)
+	})
+	continueLastButton := widget.NewButton("Continue Last", func() {})
+	projects, err := ReadProjectInfo()
+	if err != nil {
+		//Show an error dialog
+		dialog.ShowError(err, window)
+		return
+	}
+	var project ProjectInfo
+	if len(projects) == 0 {
+		continueLastButton.Disable()
+	} else {
+		//Get the most recently opened project
+		project = projects[0]
+		for i := 0; i < len(projects); i++ {
+			if projects[i].OpenDate.After(project.OpenDate) {
+				project = projects[i]
+			}
+		}
+	}
+	continueLastButton.OnTapped = func() {
+		err = OpenProject(project.Path, window)
+		if err != nil {
+			//Show an error dialog
+			dialog.ShowError(err, window)
+		}
+	}
+	//Add the buttons to the grid
+	grid.Add(newProjectButton)
+	grid.Add(openProjectButton)
+	grid.Add(openRecentButton)
+	grid.Add(continueLastButton)
+
+	window.SetContent(grid)
 }
 
-func CreateMainMenu(window fyne.Window) {
+func CreateMainMenu(window fyne.Window, terminalWindow fyne.Window) {
 
 	openRecentMenu := fyne.NewMenuItem("Open Recent", func() {
 		OpenRecentDialog(window)
@@ -25,7 +73,7 @@ func CreateMainMenu(window fyne.Window) {
 	projects, err := ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
-		dialog.NewError(err, window)
+		dialog.ShowError(err, window)
 	}
 	if len(projects) == 0 {
 		openRecentMenu.Disabled = true
@@ -34,10 +82,10 @@ func CreateMainMenu(window fyne.Window) {
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = OpenRecentProject(projects[i], window)
+				err = OpenProject(projects[i].Path, window)
 				if err != nil {
 					//Show an error dialog
-					dialog.NewError(err, window)
+					dialog.ShowError(err, window)
 				}
 			})
 			projectMenu.Items = append(projectMenu.Items, newMenuItem)
@@ -61,6 +109,12 @@ func CreateMainMenu(window fyne.Window) {
 			fyne.NewMenuItem("Full Screen", func() {
 				window.SetFullScreen(!window.FullScreen())
 			}),
+			fyne.NewMenuItem("Preview Game", func() {
+				//TODO: Open a preview of the game
+			}),
+			fyne.NewMenuItem("Terminal", func() {
+				//TODO: Open a terminal window
+			}),
 		),
 		fyne.NewMenu("Help",
 			fyne.NewMenuItem("Documentation", func() {
@@ -81,12 +135,12 @@ func OpenRecentDialog(window fyne.Window) {
 	projects, err := ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
-		dialog.NewError(err, window)
+		dialog.ShowError(err, window)
 		return
 	}
 	if len(projects) == 0 {
 		//Show an error dialog
-		dialog.NewError(ErrNoProjects, window)
+		dialog.ShowError(ErrNoProjects, window)
 		return
 	}
 
@@ -96,16 +150,18 @@ func OpenRecentDialog(window fyne.Window) {
 			return len(projects)
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("Template")
+			return container.NewHBox(widget.NewLabel("Name"), widget.NewLabel("Last Opened"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			item.(*widget.Label).SetText(projects[id].Name)
+			//Set the first label to the project name and the second to the last opened date
+			item.(*fyne.Container).Objects[0].(*widget.Label).SetText(projects[id].Name)
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(projects[id].OpenDate.Format("01/02/2006 15:04:05"))
 		})
 	list.OnSelected = func(id widget.ListItemID) {
-		err = OpenRecentProject(projects[id], window)
+		err = OpenProject(projects[id].Path, window)
 		if err != nil {
 			//Show an error dialog
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 		}
 	}
 	scrollBox := container.NewVScroll(list)
@@ -125,7 +181,7 @@ func OpenProjectDialog(window fyne.Window) {
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
 			// Show an error dialog
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			return
 		}
 
@@ -138,21 +194,21 @@ func OpenProjectDialog(window fyne.Window) {
 		file, err := os.ReadFile(reader.URI().Path())
 		if err != nil {
 			// Show an error dialog
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			return
 		}
 		// Deserialize the project
 		project, err := DeserializeProject(file)
 		if err != nil {
 			// Show an error dialog
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			return
 		}
 		// Load the project
 		err = LoadProject(project, window)
 		if err != nil {
 			// Show an error dialog
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			return
 		}
 	}, window)
@@ -180,9 +236,25 @@ func NewProjectDialog(window fyne.Window) {
 	projectDialog := dialog.NewCustom("New Project", "Cancel", container.NewVBox(layout.NewSpacer(), box, layout.NewSpacer()), window)
 	newProject := Project{}
 	projectName := ""
-	nameValidationLabel := widget.NewLabel("")
 	nameEntry := widget.NewEntry()
+	nameValidationLabel := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
 	nameEntry.SetPlaceHolder("Project Name")
+	nameConfirmButton := widget.NewButton("Confirm", func() {})
+	authorEntry := widget.NewEntry()
+	authorEntry.SetPlaceHolder("Author")
+	authorConfirmButton := widget.NewButton("Create Project", func() {})
+	authorBackButton := widget.NewButton("Back", func() {})
+	//Add everything to the box
+	box.Add(nameValidationLabel)
+	box.Add(nameEntry)
+	box.Add(nameConfirmButton)
+	box.Add(authorEntry)
+	box.Add(authorConfirmButton)
+	box.Add(authorBackButton)
+	authorConfirmButton.Hide()
+	authorBackButton.Hide()
+	authorEntry.Hide()
+
 	nameEntry.Validator = func(s string) error {
 		_, err = sanitizeProjectName(s)
 		if err != nil {
@@ -192,7 +264,7 @@ func NewProjectDialog(window fyne.Window) {
 		}
 		return err
 	}
-	nameConfirmButton := widget.NewButton("Confirm", func() {})
+
 	nameEntry.SetOnValidationChanged(func(e error) {
 		if e != nil {
 			nameConfirmButton.Disable()
@@ -200,77 +272,47 @@ func NewProjectDialog(window fyne.Window) {
 			nameConfirmButton.Enable()
 		}
 	})
-	authorEntry := widget.NewEntry()
-	authorEntry.SetPlaceHolder("Author")
-	authorConfirmButton := widget.NewButton("Confirm", func() {})
-	authorBackButton := widget.NewButton("Back", func() {})
 	nameConfirmButton.OnTapped = func() {
 		_, err = sanitizeProjectName(nameEntry.Text)
 		if err != nil {
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			nameEntry.SetValidationError(err)
 			return
 		}
 		projectName = nameEntry.Text
-		box.Remove(nameEntry)
-		box.Remove(nameConfirmButton)
-		box.Remove(nameValidationLabel)
-		box.Add(authorEntry)
-		box.Add(authorConfirmButton)
-		box.Add(authorBackButton)
+		nameEntry.Hide()
+		nameConfirmButton.Hide()
+		nameValidationLabel.Hide()
+		authorEntry.Show()
+		authorConfirmButton.Show()
+		authorBackButton.Show()
 	}
 	authorConfirmButton.OnTapped = func() {
 		newProject.GameName = projectName
 		newProject.Author = authorEntry.Text
+		newProject.Version = "0.0.1"
+		newProject.Credits = "Created with NovellaForge"
 		err = CreateProject(newProject, window)
 		if err != nil {
-			dialog.NewError(err, window)
+			dialog.ShowError(err, window)
 			return
 		}
+		log.Printf("Created project %s", newProject.GameName)
 		projectDialog.Hide()
 	}
 	authorBackButton.OnTapped = func() {
-		box.Remove(authorEntry)
-		box.Remove(authorConfirmButton)
-		box.Remove(authorBackButton)
-		box.Add(nameValidationLabel)
-		box.Add(nameEntry)
-		box.Add(nameConfirmButton)
+		authorConfirmButton.Hide()
+		authorBackButton.Hide()
+		authorEntry.Hide()
+		nameEntry.Show()
+		nameConfirmButton.Show()
+		nameValidationLabel.Show()
 	}
-	box.Add(nameValidationLabel)
-	box.Add(nameEntry)
-	box.Add(nameConfirmButton)
 	projectDialog.Resize(fyne.NewSize(400, 300))
 	projectDialog.Show()
 }
 
-func CreateProject(project Project, window fyne.Window) error {
-	//First check if the project directory already exists
-	if _, err := os.Stat("projects/" + project.GameName); !os.IsNotExist(err) {
-		return ErrProjectAlreadyExists
-	} else {
-		//Create the project directory
-		err = os.Mkdir("projects/"+project.GameName, 0755)
-		if err != nil {
-			return err
-		}
-		//Create the project file
-		err = os.WriteFile("projects/"+project.GameName+"/"+project.GameName+".NFProject", SerializeProject(project), 0644)
-		if err != nil {
-			return err
-		}
-		//TODO Create the rest of the project after we have built it in the editor
-
-	}
-	return nil
-}
-
-func SerializeProject(project Project) []byte {
-	//Marshal the project to JSON
-	serializedProject, err := json.Marshal(project)
-	if err != nil {
-		return nil
-	}
-	return serializedProject
-
+func CreateTerminalWindow(window fyne.Window) {
+	//Throw a not implemented error dialog
+	dialog.ShowError(ErrNotImplemented, window)
 }
