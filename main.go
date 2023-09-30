@@ -62,12 +62,6 @@ TODO Secondary Editor Requirements:
 	- ALL extra editor files outside of the application itself should be generated or downloaded to the os.UserConfigDir() directory in a NovellaForge folder
 	- Game should also have a terminal window that can be opened and closed from the view menu (Create this just using a table with the first line being the timestamp, second being the status(Info, warning, NFerror, etc, and third being the message, with a double click on that row copying the message to the clipboard)
 
-
-
-
-
-
-
 Todo IDEAS:
 	- A game window will have a main menu at the top with options to save, load, view credits, set preferences, exit, etc.
 	- On game launch there will be a splash screen with the game name and version and a button to start the game or view credits or change settings
