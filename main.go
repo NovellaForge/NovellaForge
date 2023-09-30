@@ -1,11 +1,15 @@
 package main
 
 import (
-	"NovellaForge/pkg/editor"
+	"NovellaForge/pkg/NFEditor"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 	"log"
+	"time"
 )
 
 /*
@@ -53,9 +57,10 @@ TODO New Editor Requirements:
 	- When the build button is clicked it should give options for the user to build the game for windows, mac, linux, android, and ios
 
 TODO Secondary Editor Requirements:
-	- The editor should have a terminal window that can be opened and closed from the view menu
+	- The editor should have a terminal window that can be opened and closed from the view menu (Create this just using a table with the first line being the timestamp, second being the status(Info, warning, NFerror, etc, and third being the message, with a double click on that row copying the message to the clipboard)
 	- All editor config data and projects should be stored in the os.UserConfigDir() directory in a NovellaForge folder
 	- ALL extra editor files outside of the application itself should be generated or downloaded to the os.UserConfigDir() directory in a NovellaForge folder
+	- Game should also have a terminal window that can be opened and closed from the view menu (Create this just using a table with the first line being the timestamp, second being the status(Info, warning, NFerror, etc, and third being the message, with a double click on that row copying the message to the clipboard)
 
 
 
@@ -77,29 +82,52 @@ Todo IDEAS:
 
 */
 
-const EditorIcon = "assets/icons/editor.png"
-
 // main is the entry point for the application
 func main() {
 	application := app.New()
-	window := application.NewWindow(editor.WindowTitle)
+	window := application.NewWindow(NFEditor.WindowTitle)
 	window.Resize(fyne.NewSize(1280, 720))
-	terminalWindow := application.NewWindow("Terminal")
-	terminalWindow.Resize(fyne.NewSize(1280, 720))
 
 	//Convert the PNG icon to a fyne resource
-	iconResource, err := fyne.LoadResourceFromPath(EditorIcon)
+	iconResource, err := fyne.LoadResourceFromPath(NFEditor.Icon)
 	if err != nil {
 		log.Printf("Failed to load icon: %v", err)
 		application.SetIcon(theme.FileApplicationIcon())
 	} else {
 		application.SetIcon(iconResource)
 		window.SetIcon(application.Icon())
-		terminalWindow.SetIcon(application.Icon())
 	}
 
-	editor.CreateMainContent(window, terminalWindow)
-	editor.CreateTerminalWindow(terminalWindow)
+	NFEditor.CreateMainContent(window)
 
-	window.ShowAndRun()
+	go SplashScreenLoop(window)
+	application.Run()
+}
+
+func SplashScreenLoop(window fyne.Window) {
+	drv := fyne.CurrentApp().Driver()
+	for {
+		//Check if the driver is ready
+		if drv != nil {
+			//If it is, break out of the loop
+			break
+		}
+	}
+
+	if drv, ok := drv.(desktop.Driver); ok {
+		splash := drv.CreateSplashWindow()
+		splashBox := container.NewVBox(
+			widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle("Version: "+NFEditor.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Developed By: "+NFEditor.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		)
+		splash.SetContent(splashBox)
+		splash.Show()
+		go func() {
+			time.Sleep(time.Second * 3)
+			splash.Close()
+			window.Show()
+		}()
+	}
 }

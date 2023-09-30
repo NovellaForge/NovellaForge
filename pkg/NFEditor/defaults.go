@@ -1,4 +1,4 @@
-package editor
+package NFEditor
 
 type Widget struct {
 	Name       string                 `json:"Name"`
@@ -13,10 +13,8 @@ type Layout struct {
 }
 
 type Scene struct {
-	Name       string `json:"Name"`
-	Custom     bool   `json:"Custom"`
-	Layout     Layout `json:"Layout"` // Custom layouts should be prefixed with "Custom"
-	Background string `json:"Background"`
+	Name   string `json:"Name"`
+	Layout Layout `json:"Layout"` // Custom layouts should be prefixed with "Custom"
 }
 
 type SceneGroup struct {

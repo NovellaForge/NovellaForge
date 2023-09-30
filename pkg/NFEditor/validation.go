@@ -1,4 +1,4 @@
-package editor
+package NFEditor
 
 import (
 	"errors"
@@ -46,11 +46,11 @@ func sanitizeProjectName(name string) (bool, error) {
 		return false, errors.New("project name cannot be empty")
 	}
 
-	// All checks passed, return true and nil error
+	// All checks passed, return true and nil NFerror
 	return true, nil
 }
 
-func CheckAndInstallDependencies(window fyne.Window, terminalWindow fyne.Window) {
+func CheckAndInstallDependencies(window fyne.Window) {
 	//Check if Go is installed using exec.Command("go", "version")
 	//If it is not installed, prompt the user to install it
 	goCmd := exec.Command("go", "version")

@@ -1,6 +1,7 @@
-package editor
+package NFEditor
 
 import (
+	error2 "NovellaForge/pkg/NFError"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -75,14 +76,14 @@ func ReadProjectInfo() ([]ProjectInfo, error) {
 func OpenProject(path string, window fyne.Window) error {
 	//Check if the path even exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return ErrProjectNotFound
+		return error2.ErrProjectNotFound
 	}
 
 	//Check if the path ends in .NFProject
 	if filepath.Ext(path) != ".NFProject" {
 		//Check if the path is a directory and if the directory contains a .NFProject file
 		if _, err := os.Stat(path + "/" + filepath.Base(path) + ".NFProject"); os.IsNotExist(err) {
-			return ErrProjectNotFound
+			return error2.ErrProjectNotFound
 		} else {
 			//If it does, set the path to the directory
 			path = path + "/" + filepath.Base(path) + ".NFProject"
@@ -122,7 +123,7 @@ func DeserializeProject(file []byte) (Project, error) {
 
 // LoadProject takes a deserialized project and loads it into the editor loading the scenes and functions as well
 func LoadProject(project Project, window fyne.Window) error {
-	return ErrNotImplemented
+	return error2.ErrNotImplemented
 }
 
 func CreateProject(project Project, window fyne.Window) error {
@@ -157,7 +158,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	//First check if the project directory already exists
 	projectDir := projectsDir + "/" + project.GameName
 	if _, err = os.Stat(projectDir); !os.IsNotExist(err) {
-		return ErrProjectAlreadyExists
+		return error2.ErrProjectAlreadyExists
 	}
 
 	//Create the project directory
@@ -179,18 +180,41 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//Create all necessary directories
-	neededDirectories := []string{"layouts", "scenes", "functions"}
+	neededDirectories := []string{"data/scenes", "data/assets/images", "data/assets/sounds", "data/assets/videos", "data/assets/other"}
+	//first create the data directory
+	err = os.Mkdir(projectDir+"/data", 0755)
+	if err != nil {
+		return err
+	}
+
+	//Then the data/assets directory
+	err = os.Mkdir(projectDir+"/data/assets", 0755)
+	if err != nil {
+		return err
+	}
+
+	//then create the subdirectories
 	for _, directory := range neededDirectories {
 		err = os.Mkdir(projectDir+"/"+directory, 0755)
 		if err != nil {
 			return err
 		}
-		//Once the directory is created, create a handler.go file in the directory
-		err = os.WriteFile(projectDir+"/"+directory+"/"+directory+".go", []byte("package "+directory+"\n\nfunc Handle() {\n\n}"), 0644)
+	}
+
+	//Then create the default go files in the necessary directories
+	goDirectories := []string{"layouts", "scenes", "functions", "widgets"}
+	for _, directory := range goDirectories {
+		//First create the directory
+		err = os.Mkdir(projectDir+"/data/"+directory, 0755)
 		if err != nil {
 			return err
 		}
 
+		//Then create the default go file
+		err = os.WriteFile(projectDir+"/data/"+directory+"/"+"defaults.go", []byte("package "+directory+"\n\n"), 0644)
+		if err != nil {
+			return err
+		}
 	}
 
 	//Initialize the go mod file by running go mod init with os/exec
@@ -205,7 +229,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	if err != nil {
 		log.Printf("Error initializing go mod file: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
-		return errors.New("error initializing go mod file")
+		return errors.New("NFerror initializing go mod file")
 	}
 
 	//TODO: Find a way around downloading fyne every time a project is created in order to not require an internet connection
@@ -217,7 +241,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	if err != nil {
 		log.Printf("Error installing fyne: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
-		return errors.New("error installing fyne")
+		return errors.New("NFerror installing fyne")
 	}
 
 	log.Printf("Initialization successful")

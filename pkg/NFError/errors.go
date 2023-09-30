@@ -1,8 +1,8 @@
-package editor
+package NFError
 
 import "errors"
 
-// All the error types defined here are custom to NovellaForge.
+// All the NFerror types defined here are custom to NovellaForge.
 var (
 	//ErrNotImplemented is returned when a method is not implemented.
 	ErrNotImplemented = errors.New("not implemented")

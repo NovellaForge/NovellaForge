@@ -1,6 +1,7 @@
-package editor
+package NFEditor
 
 import (
+	error2 "NovellaForge/pkg/NFError"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -11,10 +12,10 @@ import (
 	"os"
 )
 
-func CreateMainContent(window fyne.Window, terminalWindow fyne.Window) {
+func CreateMainContent(window fyne.Window) {
 
-	CheckAndInstallDependencies(window, terminalWindow)
-	CreateMainMenu(window, terminalWindow)
+	CheckAndInstallDependencies(window)
+	CreateMainMenu(window)
 
 	//Create a grid layout for the four main buttons
 	grid := container.New(layout.NewGridLayout(2))
@@ -31,7 +32,7 @@ func CreateMainContent(window fyne.Window, terminalWindow fyne.Window) {
 	continueLastButton := widget.NewButton("Continue Last", func() {})
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an error dialog
+		//Show an NFerror dialog
 		dialog.ShowError(err, window)
 		return
 	}
@@ -50,7 +51,7 @@ func CreateMainContent(window fyne.Window, terminalWindow fyne.Window) {
 	continueLastButton.OnTapped = func() {
 		err = OpenProject(project.Path, window)
 		if err != nil {
-			//Show an error dialog
+			//Show an NFerror dialog
 			dialog.ShowError(err, window)
 		}
 	}
@@ -63,7 +64,7 @@ func CreateMainContent(window fyne.Window, terminalWindow fyne.Window) {
 	window.SetContent(grid)
 }
 
-func CreateMainMenu(window fyne.Window, terminalWindow fyne.Window) {
+func CreateMainMenu(window fyne.Window) {
 
 	openRecentMenu := fyne.NewMenuItem("Open Recent", func() {
 		OpenRecentDialog(window)
@@ -72,7 +73,7 @@ func CreateMainMenu(window fyne.Window, terminalWindow fyne.Window) {
 
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an error dialog
+		//Show an NFerror dialog
 		dialog.ShowError(err, window)
 	}
 	if len(projects) == 0 {
@@ -84,7 +85,7 @@ func CreateMainMenu(window fyne.Window, terminalWindow fyne.Window) {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
 				err = OpenProject(projects[i].Path, window)
 				if err != nil {
-					//Show an error dialog
+					//Show an NFerror dialog
 					dialog.ShowError(err, window)
 				}
 			})
@@ -134,13 +135,13 @@ func OpenRecentDialog(window fyne.Window) {
 	newDialog := dialog.NewCustom("Open Recent", "Open", box, window)
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an error dialog
+		//Show an NFerror dialog
 		dialog.ShowError(err, window)
 		return
 	}
 	if len(projects) == 0 {
-		//Show an error dialog
-		dialog.ShowError(ErrNoProjects, window)
+		//Show an NFerror dialog
+		dialog.ShowError(error2.ErrNoProjects, window)
 		return
 	}
 
@@ -160,7 +161,7 @@ func OpenRecentDialog(window fyne.Window) {
 	list.OnSelected = func(id widget.ListItemID) {
 		err = OpenProject(projects[id].Path, window)
 		if err != nil {
-			//Show an error dialog
+			//Show an NFerror dialog
 			dialog.ShowError(err, window)
 		}
 	}
@@ -180,7 +181,7 @@ func OpenProjectDialog(window fyne.Window) {
 	// Create a custom file dialog
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
-			// Show an error dialog
+			// Show an NFerror dialog
 			dialog.ShowError(err, window)
 			return
 		}
@@ -193,21 +194,21 @@ func OpenProjectDialog(window fyne.Window) {
 		// Read the file
 		file, err := os.ReadFile(reader.URI().Path())
 		if err != nil {
-			// Show an error dialog
+			// Show an NFerror dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Deserialize the project
 		project, err := DeserializeProject(file)
 		if err != nil {
-			// Show an error dialog
+			// Show an NFerror dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Load the project
 		err = LoadProject(project, window)
 		if err != nil {
-			// Show an error dialog
+			// Show an NFerror dialog
 			dialog.ShowError(err, window)
 			return
 		}
@@ -313,6 +314,6 @@ func NewProjectDialog(window fyne.Window) {
 }
 
 func CreateTerminalWindow(window fyne.Window) {
-	//Throw a not implemented error dialog
-	dialog.ShowError(ErrNotImplemented, window)
+	//Throw a not implemented NFerror dialog
+	dialog.ShowError(error2.ErrNotImplemented, window)
 }
