@@ -56,6 +56,7 @@ TODO New Editor Requirements:
 	- Above the search bar in the main project tree, there should be a build game button that will build the game and save it to the project directory in a build folder
 	- When the build button is clicked it should give options for the user to build the game for windows, mac, linux, android, and ios
 
+
 TODO Secondary Editor Requirements:
 	- The editor should have a terminal window that can be opened and closed from the view menu (Create this just using a table with the first line being the timestamp, second being the status(Info, warning, NFerror, etc, and third being the message, with a double click on that row copying the message to the clipboard)
 	- All editor config data and projects should be stored in the os.UserConfigDir() directory in a NovellaForge folder
