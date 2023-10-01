@@ -1,9 +1,9 @@
 package NFLayout
 
 import (
-	"NovellaForge/NFWidget"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 )
 
 func VBoxLayoutHandler(args map[string]interface{}, children []*NFWidget.Widget) (fyne.CanvasObject, error) {

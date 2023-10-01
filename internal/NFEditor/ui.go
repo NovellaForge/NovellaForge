@@ -1,13 +1,13 @@
 package NFEditor
 
 import (
-	error2 "NovellaForge/NFError"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 	"log"
 	"os"
 )
@@ -141,7 +141,7 @@ func OpenRecentDialog(window fyne.Window) {
 	}
 	if len(projects) == 0 {
 		//Show an NFerror dialog
-		dialog.ShowError(error2.ErrNoProjects, window)
+		dialog.ShowError(NFError.ErrNoProjects, window)
 		return
 	}
 
@@ -315,5 +315,5 @@ func NewProjectDialog(window fyne.Window) {
 
 func CreateTerminalWindow(window fyne.Window) {
 	//Throw a not implemented NFerror dialog
-	dialog.ShowError(error2.ErrNotImplemented, window)
+	dialog.ShowError(NFError.ErrNotImplemented, window)
 }

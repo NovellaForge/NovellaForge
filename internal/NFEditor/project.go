@@ -1,10 +1,6 @@
 package NFEditor
 
 import (
-	error2 "NovellaForge/NFError"
-	"NovellaForge/NFLayout"
-	"NovellaForge/NFScene"
-	"NovellaForge/NFWidget"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -12,6 +8,10 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
+	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 	"log"
 	"os"
 	"os/exec"
@@ -80,14 +80,14 @@ func ReadProjectInfo() ([]ProjectInfo, error) {
 func OpenProject(path string, window fyne.Window) error {
 	//Check if the path even exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return error2.ErrProjectNotFound
+		return NFError.ErrProjectNotFound
 	}
 
 	//Check if the path ends in .NFProject
 	if filepath.Ext(path) != ".NFProject" {
 		//Check if the path is a directory and if the directory contains a .NFProject file
 		if _, err := os.Stat(path + "/" + filepath.Base(path) + ".NFProject"); os.IsNotExist(err) {
-			return error2.ErrProjectNotFound
+			return NFError.ErrProjectNotFound
 		} else {
 			//If it does, set the path to the directory
 			path = path + "/" + filepath.Base(path) + ".NFProject"
@@ -127,7 +127,7 @@ func DeserializeProject(file []byte) (Project, error) {
 
 // LoadProject takes a deserialized project and loads it into the editor loading the scenes and functions as well
 func LoadProject(project Project, window fyne.Window) error {
-	return error2.ErrNotImplemented
+	return NFError.ErrProjectNotFound
 }
 
 func CreateProject(project Project, window fyne.Window) error {
@@ -162,7 +162,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	//First check if the project directory already exists
 	projectDir := projectsDir + "/" + project.GameName
 	if _, err = os.Stat(projectDir); !os.IsNotExist(err) {
-		return error2.ErrProjectAlreadyExists
+		return NFError.ErrProjectNotFound
 	}
 
 	//Create the project directory

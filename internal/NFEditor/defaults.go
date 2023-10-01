@@ -1,7 +1,7 @@
 package NFEditor
 
 import (
-	"NovellaForge/NFScene"
+	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
 )
 
 type SceneGroup struct {

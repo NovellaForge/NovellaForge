@@ -1,8 +1,8 @@
 package NFWidget
 
 import (
-	"NovellaForge/NFError"
 	"fyne.io/fyne/v2"
+	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 )
 
 type widgetHandler func(window fyne.Window, args map[string]interface{}, children []*Widget) (fyne.CanvasObject, error)

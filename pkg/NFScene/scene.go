@@ -1,10 +1,10 @@
 package NFScene
 
 import (
-	"NovellaForge/NFLayout"
 	"encoding/json"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"log"
 	"os"
 	"path/filepath"

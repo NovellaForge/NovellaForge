@@ -1,13 +1,13 @@
 package NFFunction
 
 import (
-	"NovellaForge/NFSave"
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/NovellaForge/NovellaForge/pkg/NFSave"
 	"os"
 	"path/filepath"
 	"strings"

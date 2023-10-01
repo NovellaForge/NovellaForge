@@ -1,8 +1,8 @@
 package NFFunction
 
 import (
-	"NovellaForge/NFError"
 	"fyne.io/fyne/v2"
+	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 )
 
 var defaultFunctions = map[string]functionHandler{
