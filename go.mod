@@ -1,4 +1,4 @@
-module NovellaForge
+module github.com/NovellaForge/NovellaForge
 
 go 1.21
 
