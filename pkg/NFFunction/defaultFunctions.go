@@ -298,7 +298,7 @@ func LoadGame(window fyne.Window, args map[string]interface{}) (map[string]inter
 }
 
 // ContinueGame continues the game from the last save file
-func ContinueGame(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+func ContinueGame(_ fyne.Window, _ map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
 	//Walk the save directory
 	type FileWithModTime struct {
 		Name    string

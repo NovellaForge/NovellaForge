@@ -24,11 +24,6 @@ var All = map[string]Scene{}
 
 // GetAll returns all scenes reloading them from the disk, if you don't want to reload them, just use All
 func GetAll() map[string]Scene {
-	All = loadAll()
-	return All
-}
-
-func loadAll() map[string]Scene {
 	scenes := make(map[string]Scene)
 	loadScene := func(path string) {
 		data, err := os.ReadFile(path)
@@ -68,13 +63,13 @@ func loadAll() map[string]Scene {
 
 	// Start scanning from the base directory
 	scanDir("data/scenes")
-
+	All = scenes
 	return scenes
 }
 
-// SceneParser parses a scene and returns a fyne.CanvasObject that can be added to the window
-func SceneParser(window fyne.Window, scene Scene) (fyne.CanvasObject, error) {
+// Parse parses a scene and returns a fyne.CanvasObject that can be added to the window
+func (scene *Scene) Parse(window fyne.Window) (fyne.CanvasObject, error) {
 	//TODO Add an overlay option that allows certain overlay layouts to be parsed on top of the scene
-	layout, err := NFLayout.LayoutParser(window, scene.Layout)
+	layout, err := scene.Layout.Parse(window)
 	return container.NewStack(layout), err
 }

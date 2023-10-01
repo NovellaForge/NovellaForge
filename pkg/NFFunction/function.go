@@ -17,7 +17,8 @@ var customFunctions = map[string]functionHandler{}
 
 type functionHandler func(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error)
 
-func FunctionParser(window fyne.Window, function string, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+// Parse parses a function from its string name and returns the results
+func Parse(window fyne.Window, function string, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
 	//Set the window in the args
 	args["window"] = window
 	if handler, ok := defaultFunctions[function]; ok {

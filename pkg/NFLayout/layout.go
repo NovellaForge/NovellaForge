@@ -7,7 +7,7 @@ import (
 )
 
 // This is the type of function that will be used to handle layouts
-type layoutHandler func(map[string]interface{}, []*NFWidget.Widget) (fyne.CanvasObject, error)
+type layoutHandler func(args map[string]interface{}, children []*NFWidget.Widget) (fyne.CanvasObject, error)
 
 type Layout struct {
 	Type       string                 `json:"Type"`
@@ -22,7 +22,7 @@ var defaultLayouts = map[string]layoutHandler{
 
 var customLayouts = map[string]layoutHandler{}
 
-func LayoutParser(window fyne.Window, layout Layout) (fyne.CanvasObject, error) {
+func (layout *Layout) Parse(window fyne.Window) (fyne.CanvasObject, error) {
 	//Add the window to the layout properties
 	layout.Properties["window"] = window
 	//Take the layout and check if its name exists in the default layouts, if it does, use the assigned handlers, if not, check if it has a custom handlers, if not, return nil

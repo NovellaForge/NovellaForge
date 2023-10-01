@@ -16,7 +16,7 @@ type Widget struct {
 	Properties map[string]interface{} `json:"Properties"`
 }
 
-func WidgetParser(window fyne.Window, widget *Widget) (fyne.CanvasObject, error) {
+func (widget *Widget) Parse(window fyne.Window) (fyne.CanvasObject, error) {
 	newWidget, err := defaultWidgetParser(window, widget)
 	if newWidget == nil {
 		newWidget, err = customWidgetParser(window, widget)

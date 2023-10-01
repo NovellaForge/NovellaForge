@@ -10,7 +10,7 @@ func VBoxLayoutHandler(args map[string]interface{}, children []*NFWidget.Widget)
 	window := args["window"].(fyne.Window)
 	vbox := container.NewVBox()
 	for _, child := range children {
-		widget, err := NFWidget.WidgetParser(window, child)
+		widget, err := child.Parse(window)
 		if err != nil {
 			return nil, err
 		}
