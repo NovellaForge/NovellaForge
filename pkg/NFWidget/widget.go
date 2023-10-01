@@ -61,7 +61,11 @@ func customWidgetParser(window fyne.Window, widget *Widget) (fyne.CanvasObject, 
 	}
 }
 
-// Add adds a custom widget to the customWidgets map
-func Add(name string, handler widgetHandler) {
+// Register adds a custom widget to the customWidgets map
+func Register(name string, handler widgetHandler) {
+	//Check if the name is already registered, if it is, return
+	if _, ok := customWidgets[name]; ok {
+		return
+	}
 	customWidgets[name] = handler
 }

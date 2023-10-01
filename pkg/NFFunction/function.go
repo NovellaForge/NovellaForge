@@ -29,7 +29,11 @@ func FunctionParser(window fyne.Window, function string, args map[string]interfa
 	}
 }
 
-// Add adds a custom function to the customFunctions map
-func Add(name string, handler functionHandler) {
+// Register adds a custom function to the customFunctions map
+func Register(name string, handler functionHandler) {
+	//Check if the name is already registered, if it is, return
+	if _, ok := customFunctions[name]; ok {
+		return
+	}
 	customFunctions[name] = handler
 }

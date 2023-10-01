@@ -34,3 +34,12 @@ func LayoutParser(window fyne.Window, layout Layout) (fyne.CanvasObject, error) 
 		return nil, errors.New("layout unable to be parsed")
 	}
 }
+
+// Register registers a custom layout handler
+func Register(name string, handler layoutHandler) {
+	//Check if the name is already registered, if it is, return
+	if _, ok := customLayouts[name]; ok {
+		return
+	}
+	customLayouts[name] = handler
+}

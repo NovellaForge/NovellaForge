@@ -106,7 +106,7 @@ func SetDirectory(dir string) {
 	Directory = dir
 }
 
-func SetUp(window fyne.Window) error {
+func SetUp() error {
 	//Make all directories to the log file
 	err := os.MkdirAll(Directory, os.ModePerm)
 	if err != nil {
@@ -145,8 +145,6 @@ func SetUp(window fyne.Window) error {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	log.SetOutput(multi)
-
-	CreateLogDialog(window)
 
 	// Inside SetUp or another function
 	go func() {
