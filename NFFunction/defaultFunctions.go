@@ -1,7 +1,7 @@
 package NFFunction
 
 import (
-	"NovellaForge/pkg/NFSave"
+	"NovellaForge/NFSave"
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"

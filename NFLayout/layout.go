@@ -1,7 +1,7 @@
 package NFLayout
 
 import (
-	"NovellaForge/pkg/NFWidget"
+	"NovellaForge/NFWidget"
 	"errors"
 	"fyne.io/fyne/v2"
 )

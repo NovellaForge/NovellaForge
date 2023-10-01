@@ -1,7 +1,7 @@
 package NFSave
 
 import (
-	"NovellaForge/pkg/NFEncryption"
+	"NovellaForge/NFEncryption"
 	"encoding/json"
 	"errors"
 	"os"

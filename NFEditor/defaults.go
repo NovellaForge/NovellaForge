@@ -1,6 +1,8 @@
 package NFEditor
 
-import "NovellaForge/pkg/NFScene"
+import (
+	"NovellaForge/NFScene"
+)
 
 type SceneGroup struct {
 	Name        string          //Not stored in file, is a directory name

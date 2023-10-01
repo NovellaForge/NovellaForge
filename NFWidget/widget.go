@@ -1,7 +1,7 @@
 package NFWidget
 
 import (
-	"NovellaForge/pkg/NFError"
+	"NovellaForge/NFError"
 	"fyne.io/fyne/v2"
 )
 

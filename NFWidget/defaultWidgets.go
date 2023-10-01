@@ -1,7 +1,7 @@
 package NFWidget
 
 import (
-	"NovellaForge/pkg/NFFunction"
+	"NovellaForge/NFFunction"
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"

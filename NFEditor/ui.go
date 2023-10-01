@@ -1,7 +1,7 @@
 package NFEditor
 
 import (
-	error2 "NovellaForge/pkg/NFError"
+	error2 "NovellaForge/NFError"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"

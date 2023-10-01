@@ -1,10 +1,10 @@
 package NFEditor
 
 import (
-	error2 "NovellaForge/pkg/NFError"
-	"NovellaForge/pkg/NFLayout"
-	"NovellaForge/pkg/NFScene"
-	"NovellaForge/pkg/NFWidget"
+	error2 "NovellaForge/NFError"
+	"NovellaForge/NFLayout"
+	"NovellaForge/NFScene"
+	"NovellaForge/NFWidget"
 	"bytes"
 	"encoding/json"
 	"errors"

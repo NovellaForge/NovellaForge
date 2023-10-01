@@ -1,7 +1,7 @@
 package main
 
 import (
-	"NovellaForge/pkg/NFEditor"
+	NFEditor2 "NovellaForge/NFEditor"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -80,11 +80,11 @@ Todo IDEAS:
 // main is the entry point for the application
 func main() {
 	application := app.New()
-	window := application.NewWindow(NFEditor.WindowTitle)
+	window := application.NewWindow(NFEditor2.WindowTitle)
 	window.Resize(fyne.NewSize(1280, 720))
 
 	//Convert the PNG icon to a fyne resource
-	iconResource, err := fyne.LoadResourceFromPath(NFEditor.Icon)
+	iconResource, err := fyne.LoadResourceFromPath(NFEditor2.Icon)
 	if err != nil {
 		log.Printf("Failed to load icon: %v", err)
 		application.SetIcon(theme.FileApplicationIcon())
@@ -93,7 +93,7 @@ func main() {
 		window.SetIcon(application.Icon())
 	}
 
-	NFEditor.CreateMainContent(window)
+	NFEditor2.CreateMainContent(window)
 
 	go SplashScreenLoop(window)
 	application.Run()
@@ -113,8 +113,8 @@ func SplashScreenLoop(window fyne.Window) {
 		splash := drv.CreateSplashWindow()
 		splashBox := container.NewVBox(
 			widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Version: "+NFEditor.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Developed By: "+NFEditor.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Version: "+NFEditor2.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Developed By: "+NFEditor2.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		)
 		splash.SetContent(splashBox)
