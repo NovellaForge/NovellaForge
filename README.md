@@ -15,20 +15,6 @@ Features:
 
 Multi-Platform Support: using Fyne will allow the application to run on multiple platforms (Windows, macOS, Linux, Android, iOS).
 
-Scene/Menu Templates: These are the different types of scenes or menus that the user can create. You've already identified several types:
-
-Story Variant: This is a scene where the text is the primary focus, and images are secondary. This could be used for narrative-heavy sections of the game.
-
-Puzzle Variant: Similar to the story variant, but with interactive text pieces. This could be used for sections of the game where the player needs to solve a puzzle or make a decision based on the text.
-
-Dialog Variant: This is a scene where images are the primary focus, and the text is secondary. This could be used for sections of the game where the player is having a conversation with a character.
-
-Selector Variant: Similar to the dialog variant, but with multiple choices for the player to select from. This could be used for sections of the game where the player needs to make a decision that will affect the outcome of the story.
-
-Main Menu: This is the first screen that the player sees when they start the game. It should include options to start a new game, load a saved game, adjust settings, and quit the game.
-
-Settings Menu: This is where the player can adjust various settings for the game, such as audio volume, text speed, and display settings.
-
 Save/Load Menu: This is where the player can save their current progress or load a previous save.
 
 Inheritance/Editing: All scene/menu templates should be inheritable and editable, allowing users to customize them to fit their specific needs.
