@@ -1,26 +1,11 @@
 package NFEditor
 
-type Widget struct {
-	Name       string                 `json:"Name"`
-	Children   []*Widget              `json:"Children"`
-	Properties map[string]interface{} `json:"Properties"`
-}
-
-type Layout struct {
-	Name       string                 `json:"Name"`
-	Children   []*Widget              `json:"Widgets"`
-	Properties map[string]interface{} `json:"Properties"`
-}
-
-type Scene struct {
-	Name   string `json:"Name"`
-	Layout Layout `json:"Layout"` // Custom layouts should be prefixed with "Custom"
-}
+import "NovellaForge/pkg/NFScene"
 
 type SceneGroup struct {
-	Name        string       //Not stored in file, is a directory name
-	ChildGroups []SceneGroup //Not stored in file, is a list of scene groups in the directory
-	Scenes      []Scene      //Not stored in file, is a list of scenes in the directory
+	Name        string          //Not stored in file, is a directory name
+	ChildGroups []SceneGroup    //Not stored in file, is a list of scene groups in the directory
+	Scenes      []NFScene.Scene //Not stored in file, is a list of scenes in the directory
 }
 
 type Function struct {
@@ -44,5 +29,3 @@ type Project struct {
 
 // MainGameTemplate is the template for the <project-name>.go file in the project directory it should contain a fyne app and window and the main menu set.
 const MainGameTemplate = ``
-
-//TODO create the default layouts and default functions files both should use Annotations to get the parameters and return values of the functions and the types of the widgets

@@ -2,6 +2,9 @@ package NFEditor
 
 import (
 	error2 "NovellaForge/pkg/NFError"
+	"NovellaForge/pkg/NFLayout"
+	"NovellaForge/pkg/NFScene"
+	"NovellaForge/pkg/NFWidget"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -24,11 +27,12 @@ type ProjectInfo struct {
 
 var (
 	ActiveProject        Project
-	ActiveLayouts        []Layout
-	ActiveWidgets        []Widget
+	ActiveLayouts        []NFLayout.Layout
+	ActiveWidgets        []NFWidget.Widget
 	ActiveSceneGroups    []SceneGroup
-	ActiveScenes         []Scene
+	ActiveScenes         []NFScene.Scene // Ungrouped scenes
 	ActiveFunctionGroups []FunctionGroup
+	ActiveFunctions      []Function // Ungrouped functions
 )
 
 // ReadProjectInfo reads the project info from the project file
