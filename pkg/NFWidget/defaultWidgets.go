@@ -13,7 +13,7 @@ import (
 )
 
 // VBoxContainerHandler creates a vertical box container
-func VBoxContainerHandler(_ map[string]interface{}, children []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func VBoxContainerHandler(_ map[string]interface{}, children []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()
 	for _, child := range children {
 		parsedChild, err := child.Parse(window)
@@ -26,7 +26,7 @@ func VBoxContainerHandler(_ map[string]interface{}, children []*Widget, window f
 }
 
 // HBoxContainerHandler creates a horizontal box container
-func HBoxContainerHandler(_ map[string]interface{}, children []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func HBoxContainerHandler(_ map[string]interface{}, children []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	hbox := container.NewHBox()
 	for _, child := range children {
 		parsedChild, err := child.Parse(window)
@@ -39,7 +39,7 @@ func HBoxContainerHandler(_ map[string]interface{}, children []*Widget, window f
 }
 
 // FormHandler creates a form
-func FormHandler(_ map[string]interface{}, children []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func FormHandler(_ map[string]interface{}, children []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	form := widget.NewForm()
 	for _, child := range children {
 		parsedChild, err := child.Parse(window)
@@ -52,14 +52,14 @@ func FormHandler(_ map[string]interface{}, children []*Widget, window fyne.Windo
 }
 
 // LabelHandler creates a label
-func LabelHandler(args map[string]interface{}, _ []*Widget, _ fyne.Window) (fyne.CanvasObject, error) {
+func LabelHandler(args map[string]interface{}, _ []Widget, _ fyne.Window) (fyne.CanvasObject, error) {
 	label := widget.NewLabel(args["Text"].(string))
 	label.Wrapping = fyne.TextWrapWord
 	return label, nil
 }
 
 // ButtonHandler creates a button
-func ButtonHandler(args map[string]interface{}, _ []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func ButtonHandler(args map[string]interface{}, _ []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	text := args["Text"].(string)
 	action := args["Action"].(string)
 	var button *widget.Button
@@ -84,7 +84,7 @@ func ButtonHandler(args map[string]interface{}, _ []*Widget, window fyne.Window)
 }
 
 // ToolBarHandler creates a toolbar with the given children
-func ToolBarHandler(_ map[string]interface{}, children []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func ToolBarHandler(_ map[string]interface{}, children []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	//Loop through the children and switch on their type
 	toolbar := widget.NewToolbar()
 	for _, child := range children {
@@ -116,7 +116,7 @@ func ToolBarHandler(_ map[string]interface{}, children []*Widget, window fyne.Wi
 	return toolbar, nil
 }
 
-func ImageHandler(args map[string]interface{}, _ []*Widget, _ fyne.Window) (fyne.CanvasObject, error) {
+func ImageHandler(args map[string]interface{}, _ []Widget, _ fyne.Window) (fyne.CanvasObject, error) {
 	path := args["Path"]
 	minSizeX := args["MinSizeX"]
 	minSizeY := args["MinSizeY"]
@@ -175,7 +175,7 @@ func ImageHandler(args map[string]interface{}, _ []*Widget, _ fyne.Window) (fyne
 
 }
 
-func EntryHandler(properties map[string]interface{}, _ []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func EntryHandler(properties map[string]interface{}, _ []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder(properties["PlaceHolder"].(string))
 	entry.SetText(properties["Text"].(string))
@@ -188,7 +188,7 @@ func EntryHandler(properties map[string]interface{}, _ []*Widget, window fyne.Wi
 	return entry, nil
 }
 
-func NumEntryHandler(properties map[string]interface{}, _ []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func NumEntryHandler(properties map[string]interface{}, _ []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	entryMin := properties["Min"].(float64)
 	entryMax := properties["Max"].(float64)
 	entry := widget.NewEntry()
@@ -236,7 +236,7 @@ func NumEntryHandler(properties map[string]interface{}, _ []*Widget, window fyne
 	return entry, nil
 }
 
-func PasswordEntryHandler(properties map[string]interface{}, _ []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func PasswordEntryHandler(properties map[string]interface{}, _ []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	entry := widget.NewPasswordEntry()
 	entry.SetPlaceHolder(properties["PlaceHolder"].(string))
 	entry.SetText(properties["Text"].(string))
@@ -251,7 +251,7 @@ func PasswordEntryHandler(properties map[string]interface{}, _ []*Widget, window
 	return entry, nil
 }
 
-func SliderHandler(properties map[string]interface{}, _ []*Widget, window fyne.Window) (fyne.CanvasObject, error) {
+func SliderHandler(properties map[string]interface{}, _ []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	sMin := properties["Min"].(float64)
 	sMax := properties["Max"].(float64)
 	slider := widget.NewSlider(sMin, sMax)

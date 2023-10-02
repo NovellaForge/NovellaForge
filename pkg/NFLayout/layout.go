@@ -7,11 +7,11 @@ import (
 )
 
 // This is the type of function that will be used to handle layouts
-type layoutHandler func(window fyne.Window, args map[string]interface{}, children []*NFWidget.Widget) (fyne.CanvasObject, error)
+type layoutHandler func(window fyne.Window, args map[string]interface{}, children []NFWidget.Widget) (fyne.CanvasObject, error)
 
 type Layout struct {
 	Type       string                 `json:"Type"`
-	Children   []*NFWidget.Widget     `json:"Widgets"`
+	Children   []NFWidget.Widget      `json:"Widgets"`
 	Properties map[string]interface{} `json:"Properties"`
 }
 

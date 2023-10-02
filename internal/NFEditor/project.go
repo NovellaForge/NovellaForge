@@ -151,12 +151,8 @@ func CreateProject(project Project, window fyne.Window) error {
 
 	//First check if the project directory already exists
 	projectDir := projectsDir + "/" + project.GameName
-	if _, err = os.Stat(projectDir); !os.IsNotExist(err) {
-		return NFError.ErrProjectNotFound
-	}
-
 	//Create the project directory
-	err = os.Mkdir(projectDir, 0755)
+	err = os.MkdirAll(projectDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -167,48 +163,87 @@ func CreateProject(project Project, window fyne.Window) error {
 		return err
 	}
 
+	neededDirectories := []string{
+		"cmd",
+		"data/assets/image",
+		"data/assets/audio",
+		"data/assets/video",
+		"data/assets/other",
+		"data/scenes",
+		"internal/config",
+		"internal/function/handlers",
+		"internal/layout/handlers",
+		"internal/widget/handlers",
+	}
+
+	for _, dir := range neededDirectories {
+		err = os.MkdirAll(projectDir+"/"+dir, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
 	//Create a default game.go file with an empty main function for now
-	err = os.WriteFile(projectDir+"/cmd"+project.GameName+"/"+project.GameName+".go", []byte(`package main`+"\n"+`import . "`+project.GameName+`/internal/Config"`+"\n"+MainGameTemplate), 0644)
+	err = os.WriteFile(projectDir+"/cmd"+project.GameName+"/"+project.GameName+".go", []byte(
+		`package main`+"\n"+
+			`import . "`+project.GameName+`/internal/config"`+"\n"+
+			MainGameTemplate), 0666)
 	if err != nil {
 		return err
 	}
 
-	//Create all necessary directories
-	neededDirectories := []string{"data/scenes", "data/assets/images", "data/assets/sounds", "data/assets/videos", "data/assets/other"}
-	//first create the data directory
-	err = os.Mkdir(projectDir+"/data", 0755)
+	err = os.WriteFile(projectDir+"/internal/config/Config.go", []byte(
+		`package config`+"\n"+
+			`const (`+"\n"+
+			`GameName = "`+project.GameName+`"`+"\n"+
+			`GameVersion = "0.0.1"`+"\n"+
+			`GameAuthor = "`+project.Author+`"`+"\n"+
+			`GameCredits = "`+project.Credits+`"`+"\n"+
+			`StartupScene = "MainMenu""`+"\n"+
+			`NewGameScene = "NewScene"`+"\n"), 0666)
 	if err != nil {
 		return err
 	}
 
-	//Then the data/assets directory
-	err = os.Mkdir(projectDir+"/data/assets", 0755)
+	err = os.WriteFile(projectDir+"/internal/function/CustomFunctions.go", []byte(
+		`package Functions`+"\n"+
+			`import . "`+project.GameName+`/internal/function/handlers"`+"\n"+
+			CustomFunctionTemplate), 0666)
 	if err != nil {
 		return err
 	}
 
-	//then create the subdirectories
-	for _, directory := range neededDirectories {
-		err = os.Mkdir(projectDir+"/"+directory, 0755)
-		if err != nil {
-			return err
-		}
+	err = os.WriteFile(projectDir+"/internal/layout/CustomLayouts.go", []byte(
+		`package Layouts`+"\n"+
+			`import . "`+project.GameName+`/internal/layout/handlers"`+"\n"+
+			CustomLayoutTemplate), 0666)
+	if err != nil {
+		return err
 	}
 
-	//Then create the default go files in the necessary directories
-	goDirectories := []string{"layouts", "scenes", "functions", "widgets"}
-	for _, directory := range goDirectories {
-		//First create the directory
-		err = os.Mkdir(projectDir+"/data/"+directory, 0755)
-		if err != nil {
-			return err
-		}
+	err = os.WriteFile(projectDir+"/internal/widget/CustomWidgets.go", []byte(
+		`package Widgets`+"\n"+
+			`import . "`+project.GameName+`/internal/widget/handlers"`+"\n"+
+			CustomWidgetTemplate), 0666)
+	if err != nil {
+		return err
+	}
 
-		//Then create the default go file
-		err = os.WriteFile(projectDir+"/data/"+directory+"/"+"defaults.go", []byte("package "+directory+"\n\n"), 0644)
-		if err != nil {
-			return err
-		}
+	//Write the example for each of the files
+	err = os.WriteFile(projectDir+"/internal/function/handlers/ExampleFunction.go", []byte(ExampleFunctionTemplate), 0666)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(projectDir+"/internal/layout/handlers/ExampleLayout.go", []byte(ExampleLayoutTemplate), 0666)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(projectDir+"/internal/widget/handlers/ExampleWidget.go", []byte(
+		`package handlers`+"\n"+
+			`import (`+"\n"+project.GameName+`/internal/function/handlers"`+"\n"+
+			ExampleWidgetTemplate), 0666)
+	if err != nil {
+		return err
 	}
 
 	//Initialize the go mod file by running go mod init with os/exec
@@ -223,10 +258,9 @@ func CreateProject(project Project, window fyne.Window) error {
 	if err != nil {
 		log.Printf("Error initializing go mod file: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
-		return errors.New("NFerror initializing go mod file")
+		return errors.New("error initializing go mod file")
 	}
 
-	//TODO: Find a way around downloading fyne every time a project is created in order to not require an internet connection
 	log.Printf("Installing fyne")
 	cmd = exec.Command("go", "get", "fyne.io/fyne/v2")
 	cmd.Stderr = &stderr
@@ -235,7 +269,18 @@ func CreateProject(project Project, window fyne.Window) error {
 	if err != nil {
 		log.Printf("Error installing fyne: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
-		return errors.New("NFerror installing fyne")
+		return errors.New("error installing fyne")
+	}
+
+	log.Printf("Installing NovellaForge")
+	cmd = exec.Command("go", "get", "github.com/NovellaForge/NovellaForge")
+	cmd.Stderr = &stderr
+	cmd.Dir = projectDir
+	err = cmd.Run()
+	if err != nil {
+		log.Printf("Error installing NovellaForge: %v", err)
+		log.Printf("Stderr: %s", stderr.String())
+		return errors.New("error installing NovellaForge")
 	}
 
 	log.Printf("Initialization successful")
@@ -243,9 +288,6 @@ func CreateProject(project Project, window fyne.Window) error {
 	time.Sleep(1 * time.Second)
 
 	return nil
-
-	//TODO: Load the project into the editor and open the project Before that can be done the default files need to be created and templates need to be created for the files
-	// Also add the project to the projects.nf file in the cache directory
 }
 
 func SerializeProject(project Project) []byte {

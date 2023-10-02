@@ -1,7 +1,9 @@
 package NFEditor
 
 import (
+	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 )
 
 type SceneGroup struct {
@@ -32,7 +34,6 @@ type Project struct {
 // MainGameTemplate is the template for the <project-name>.go file in the project directory it should contain a fyne app and window and the main menu set.
 // Make sure you add the config import to and the package main line to the top of the file
 const MainGameTemplate = `
-
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -51,11 +52,14 @@ import (
 	"time"
 )
 
+// TODO Move the splash and startup settings to a config file in the os.userConfigDir
+
 func main() {
 	//gameApp is the main app for the game to run on, when in a desktop environment this is the window manager that allows multiple windows to be open
-	gameApp := app.NewWithID("com.novellaforge." + GameName + "." + Version)
+	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
+	gameApp := app.NewWithID("com.novellaforge." + GameName)
 	//window is the main window for the game, this is where the game is displayed and scenes are rendered
-	window := gameApp.NewWindow(GameName + " " + Version)
+	window := gameApp.NewWindow(GameName + " " + GameVersion)
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
@@ -92,7 +96,7 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	currentApp := fyne.CurrentApp()
 	window.SetFullScreen(currentApp.Preferences().BoolWithFallback("fullscreen", false))
 	window.SetContent(container.NewVBox())
-	window.SetTitle(GameName + " " + Version)
+	window.SetTitle(GameName + " " + GameVersion)
 	window.SetCloseIntercept(func() {
 		dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 			if b {
@@ -179,7 +183,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene)
 	creditsModal = widget.NewModalPopUp(
 		container.NewVBox(
 			widget.NewLabelWithStyle("Credits", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle(Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(GameCredits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			creditsCloseButton,
 		),
 		window.Canvas(),
@@ -196,7 +200,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene)
 	window.Resize(fyne.NewSize(300, 400))
 	window.CenterOnScreen()
 	window.SetContent(settingsBox)
-	window.SetTitle(GameName + " " + Version + " Startup Settings")
+	window.SetTitle("Startup Settings")
 }
 
 func CreateSettings(isStartup bool, window fyne.Window) fyne.CanvasObject {
@@ -284,8 +288,8 @@ func CreateSettings(isStartup bool, window fyne.Window) fyne.CanvasObject {
 	settingsBox := container.NewVBox(
 		widget.NewLabelWithStyle("Startup Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle(GameName, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Author: "+Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Version: "+GameVersion, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Author: "+GameAuthor, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
 		widget.NewLabelWithStyle("Game Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		SettingsScrollBox,
 		layout.NewSpacer(),
@@ -307,8 +311,8 @@ func SplashScreenLoop(window fyne.Window) {
 		splash := drv.CreateSplashWindow()
 		splashBox := container.NewVBox(
 			widget.NewLabelWithStyle(GameName, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Created By: "+Author+" Using Novella Forge", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Version: "+GameVersion, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Created By: "+GameAuthor+" Using Novella Forge", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		)
 		splash.SetContent(splashBox)
@@ -384,7 +388,6 @@ func ExampleLayout(window fyne.Window, _ map[string]interface{}, children []*NFW
 	return vbox, nil
 }
 `
-
 const CustomWidgetTemplate = `
 package widgets
 import 	. "DefaultGame/internal/widgets/handlers"
@@ -393,12 +396,8 @@ func init() {
 	Register("ExampleWidget", ExampleWidget)
 }
 `
-
 const ExampleWidgetTemplate = `
-package handlers
-
 import (
-	"DefaultGame/internal/functions/handlers"
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
@@ -427,3 +426,47 @@ func ExampleWidget(window fyne.Window, args map[string]interface{}, _ []*NFWidge
 	return nil, errors.New("no text argument")
 }
 `
+
+var MainMenuSceneTemplate = NFScene.Scene{
+	Name: "MainMenu",
+	Layout: NFLayout.Layout{
+		Type: "VBox",
+		Children: []NFWidget.Widget{
+			{
+				Type: "Label",
+				Properties: map[string]interface{}{
+					"Text": "Main Menu",
+				},
+			},
+			{
+				Type: "Button",
+				Properties: map[string]interface{}{
+					"Text":   "New Game",
+					"Action": "NewGame",
+				},
+			},
+			{
+				Type: "Button",
+				Properties: map[string]interface{}{
+					"Text":   "Load Game",
+					"Action": "LoadGame",
+				},
+			},
+			{
+				Type: "Button",
+				Properties: map[string]interface{}{
+					"Text":   "Settings",
+					"Action": "Settings",
+				},
+			},
+			{
+				Type: "Button",
+				Properties: map[string]interface{}{
+					"Text":   "Quit",
+					"Action": "Quit",
+				},
+			},
+		},
+	},
+	Properties: nil,
+}
