@@ -137,26 +137,16 @@ func CreateProject(project Project, window fyne.Window) error {
 	defer progressDialog.Hide()
 
 	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return err
-	}
-	//Check if the NovellaForge directory exists
-	if _, err = os.Stat(configDir + "/NovellaForge"); os.IsNotExist(err) {
-		//if it doesn't exist, create it
-		err = os.Mkdir(configDir+"/NovellaForge", 0755)
-		if err != nil {
-			return err
-		}
-	}
+	projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", configDir+"/NovellaForge/projects")
 
-	//Check if the projects directory exists
-	projectsDir := configDir + "/NovellaForge/projects"
-	if _, err = os.Stat(projectsDir); os.IsNotExist(err) {
-		//if it doesn't exist, create it
-		err = os.Mkdir(projectsDir, 0755)
+	_, err = os.Stat(projectsDir + "/" + project.GameName)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(projectsDir+"/"+project.GameName, 0755)
 		if err != nil {
 			return err
 		}
+	} else {
+		return NFError.ErrProjectAlreadyExists
 	}
 
 	//First check if the project directory already exists
@@ -178,7 +168,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//Create a default game.go file with an empty main function for now
-	err = os.WriteFile(projectDir+"/"+project.GameName+".go", []byte("package main\n\nfunc main() {\n\n}"), 0644)
+	err = os.WriteFile(projectDir+"/cmd"+project.GameName+"/"+project.GameName+".go", []byte(`package main`+"\n"+`import . "`+project.GameName+`/internal/Config"`+"\n"+MainGameTemplate), 0644)
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ func CreateMainContent(window fyne.Window) {
 	continueLastButton := widget.NewButton("Continue Last", func() {})
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an NFerror dialog
+		//Show an error dialog
 		dialog.ShowError(err, window)
 		return
 	}
@@ -51,7 +51,7 @@ func CreateMainContent(window fyne.Window) {
 	continueLastButton.OnTapped = func() {
 		err = OpenProject(project.Path, window)
 		if err != nil {
-			//Show an NFerror dialog
+			//Show an error dialog
 			dialog.ShowError(err, window)
 		}
 	}
@@ -73,7 +73,7 @@ func CreateMainMenu(window fyne.Window) {
 
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an NFerror dialog
+		//Show an error dialog
 		dialog.ShowError(err, window)
 	}
 	if len(projects) == 0 {
@@ -135,12 +135,12 @@ func OpenRecentDialog(window fyne.Window) {
 	newDialog := dialog.NewCustom("Open Recent", "Open", box, window)
 	projects, err := ReadProjectInfo()
 	if err != nil {
-		//Show an NFerror dialog
+		//Show an error dialog
 		dialog.ShowError(err, window)
 		return
 	}
 	if len(projects) == 0 {
-		//Show an NFerror dialog
+		//Show an error dialog
 		dialog.ShowError(NFError.ErrNoProjects, window)
 		return
 	}
@@ -161,7 +161,7 @@ func OpenRecentDialog(window fyne.Window) {
 	list.OnSelected = func(id widget.ListItemID) {
 		err = OpenProject(projects[id].Path, window)
 		if err != nil {
-			//Show an NFerror dialog
+			//Show an error dialog
 			dialog.ShowError(err, window)
 		}
 	}
@@ -181,7 +181,7 @@ func OpenProjectDialog(window fyne.Window) {
 	// Create a custom file dialog
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
-			// Show an NFerror dialog
+			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
@@ -194,21 +194,21 @@ func OpenProjectDialog(window fyne.Window) {
 		// Read the file
 		file, err := os.ReadFile(reader.URI().Path())
 		if err != nil {
-			// Show an NFerror dialog
+			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Deserialize the project
 		project, err := DeserializeProject(file)
 		if err != nil {
-			// Show an NFerror dialog
+			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Load the project
 		err = LoadProject(project, window)
 		if err != nil {
-			// Show an NFerror dialog
+			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
@@ -314,6 +314,6 @@ func NewProjectDialog(window fyne.Window) {
 }
 
 func CreateTerminalWindow(window fyne.Window) {
-	//Throw a not implemented NFerror dialog
+	//Throw a not implemented error dialog
 	dialog.ShowError(NFError.ErrNotImplemented, window)
 }
