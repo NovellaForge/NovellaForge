@@ -16,8 +16,11 @@ type Layout struct {
 }
 
 var defaultLayouts = map[string]layoutHandler{
-	//TODO Create the basic fyne layouts
-	"VBoxLayout": VBoxLayoutHandler,
+	"VBox":   VBoxLayoutHandler,
+	"HBox":   HBoxLayoutHandler,
+	"Grid":   GridLayoutHandler,
+	"Tab":    TabLayoutHandler,
+	"Border": BorderLayoutHandler,
 }
 
 var customLayouts = map[string]layoutHandler{}

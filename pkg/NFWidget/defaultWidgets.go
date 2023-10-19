@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+//TODO Finish the dialog widget
+
 // VBoxContainerHandler creates a vertical box container
 func VBoxContainerHandler(_ map[string]interface{}, children []Widget, window fyne.Window) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()

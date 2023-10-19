@@ -470,3 +470,10 @@ var MainMenuSceneTemplate = NFScene.Scene{
 	},
 	Properties: nil,
 }
+
+var NewGameSceneTemplate = NFScene.Scene{
+	Name: "NewGame",
+	Layout: NFLayout.Layout{
+		Type: "VBox",
+	},
+}

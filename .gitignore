@@ -33,3 +33,5 @@ go.work
 # Build File
 /build/
 /defaults/
+/cmd/WidgetTester/WidgetTester.go
+/assets/TestImages/

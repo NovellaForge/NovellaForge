@@ -17,6 +17,9 @@ var SaveEncryption = false
 var SaveHistory = true
 var SaveEncryptionKey = "NovellaForge"
 
+//TODO un-export the save struct and all of its methods
+
+// Save is the struct that will be used to save data
 type Save struct {
 	Name       string             `json:"Name"`
 	Scene      string             `json:"Scene"`
