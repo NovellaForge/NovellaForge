@@ -28,10 +28,8 @@ configs/
 # Go workspace file
 go.work
 
-# Debug File
-/cmd/debug.go
 # Build File
 /build/
 /defaults/
-/cmd/WidgetTester/WidgetTester.go
-/assets/TestImages/
+/assets/debug/
+
