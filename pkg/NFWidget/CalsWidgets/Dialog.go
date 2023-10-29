@@ -12,39 +12,57 @@ import (
 	"time"
 )
 
+type JsonSafeDialog struct {
+	AllText           []string             `json:"AllText"`
+	State             int                  `json:"State"`
+	MaxState          int                  `json:"MaxState"`
+	Name              string               `json:"Name"`
+	HasName           bool                 `json:"HasName"`
+	StrokeColor       color.Color          `json:"StrokeColor"`
+	NameStrokeColor   color.Color          `json:"NameStrokeColor"`
+	Fill              color.Color          `json:"Fill"`
+	NameFill          color.Color          `json:"NameFill"`
+	Stroke            float32              `json:"Stroke"`
+	NameStroke        float32              `json:"NameStroke"`
+	NamePosition      fyne.Position        `json:"NamePosition"`
+	NameAffectsLayout bool                 `json:"NameAffectsLayout"`
+	StateOnTap        bool                 `json:"StateOnTap"`
+	TextOnStateChange bool                 `json:"TextOnStateChange"`
+	ConcatText        bool                 `json:"ConcatText"`
+	AnimateText       bool                 `json:"AnimateText"`
+	CanSkip           bool                 `json:"CanSkip"`
+	TextDelay         float32              `json:"TextDelay"`
+	OnStateChange     string               `json:"OnStateChange"`
+	OnTapped          string               `json:"OnTapped"`
+	OnSecondaryTapped string               `json:"OnSecondaryTapped"`
+	OnDoubleTapped    string               `json:"OnDoubleTapped"`
+	OnHover           string               `json:"OnHover"`
+	OnEndHover        string               `json:"OnEndHover"`
+	WhileHover        string               `json:"WhileHover"`
+	Sizing            NFWidget.Sizing      `json:"Sizing"`
+	Padding           NFWidget.Padding     `json:"Padding"`
+	ExternalPadding   NFWidget.Padding     `json:"ExternalPadding"`
+	ContentStyle      NFWidget.TextStyling `json:"ContentStyle"`
+	NameStyle         NFWidget.TextStyling `json:"NameStyle"`
+	NamePadding       NFWidget.Padding     `json:"NamePadding"`
+	NameSizing        NFWidget.Sizing      `json:"NameSizing"`
+}
+
 // Dialog is a widget that displays a message to the user while also having interactive elements
 type Dialog struct {
 	//Interfaces for the dialog
 	widget.BaseWidget
 	widget.DisableableWidget
 
-	//Pointers to the objects that make up the dialog
-	label, nameLabel                      *widget.Label
-	border, debug                         *canvas.Rectangle
-	scroll                                *container.Scroll
-	nameBorder                            *canvas.Rectangle
-	sizing, nameSizing                    *NFWidget.Sizing
-	padding, namePadding, externalPadding *NFWidget.Padding
-	contentStyle, nameStyle               *NFWidget.TextStyling
-	tapAnim, hoverAnim, stateAnim         *fyne.Animation
+	//JSON-safe variables for the dialog and use in the editor
+	JsonSafeDialog
 
-	//Settings for the dialog
-	AllText                       []string
-	curText                       string
-	State                         int
-	MaxState                      int
-	Name                          string
-	HasName                       bool
-	StrokeColor, NameStrokeColor  color.Color
-	Fill, NameFill                color.Color
-	Stroke, NameStroke            float32
-	NamePosition                  fyne.Position
-	NameAffectsLayout             bool
-	StateOnTap, TextOnStateChange bool
-	ConcatText, AnimateText       bool
-	skipAnim, animating, CanSkip  bool
-	TextDelay                     float32
-	animatedStates                []int
+	//Pointers to the objects that make up the dialog
+	label, nameLabel              *widget.Label
+	border, debug                 *canvas.Rectangle
+	scroll                        *container.Scroll
+	nameBorder                    *canvas.Rectangle
+	tapAnim, hoverAnim, stateAnim *fyne.Animation
 
 	//Functions for the dialog
 	OnStateChange     func(int)
@@ -54,6 +72,12 @@ type Dialog struct {
 	OnHover           func()
 	OnEndHover        func()
 	WhileHover        func()
+
+	//Non-JSON-safe variables omit them from the export
+	curText        string
+	animating      bool
+	skipAnim       bool
+	animatedStates []int
 }
 
 type dialogRenderer struct {
@@ -61,9 +85,9 @@ type dialogRenderer struct {
 	dialog  *Dialog
 }
 
-func NewDialog(text []string) *Dialog {
-	dialog := &Dialog{
-		AllText:           text,
+func NewJsonSafeDialog() JsonSafeDialog {
+	return JsonSafeDialog{
+		AllText:           []string{"Lorem Ipsum"},
 		State:             0,
 		MaxState:          0,
 		StateOnTap:        true,
@@ -73,33 +97,50 @@ func NewDialog(text []string) *Dialog {
 		CanSkip:           true,
 		TextDelay:         25,
 		Name:              "",
-		contentStyle:      NFWidget.NewTextStyling(),
-		sizing:            NFWidget.NewSizing(100, 100, 200, 200, true, false),
-		padding:           NFWidget.NewPadding(5, 5, 5, 5),
-		externalPadding:   NFWidget.NewPadding(5, 5, 5, 5),
+		ContentStyle:      NFWidget.NewTextStyling(),
+		Sizing:            NFWidget.NewSizing(100, 100, 200, 200, true, false),
+		Padding:           NFWidget.NewPadding(5, 5, 5, 5),
+		ExternalPadding:   NFWidget.NewPadding(5, 5, 5, 5),
 		StrokeColor:       color.RGBA{A: 255},
 		Fill:              color.RGBA{R: 128, G: 128, B: 128, A: 255},
 		Stroke:            1,
 		HasName:           false,
 		NameAffectsLayout: true,
-		nameStyle:         NFWidget.NewTextStyling(),
-		namePadding:       NFWidget.NewPadding(1, 1, 1, 1),
-		nameSizing:        NFWidget.NewSizing(100, 50, 200, 50, false, false),
+		NameStyle:         NFWidget.NewTextStyling(),
+		NamePadding:       NFWidget.NewPadding(1, 1, 1, 1),
+		NameSizing:        NFWidget.NewSizing(100, 50, 200, 50, false, false),
 		NameStrokeColor:   color.RGBA{A: 255},
 		NameFill:          color.RGBA{B: 255, A: 255},
 		NameStroke:        1,
 		NamePosition:      fyne.NewPos(200, 50),
 	}
+}
 
+func NewDialog(hasName bool, text ...string) *Dialog {
+	dialog := &Dialog{
+		JsonSafeDialog: NewJsonSafeDialog(),
+	}
+	if hasName {
+		dialog.HasName = true
+		if len(text) > 0 {
+			dialog.Name = text[0]
+			dialog.AllText = text[1:]
+		}
+	} else {
+		dialog.AllText = text
+	}
 	dialog.ExtendBaseWidget(dialog)
 	return dialog
 }
 
-func NewDialogWithName(name string, text []string) *Dialog {
-	dialog := NewDialog(text)
-	dialog.SetName(name)
-	dialog.SetHasName(true)
-	return dialog
+// Export exports the widget to a json file in the build/exports folder relative to the parent application,
+// to allow for use in the editor
+func (d *Dialog) Export() error {
+	err := NFWidget.WidgetExport(d.JsonSafeDialog, "Dialog")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Dialog) CreateRenderer() fyne.WidgetRenderer {
@@ -113,12 +154,12 @@ func (d *Dialog) CreateRenderer() fyne.WidgetRenderer {
 	border.StrokeColor = d.StrokeColor
 	border.StrokeWidth = d.Stroke
 	label := widget.NewLabel("")
-	label.TextStyle = d.contentStyle.TextStyle
-	label.Wrapping = d.contentStyle.Wrapping
+	label.TextStyle = d.ContentStyle.TextStyle
+	label.Wrapping = d.ContentStyle.Wrapping
 	scroll := container.NewScroll(label)
 	nameLabel := widget.NewLabel(d.Name)
-	nameLabel.TextStyle = d.nameStyle.TextStyle
-	nameLabel.Wrapping = d.nameStyle.Wrapping
+	nameLabel.TextStyle = d.NameStyle.TextStyle
+	nameLabel.Wrapping = d.NameStyle.Wrapping
 	nameBorder := canvas.NewRectangle(color.Transparent)
 	nameBorder.FillColor = d.NameFill
 	nameBorder.StrokeColor = d.NameStrokeColor
@@ -139,13 +180,13 @@ func (d *Dialog) CreateRenderer() fyne.WidgetRenderer {
 
 func (r *dialogRenderer) MinSize() fyne.Size {
 	d := r.dialog
-	width := d.sizing.MinWidth
-	height := d.sizing.MinHeight
+	width := d.Sizing.MinWidth
+	height := d.Sizing.MinHeight
 
 	if d.HasName && d.NameAffectsLayout {
 		nameSize := d.nameLabel.Size()
 		// Initialize calculatedPadding with user-set externalPadding
-		calculatedPadding := NFWidget.NewPadding(d.externalPadding.Top, d.externalPadding.Bottom, d.externalPadding.Left, d.externalPadding.Right)
+		calculatedPadding := NFWidget.NewPadding(d.ExternalPadding.Top, d.ExternalPadding.Bottom, d.ExternalPadding.Left, d.ExternalPadding.Right)
 
 		// Only add padding to the sides that nameBorder extends over
 		if d.NamePosition.X < 0 {
@@ -175,56 +216,56 @@ func (r *dialogRenderer) Layout(size fyne.Size) {
 	d.debug.Resize(size)
 	d.debug.Move(fyne.NewPos(0, 0))
 
-	dialogSize := fyne.NewSize(min(d.sizing.MaxWidth, size.Width), min(d.sizing.MaxHeight, size.Height))
-	if d.sizing.FitWidth {
+	dialogSize := fyne.NewSize(min(d.Sizing.MaxWidth, size.Width), min(d.Sizing.MaxHeight, size.Height))
+	if d.Sizing.FitWidth {
 		dialogSize.Width = size.Width
 	}
-	if d.sizing.FitHeight {
+	if d.Sizing.FitHeight {
 		dialogSize.Height = size.Height
 	}
 
 	// Adjust the main dialog border size and position
-	borderSize := fyne.NewSize(dialogSize.Width-d.externalPadding.Horizontal(), dialogSize.Height-d.externalPadding.Vertical())
+	borderSize := fyne.NewSize(dialogSize.Width-d.ExternalPadding.Horizontal(), dialogSize.Height-d.ExternalPadding.Vertical())
 	d.border.Resize(borderSize)
-	d.border.Move(fyne.NewPos(d.externalPadding.Left, d.externalPadding.Top))
+	d.border.Move(fyne.NewPos(d.ExternalPadding.Left, d.ExternalPadding.Top))
 
 	// Configure text label
-	d.label.TextStyle = d.contentStyle.TextStyle
-	d.label.Wrapping = d.contentStyle.Wrapping
+	d.label.TextStyle = d.ContentStyle.TextStyle
+	d.label.Wrapping = d.ContentStyle.Wrapping
 	d.border.FillColor = d.Fill
 	d.border.StrokeColor = d.StrokeColor
 	d.border.StrokeWidth = d.Stroke
 
 	// Configure scroll container
-	scrollSize := fyne.NewSize(borderSize.Width-(2*d.Stroke+d.padding.Horizontal()), borderSize.Height-(2*d.Stroke+d.padding.Vertical()))
+	scrollSize := fyne.NewSize(borderSize.Width-(2*d.Stroke+d.Padding.Horizontal()), borderSize.Height-(2*d.Stroke+d.Padding.Vertical()))
 	d.scroll.Resize(scrollSize)
-	d.scroll.Move(fyne.NewPos(d.Stroke+d.padding.Left+d.externalPadding.Left, d.Stroke+d.padding.Top+d.externalPadding.Top))
+	d.scroll.Move(d.Padding.Origin(0, 0, d.Stroke))
 
 	if d.HasName {
 		d.nameBorder.Show()
 		d.nameLabel.Show()
 		// Configure Name label and border
-		d.nameLabel.TextStyle = d.nameStyle.TextStyle
-		d.nameLabel.Wrapping = d.nameStyle.Wrapping
+		d.nameLabel.TextStyle = d.NameStyle.TextStyle
+		d.nameLabel.Wrapping = d.NameStyle.Wrapping
 		d.nameBorder.FillColor = d.NameFill
 		d.nameBorder.StrokeColor = d.NameStrokeColor
 		d.nameBorder.StrokeWidth = d.NameStroke
 
 		nameSize := d.nameLabel.Size()
-		if nameSize.Width > d.nameSizing.MaxWidth {
-			nameSize.Width = d.nameSizing.MaxWidth
-		} else if nameSize.Width < d.nameSizing.MinWidth && d.nameSizing.MinWidth < d.nameSizing.MaxWidth {
-			nameSize.Width = d.nameSizing.MinWidth
+		if nameSize.Width > d.NameSizing.MaxWidth {
+			nameSize.Width = d.NameSizing.MaxWidth
+		} else if nameSize.Width < d.NameSizing.MinWidth && d.NameSizing.MinWidth < d.NameSizing.MaxWidth {
+			nameSize.Width = d.NameSizing.MinWidth
 		}
 
-		if nameSize.Height > d.nameSizing.MaxHeight {
-			nameSize.Height = d.nameSizing.MaxHeight
-		} else if nameSize.Height < d.nameSizing.MinHeight && d.nameSizing.MinHeight < d.nameSizing.MaxHeight {
-			nameSize.Height = d.nameSizing.MinHeight
+		if nameSize.Height > d.NameSizing.MaxHeight {
+			nameSize.Height = d.NameSizing.MaxHeight
+		} else if nameSize.Height < d.NameSizing.MinHeight && d.NameSizing.MinHeight < d.NameSizing.MaxHeight {
+			nameSize.Height = d.NameSizing.MinHeight
 		}
 
 		d.nameLabel.Resize(nameSize)
-		d.nameBorder.Resize(fyne.NewSize(nameSize.Width+d.namePadding.Left+d.namePadding.Right, nameSize.Height+d.namePadding.Top+d.namePadding.Bottom))
+		d.nameBorder.Resize(fyne.NewSize(nameSize.Width+d.NamePadding.Left+d.NamePadding.Right, nameSize.Height+d.NamePadding.Top+d.NamePadding.Bottom))
 
 		if d.NameAffectsLayout {
 			//Shift struct containing the amount to shift each axis
@@ -232,14 +273,14 @@ func (r *dialogRenderer) Layout(size fyne.Size) {
 			newNamePosition := fyne.NewPos(d.NamePosition.X, d.NamePosition.Y)
 			if d.NamePosition.X < 0 {
 				shift.X = -d.NamePosition.X
-				newNamePosition.X = 0 + d.externalPadding.Left
+				newNamePosition.X = 0 + d.ExternalPadding.Left
 			}
 			if d.NamePosition.Y < 0 {
 				shift.Y = -d.NamePosition.Y
-				newNamePosition.Y = 0 + d.externalPadding.Top
+				newNamePosition.Y = 0 + d.ExternalPadding.Top
 			}
 			d.nameBorder.Move(newNamePosition)
-			d.nameLabel.Move(fyne.NewPos(newNamePosition.X+d.namePadding.Left, newNamePosition.Y+d.namePadding.Top))
+			d.nameLabel.Move(fyne.NewPos(newNamePosition.X+d.NamePadding.Left, newNamePosition.Y+d.NamePadding.Top))
 
 			//Resize the main dialog border and scrollbox to account for the shifted nameBorder
 			d.border.Resize(fyne.NewSize(d.border.Size().Width-shift.X, d.border.Size().Height-shift.Y))
@@ -249,8 +290,8 @@ func (r *dialogRenderer) Layout(size fyne.Size) {
 			d.scroll.Move(d.scroll.Position().Add(shift))
 
 		} else {
-			d.nameBorder.Move(fyne.NewPos(d.NamePosition.X+d.externalPadding.Left, d.NamePosition.Y+d.externalPadding.Top))
-			d.nameLabel.Move(fyne.NewPos(d.NamePosition.X+d.namePadding.Left+d.externalPadding.Left, d.NamePosition.Y+d.namePadding.Top+d.externalPadding.Top))
+			d.nameBorder.Move(fyne.NewPos(d.NamePosition.X+d.ExternalPadding.Left, d.NamePosition.Y+d.ExternalPadding.Top))
+			d.nameLabel.Move(fyne.NewPos(d.NamePosition.X+d.NamePadding.Left+d.ExternalPadding.Left, d.NamePosition.Y+d.NamePadding.Top+d.ExternalPadding.Top))
 		}
 	} else {
 		d.nameBorder.Hide()
@@ -271,8 +312,8 @@ func (r *dialogRenderer) Refresh() {
 			d.State = 0
 		}
 	}
-	d.label.TextStyle = d.contentStyle.TextStyle
-	d.label.Wrapping = d.contentStyle.Wrapping
+	d.label.TextStyle = d.ContentStyle.TextStyle
+	d.label.Wrapping = d.ContentStyle.Wrapping
 	d.label.Refresh()
 	d.UpdateText()
 	d.border.FillColor = d.Fill
@@ -280,8 +321,8 @@ func (r *dialogRenderer) Refresh() {
 	d.border.StrokeWidth = d.Stroke
 	d.border.Refresh()
 	if d.HasName {
-		d.nameLabel.TextStyle = d.nameStyle.TextStyle
-		d.nameLabel.Wrapping = d.nameStyle.Wrapping
+		d.nameLabel.TextStyle = d.NameStyle.TextStyle
+		d.nameLabel.Wrapping = d.NameStyle.Wrapping
 		d.nameBorder.FillColor = d.NameFill
 		d.nameBorder.StrokeColor = d.NameStrokeColor
 		d.nameBorder.StrokeWidth = d.NameStroke
@@ -436,34 +477,6 @@ func (d *Dialog) MouseOut() {
 }
 
 //Getters and Setters
-
-func (d *Dialog) Padding() *NFWidget.Padding {
-	return d.padding
-}
-
-func (d *Dialog) NamePadding() *NFWidget.Padding {
-	return d.namePadding
-}
-
-func (d *Dialog) ExternalPadding() *NFWidget.Padding {
-	return d.externalPadding
-}
-
-func (d *Dialog) ContentStyle() *NFWidget.TextStyling {
-	return d.contentStyle
-}
-
-func (d *Dialog) NameStyle() *NFWidget.TextStyling {
-	return d.nameStyle
-}
-
-func (d *Dialog) Sizing() *NFWidget.Sizing {
-	return d.sizing
-}
-
-func (d *Dialog) NameSizing() *NFWidget.Sizing {
-	return d.nameSizing
-}
 
 func (d *Dialog) SetStateOnTap(stateOnTap bool) {
 	d.StateOnTap = stateOnTap

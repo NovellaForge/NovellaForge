@@ -3,6 +3,7 @@ package NFLayout
 import (
 	"errors"
 	"fyne.io/fyne/v2"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLayout/DefaultLayouts"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 )
 
@@ -16,11 +17,11 @@ type Layout struct {
 }
 
 var defaultLayouts = map[string]layoutHandler{
-	"VBox":   VBoxLayoutHandler,
-	"HBox":   HBoxLayoutHandler,
-	"Grid":   GridLayoutHandler,
-	"Tab":    TabLayoutHandler,
-	"Border": BorderLayoutHandler,
+	"VBox":   DefaultLayouts.VBoxLayoutHandler,
+	"HBox":   DefaultLayouts.HBoxLayoutHandler,
+	"Grid":   DefaultLayouts.GridLayoutHandler,
+	"Tab":    DefaultLayouts.TabLayoutHandler,
+	"Border": DefaultLayouts.BorderLayoutHandler,
 }
 
 var customLayouts = map[string]layoutHandler{}

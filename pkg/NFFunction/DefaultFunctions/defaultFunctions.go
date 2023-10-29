@@ -1,4 +1,4 @@
-package NFFunction
+package DefaultFunctions
 
 import (
 	"errors"

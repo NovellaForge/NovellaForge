@@ -2,7 +2,7 @@ package NFError
 
 import "errors"
 
-// All the NFerror types defined here are custom to NovellaForge.
+// All the NFError types defined here are custom to NovellaForge.
 var (
 	//ErrMissingArgument is returned when a required argument is missing.
 	ErrMissingArgument = errors.New("missing argument")

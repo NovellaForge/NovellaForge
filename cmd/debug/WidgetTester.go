@@ -19,7 +19,7 @@ var multiImage *CalsWidgets.MultiImage
 func main() {
 	a := app.NewWithID("com.callial.novellaforge.testing")
 	w := a.NewWindow("WidgetTesting")
-	dialogBox = CalsWidgets.NewDialog([]string{})
+	dialogBox = CalsWidgets.NewDialog(false, "This is a test message")
 	multiImage = CalsWidgets.NewMultiImage([]*canvas.Image{})
 
 	//Listen for f5 to refresh the preview
@@ -64,27 +64,27 @@ func RefreshPreview(w fyne.Window) {
 
 	//Content Text Styling
 	labelBold := widget.NewCheck("Content Bold", func(b bool) {
-		dialogBox.ContentStyle().SetBold(b, dialogBox)
+		dialogBox.ContentStyle.SetBold(b, dialogBox)
 	})
-	labelBold.SetChecked(dialogBox.ContentStyle().Bold)
+	labelBold.SetChecked(dialogBox.ContentStyle.Bold)
 	labelItalic := widget.NewCheck("Content Italic", func(b bool) {
-		dialogBox.ContentStyle().SetItalic(b, dialogBox)
+		dialogBox.ContentStyle.SetItalic(b, dialogBox)
 	})
-	labelItalic.SetChecked(dialogBox.ContentStyle().Italic)
+	labelItalic.SetChecked(dialogBox.ContentStyle.Italic)
 	labelMonoSpace := widget.NewCheck("Content MonoSpace", func(b bool) {
-		dialogBox.ContentStyle().SetMonospace(b, dialogBox)
+		dialogBox.ContentStyle.SetMonospace(b, dialogBox)
 	})
-	labelMonoSpace.SetChecked(dialogBox.ContentStyle().Monospace)
+	labelMonoSpace.SetChecked(dialogBox.ContentStyle.Monospace)
 	labelSymbol := widget.NewCheck("ContentSymbol", func(b bool) {
-		dialogBox.ContentStyle().SetSymbol(b, dialogBox)
+		dialogBox.ContentStyle.SetSymbol(b, dialogBox)
 	})
-	labelSymbol.SetChecked(dialogBox.ContentStyle().Symbol)
+	labelSymbol.SetChecked(dialogBox.ContentStyle.Symbol)
 
 	labelTabWidth := widget.NewEntry()
 	labelTabWidth.SetPlaceHolder("Tab indent amount")
 	labelTabWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.ContentStyle().SetTabWidth(0, dialogBox)
+			dialogBox.ContentStyle.SetTabWidth(0, dialogBox)
 			return
 		}
 		width := 0
@@ -92,9 +92,9 @@ func RefreshPreview(w fyne.Window) {
 		if width, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.ContentStyle().SetTabWidth(width, dialogBox)
+		dialogBox.ContentStyle.SetTabWidth(width, dialogBox)
 	}
-	labelTabWidth.SetText(strconv.Itoa(dialogBox.ContentStyle().TabWidth))
+	labelTabWidth.SetText(strconv.Itoa(dialogBox.ContentStyle.TabWidth))
 	labelTabWidth.Validator = NumberValidator
 
 	nameEntry := widget.NewEntry()
@@ -113,27 +113,27 @@ func RefreshPreview(w fyne.Window) {
 	//Name Text Styling
 
 	nameBold := widget.NewCheck("Name Bold", func(b bool) {
-		dialogBox.NameStyle().SetBold(b, dialogBox)
+		dialogBox.NameStyle.SetBold(b, dialogBox)
 	})
-	nameBold.SetChecked(dialogBox.NameStyle().Bold)
+	nameBold.SetChecked(dialogBox.NameStyle.Bold)
 	nameItalic := widget.NewCheck("Name Italic", func(b bool) {
-		dialogBox.NameStyle().SetItalic(b, dialogBox)
+		dialogBox.NameStyle.SetItalic(b, dialogBox)
 	})
-	nameItalic.SetChecked(dialogBox.NameStyle().Italic)
+	nameItalic.SetChecked(dialogBox.NameStyle.Italic)
 	nameMonoSpace := widget.NewCheck("Name Monospace", func(b bool) {
-		dialogBox.NameStyle().SetMonospace(b, dialogBox)
+		dialogBox.NameStyle.SetMonospace(b, dialogBox)
 	})
-	nameMonoSpace.SetChecked(dialogBox.NameStyle().Monospace)
+	nameMonoSpace.SetChecked(dialogBox.NameStyle.Monospace)
 	nameSymbol := widget.NewCheck("Name Symbol", func(b bool) {
-		dialogBox.NameStyle().SetSymbol(b, dialogBox)
+		dialogBox.NameStyle.SetSymbol(b, dialogBox)
 	})
-	nameSymbol.SetChecked(dialogBox.NameStyle().Symbol)
+	nameSymbol.SetChecked(dialogBox.NameStyle.Symbol)
 
 	nameTabWidth := widget.NewEntry()
 	nameTabWidth.SetPlaceHolder("Tab indent amount")
 	nameTabWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NameStyle().SetTabWidth(0, dialogBox)
+			dialogBox.NameStyle.SetTabWidth(0, dialogBox)
 			return
 		}
 		if nameTabWidth.Validate() != nil {
@@ -144,7 +144,7 @@ func RefreshPreview(w fyne.Window) {
 			nameTabWidth.SetValidationError(errors.New("tab width must be an int"))
 			return
 		}
-		dialogBox.NameStyle().SetTabWidth(int(width), dialogBox)
+		dialogBox.NameStyle.SetTabWidth(int(width), dialogBox)
 	}
 
 	namePositionX := widget.NewEntry()
@@ -193,7 +193,7 @@ func RefreshPreview(w fyne.Window) {
 	sizingMinWidth.SetPlaceHolder("Min Width")
 	sizingMinWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Sizing().SetMinWidth(0, dialogBox)
+			dialogBox.Sizing.SetMinWidth(0, dialogBox)
 			return
 		}
 		if sizingMinWidth.Validate() != nil {
@@ -203,13 +203,13 @@ func RefreshPreview(w fyne.Window) {
 		if err != nil {
 			return
 		}
-		dialogBox.Sizing().SetMinWidth(float32(float), dialogBox)
+		dialogBox.Sizing.SetMinWidth(float32(float), dialogBox)
 	}
 	sizingMinHeight := widget.NewEntry()
 	sizingMinHeight.SetPlaceHolder("Min Height")
 	sizingMinHeight.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Sizing().SetMinHeight(0, dialogBox)
+			dialogBox.Sizing.SetMinHeight(0, dialogBox)
 			return
 		}
 		if sizingMinHeight.Validate() != nil {
@@ -219,13 +219,13 @@ func RefreshPreview(w fyne.Window) {
 		if err != nil {
 			return
 		}
-		dialogBox.Sizing().SetMinHeight(float32(float), dialogBox)
+		dialogBox.Sizing.SetMinHeight(float32(float), dialogBox)
 	}
 	sizingMaxWidth := widget.NewEntry()
 	sizingMaxWidth.SetPlaceHolder("Max Width")
 	sizingMaxWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Sizing().SetMaxWidth(0, dialogBox)
+			dialogBox.Sizing.SetMaxWidth(0, dialogBox)
 			return
 		}
 		if sizingMaxWidth.Validate() != nil {
@@ -235,13 +235,13 @@ func RefreshPreview(w fyne.Window) {
 		if err != nil {
 			return
 		}
-		dialogBox.Sizing().SetMaxWidth(float32(float), dialogBox)
+		dialogBox.Sizing.SetMaxWidth(float32(float), dialogBox)
 	}
 	sizingMaxHeight := widget.NewEntry()
 	sizingMaxHeight.SetPlaceHolder("Max Height")
 	sizingMaxHeight.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Sizing().SetMaxHeight(0, dialogBox)
+			dialogBox.Sizing.SetMaxHeight(0, dialogBox)
 			return
 		}
 		if sizingMaxHeight.Validate() != nil {
@@ -251,16 +251,16 @@ func RefreshPreview(w fyne.Window) {
 		if err != nil {
 			return
 		}
-		dialogBox.Sizing().SetMaxHeight(float32(float), dialogBox)
+		dialogBox.Sizing.SetMaxHeight(float32(float), dialogBox)
 	}
 	sizingFitWidth := widget.NewCheck("Fit Width", func(b bool) {
-		dialogBox.Sizing().SetFitWidth(b, dialogBox)
+		dialogBox.Sizing.SetFitWidth(b, dialogBox)
 	})
-	sizingFitWidth.SetChecked(dialogBox.Sizing().FitWidth)
+	sizingFitWidth.SetChecked(dialogBox.Sizing.FitWidth)
 	sizingFitHeight := widget.NewCheck("Fit Height", func(b bool) {
-		dialogBox.Sizing().SetFitHeight(b, dialogBox)
+		dialogBox.Sizing.SetFitHeight(b, dialogBox)
 	})
-	sizingFitHeight.SetChecked(dialogBox.Sizing().FitHeight)
+	sizingFitHeight.SetChecked(dialogBox.Sizing.FitHeight)
 
 	sizingMinWidth.Validator = NumberValidator
 	sizingMinHeight.Validator = NumberValidator
@@ -272,7 +272,7 @@ func RefreshPreview(w fyne.Window) {
 	nameSizingMaxWidth.SetPlaceHolder("Max Width")
 	nameSizingMaxWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NameSizing().SetMaxWidth(0, dialogBox)
+			dialogBox.NameSizing.SetMaxWidth(0, dialogBox)
 			return
 		}
 		width := 0
@@ -280,13 +280,13 @@ func RefreshPreview(w fyne.Window) {
 		if width, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NameSizing().SetMaxWidth(float32(width), dialogBox)
+		dialogBox.NameSizing.SetMaxWidth(float32(width), dialogBox)
 	}
 	nameSizingMaxHeight := widget.NewEntry()
 	nameSizingMaxHeight.SetPlaceHolder("Max Height")
 	nameSizingMaxHeight.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NameSizing().SetMaxHeight(0, dialogBox)
+			dialogBox.NameSizing.SetMaxHeight(0, dialogBox)
 			return
 		}
 		height := 0
@@ -294,13 +294,13 @@ func RefreshPreview(w fyne.Window) {
 		if height, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NameSizing().SetMaxHeight(float32(height), dialogBox)
+		dialogBox.NameSizing.SetMaxHeight(float32(height), dialogBox)
 	}
 	nameSizingMinWidth := widget.NewEntry()
 	nameSizingMinWidth.SetPlaceHolder("Min Width")
 	nameSizingMinWidth.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NameSizing().SetMinWidth(0, dialogBox)
+			dialogBox.NameSizing.SetMinWidth(0, dialogBox)
 			return
 		}
 		width := 0
@@ -308,13 +308,13 @@ func RefreshPreview(w fyne.Window) {
 		if width, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NameSizing().SetMinWidth(float32(width), dialogBox)
+		dialogBox.NameSizing.SetMinWidth(float32(width), dialogBox)
 	}
 	nameSizingMinHeight := widget.NewEntry()
 	nameSizingMinHeight.SetPlaceHolder("Min Height")
 	nameSizingMinHeight.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NameSizing().SetMinHeight(0, dialogBox)
+			dialogBox.NameSizing.SetMinHeight(0, dialogBox)
 			return
 		}
 		height := 0
@@ -322,7 +322,7 @@ func RefreshPreview(w fyne.Window) {
 		if height, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NameSizing().SetMinHeight(float32(height), dialogBox)
+		dialogBox.NameSizing.SetMinHeight(float32(height), dialogBox)
 	}
 	nameSizingMaxWidth.Validator = NumberValidator
 	nameSizingMaxHeight.Validator = NumberValidator
@@ -334,7 +334,7 @@ func RefreshPreview(w fyne.Window) {
 	paddingTop.SetPlaceHolder("Top Padding")
 	paddingTop.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Padding().SetTop(0, dialogBox)
+			dialogBox.Padding.SetTop(0, dialogBox)
 			return
 		}
 		top := 0
@@ -342,13 +342,13 @@ func RefreshPreview(w fyne.Window) {
 		if top, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.Padding().SetTop(float32(top), dialogBox)
+		dialogBox.Padding.SetTop(float32(top), dialogBox)
 	}
 	paddingBottom := widget.NewEntry()
 	paddingBottom.SetPlaceHolder("Bottom Padding")
 	paddingBottom.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Padding().SetBottom(0, dialogBox)
+			dialogBox.Padding.SetBottom(0, dialogBox)
 			return
 		}
 		bottom := 0
@@ -356,13 +356,13 @@ func RefreshPreview(w fyne.Window) {
 		if bottom, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.Padding().SetBottom(float32(bottom), dialogBox)
+		dialogBox.Padding.SetBottom(float32(bottom), dialogBox)
 	}
 	paddingLeft := widget.NewEntry()
 	paddingLeft.SetPlaceHolder("Left Padding")
 	paddingLeft.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.Padding().SetLeft(0, dialogBox)
+			dialogBox.Padding.SetLeft(0, dialogBox)
 			return
 		}
 		left := 0
@@ -370,7 +370,7 @@ func RefreshPreview(w fyne.Window) {
 		if left, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.Padding().SetLeft(float32(left), dialogBox)
+		dialogBox.Padding.SetLeft(float32(left), dialogBox)
 	}
 	paddingRight := widget.NewEntry()
 	paddingRight.SetPlaceHolder("Right Padding")
@@ -386,7 +386,7 @@ func RefreshPreview(w fyne.Window) {
 	namePaddingTop.SetPlaceHolder("Name Top Padding")
 	namePaddingTop.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NamePadding().SetTop(0, dialogBox)
+			dialogBox.NamePadding.SetTop(0, dialogBox)
 			return
 		}
 		top := 0
@@ -394,13 +394,13 @@ func RefreshPreview(w fyne.Window) {
 		if top, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NamePadding().SetTop(float32(top), dialogBox)
+		dialogBox.NamePadding.SetTop(float32(top), dialogBox)
 	}
 	namePaddingBottom := widget.NewEntry()
 	namePaddingBottom.SetPlaceHolder("Name Bottom Padding")
 	namePaddingBottom.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NamePadding().SetBottom(0, dialogBox)
+			dialogBox.NamePadding.SetBottom(0, dialogBox)
 			return
 		}
 		bottom := 0
@@ -408,13 +408,13 @@ func RefreshPreview(w fyne.Window) {
 		if bottom, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NamePadding().SetBottom(float32(bottom), dialogBox)
+		dialogBox.NamePadding.SetBottom(float32(bottom), dialogBox)
 	}
 	namePaddingLeft := widget.NewEntry()
 	namePaddingLeft.SetPlaceHolder("Name Left Padding")
 	namePaddingLeft.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.NamePadding().SetLeft(0, dialogBox)
+			dialogBox.NamePadding.SetLeft(0, dialogBox)
 			return
 		}
 		left := 0
@@ -422,7 +422,7 @@ func RefreshPreview(w fyne.Window) {
 		if left, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.NamePadding().SetLeft(float32(left), dialogBox)
+		dialogBox.NamePadding.SetLeft(float32(left), dialogBox)
 	}
 	namePaddingRight := widget.NewEntry()
 	namePaddingRight.SetPlaceHolder("Name Right Padding")
@@ -437,7 +437,7 @@ func RefreshPreview(w fyne.Window) {
 	externalPaddingTop.SetPlaceHolder("Top")
 	externalPaddingTop.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.ExternalPadding().SetTop(0, dialogBox)
+			dialogBox.ExternalPadding.SetTop(0, dialogBox)
 			return
 		}
 		top := 0
@@ -445,13 +445,13 @@ func RefreshPreview(w fyne.Window) {
 		if top, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.ExternalPadding().SetTop(float32(top), dialogBox)
+		dialogBox.ExternalPadding.SetTop(float32(top), dialogBox)
 	}
 	externalPaddingBottom := widget.NewEntry()
 	externalPaddingBottom.SetPlaceHolder("Bottom")
 	externalPaddingBottom.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.ExternalPadding().SetBottom(0, dialogBox)
+			dialogBox.ExternalPadding.SetBottom(0, dialogBox)
 			return
 		}
 		bottom := 0
@@ -459,13 +459,13 @@ func RefreshPreview(w fyne.Window) {
 		if bottom, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.ExternalPadding().SetBottom(float32(bottom), dialogBox)
+		dialogBox.ExternalPadding.SetBottom(float32(bottom), dialogBox)
 	}
 	externalPaddingLeft := widget.NewEntry()
 	externalPaddingLeft.SetPlaceHolder("Left")
 	externalPaddingLeft.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.ExternalPadding().SetLeft(0, dialogBox)
+			dialogBox.ExternalPadding.SetLeft(0, dialogBox)
 			return
 		}
 		left := 0
@@ -473,13 +473,13 @@ func RefreshPreview(w fyne.Window) {
 		if left, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.ExternalPadding().SetLeft(float32(left), dialogBox)
+		dialogBox.ExternalPadding.SetLeft(float32(left), dialogBox)
 	}
 	externalPaddingRight := widget.NewEntry()
 	externalPaddingRight.SetPlaceHolder("Right")
 	externalPaddingRight.OnChanged = func(s string) {
 		if s == "" {
-			dialogBox.ExternalPadding().SetRight(0, dialogBox)
+			dialogBox.ExternalPadding.SetRight(0, dialogBox)
 			return
 		}
 		right := 0
@@ -487,7 +487,7 @@ func RefreshPreview(w fyne.Window) {
 		if right, err = strconv.Atoi(s); err != nil {
 			return
 		}
-		dialogBox.ExternalPadding().SetRight(float32(right), dialogBox)
+		dialogBox.ExternalPadding.SetRight(float32(right), dialogBox)
 	}
 
 	externalPaddingTop.Validator = NumberValidator

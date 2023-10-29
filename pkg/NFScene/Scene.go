@@ -67,9 +67,13 @@ func GetAll() map[string]Scene {
 	return scenes
 }
 
-// Parse parses a scene and returns a fyne.CanvasObject that can be added to the window
-func (scene *Scene) Parse(window fyne.Window) (fyne.CanvasObject, error) {
-	//TODO Add an overlay option that allows certain overlay layouts to be parsed on top of the scene
+// Parse parses a scene and returns a fyne.CanvasObject that can be added to the window each argument passed should be an overlay, with the first being the bottom most overlay
+func (scene *Scene) Parse(window fyne.Window, overlay ...fyne.CanvasObject) (fyne.CanvasObject, error) {
+	stack := container.NewStack()
 	layout, err := scene.Layout.Parse(window)
-	return container.NewStack(layout), err
+	stack.Add(layout)
+	for _, o := range overlay {
+		stack.Add(o)
+	}
+	return stack, err
 }

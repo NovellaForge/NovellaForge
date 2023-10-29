@@ -13,8 +13,8 @@ import (
 type MultiImage struct {
 	widget.BaseWidget
 	widget.DisableableWidget
-	sizing     *NFWidget.Sizing
-	padding    *NFWidget.Padding
+	sizing     NFWidget.Sizing
+	padding    NFWidget.Padding
 	images     []*canvas.Image
 	stack      *fyne.Container
 	background color.Color
