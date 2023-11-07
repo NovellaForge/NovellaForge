@@ -1,4 +1,4 @@
-package DefaultFunctions
+package Default
 
 import (
 	"errors"
@@ -7,14 +7,70 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFSave"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-func Quit(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+// Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,
+// while still running the init function without disabling the unused import warning
+// You can also import a functions package for side effects by changing its alias to _ but this way allows you to still use the package
+func Import() {
+	log.Println("Importing Default Functions(if you see this more than once it is fine)")
+}
+
+func init() {
+	Import()
+	//Register the default functions
+	QuitFunction := NFFunction.Function{
+		Name:         "Quit",
+		Type:         "Quit",
+		RequiredArgs: nil,
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(QuitFunction, Quit)
+	ErrorFunction := NFFunction.Function{
+		Name:         "Error",
+		Type:         "Error",
+		RequiredArgs: map[string]interface{}{"message": ""},
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(ErrorFunction, CustomError)
+	NewGameFunction := NFFunction.Function{
+		Name:         "New Game",
+		Type:         "NewGame",
+		RequiredArgs: map[string]interface{}{"NewGameScene": ""},
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(NewGameFunction, NewGame)
+	SaveAsFunction := NFFunction.Function{
+		Name:         "Save As",
+		Type:         "SaveAs",
+		RequiredArgs: nil,
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(SaveAsFunction, SaveAs)
+	LoadGameFunction := NFFunction.Function{
+		Name:         "Load Game",
+		Type:         "LoadGame",
+		RequiredArgs: nil,
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(LoadGameFunction, LoadGame)
+	ContinueGameFunction := NFFunction.Function{
+		Name:         "Continue Game",
+		Type:         "ContinueGame",
+		RequiredArgs: nil,
+		OptionalArgs: nil,
+	}
+	NFFunction.Register(ContinueGameFunction, ContinueGame)
+}
+
+func Quit(window fyne.Window, _ map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
 	dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 		if b {
 			window.Close()

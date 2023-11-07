@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
 	"os"
 )
@@ -114,7 +115,7 @@ func CreateMainMenu(window fyne.Window) {
 				//TODO: Open a preview of the game
 			}),
 			fyne.NewMenuItem("Terminal", func() {
-				//TODO: Open a terminal window
+				NFLog.ShowDialog(window)
 			}),
 		),
 		fyne.NewMenu("Help",
@@ -311,9 +312,4 @@ func NewProjectDialog(window fyne.Window) {
 	}
 	projectDialog.Resize(fyne.NewSize(400, 300))
 	projectDialog.Show()
-}
-
-func CreateTerminalWindow(window fyne.Window) {
-	//Throw a not implemented error dialog
-	dialog.ShowError(NFError.ErrNotImplemented, window)
 }

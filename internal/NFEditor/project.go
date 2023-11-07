@@ -164,7 +164,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	neededDirectories := []string{
-		"cmd",
+		"cmd/" + project.GameName,
 		"data/assets/image",
 		"data/assets/audio",
 		"data/assets/video",
@@ -184,7 +184,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//Create a default game.go file with an empty main function for now
-	err = os.WriteFile(projectDir+"/cmd"+project.GameName+"/"+project.GameName+".go", []byte(
+	err = os.WriteFile(projectDir+"/cmd/"+project.GameName+"/"+project.GameName+".go", []byte(
 		`package main`+"\n"+
 			`import . "`+project.GameName+`/internal/config"`+"\n"+
 			MainGameTemplate), 0666)

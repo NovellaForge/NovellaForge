@@ -36,14 +36,14 @@ func (c writer) Write(p []byte) (n int, err error) {
 func CreateLogDialog(window fyne.Window) {
 	//Create the log text
 	label := widget.NewLabel("Click on a log entry to copy it to the clipboard")
-	table = widget.NewTableWithHeaders(
+	table = widget.NewList(
 		//Length of the table
 		func() (int, int) {
 			return len(entries), 6
 		},
 		//Populate the table
 		func() fyne.CanvasObject {
-			return widget.NewLabel("Template Text")
+			return widget.NewLabel("")
 		},
 		//Set the text of the table
 		func(i widget.TableCellID, o fyne.CanvasObject) {
@@ -69,7 +69,7 @@ func CreateLogDialog(window fyne.Window) {
 		//Copy the string to the clipboard
 		window.Clipboard().SetContent(str)
 	}
-	vbox := container.NewVBox(label, table)
+	vbox := container.NewVBox(label, container.NewPadded(table))
 
 	LogDialog = dialog.NewCustom("Log", "Close", vbox, window)
 	//Resize the log to be the size of the window - 50 pixels but clamped at 500 pixels square
@@ -95,6 +95,10 @@ func GetDirectory() string {
 
 // SetDirectory sets the directory that the log files are stored in and creates it if it doesn't exist
 func SetDirectory(dir string) {
+	//Make sure it ends in a slash and only one slash
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
 	//Check if the directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		//Create the directory
@@ -106,11 +110,11 @@ func SetDirectory(dir string) {
 	Directory = dir
 }
 
-func SetUp() error {
-	//Make all directories to the log file
-	err := os.MkdirAll(Directory, os.ModePerm)
-	if err != nil {
-		return err
+func SetUp(dir ...string) error {
+	if len(dir) > 0 {
+		SetDirectory(dir[0])
+	} else {
+		SetDirectory("logs/")
 	}
 
 	//Check if a log.txt file already exists
@@ -125,7 +129,7 @@ func SetUp() error {
 
 	//Copy the new log file to one named with its creation date
 	if fileInfo != nil {
-		err = os.Rename(Directory+"log.txt", Directory+fileInfo.ModTime().Format("2006-01-02 15:04:05")+".txt")
+		err = os.Rename(Directory+"log.txt", Directory+fileInfo.ModTime().Format("2006-01-02-1504")+".txt")
 		if err != nil {
 			panic(err)
 		}
@@ -151,7 +155,9 @@ func SetUp() error {
 		for logEntry := range logChannel {
 			e := parseLogEntry(logEntry)
 			entries = append(entries, e)
-			table.Refresh()
+			if table != nil {
+				table.Refresh()
+			}
 		}
 	}()
 

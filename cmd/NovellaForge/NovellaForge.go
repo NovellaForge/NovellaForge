@@ -8,7 +8,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/internal/NFEditor"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
+	"os"
 	"time"
 )
 
@@ -87,24 +89,33 @@ var WindowTitle = "Novella Forge" + " " + Version
 
 // main is the entry point for the application
 func main() {
-	application := app.NewWithID("com.novellaforge.editor")
-	window := application.NewWindow(WindowTitle)
-	window.Resize(fyne.NewSize(1280, 720))
+	a := app.NewWithID("com.novellaforge.editor")
+	w := a.NewWindow(WindowTitle)
+	w.Resize(fyne.NewSize(1280, 720))
+
+	userHome, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = NFLog.SetUp(a.Preferences().StringWithFallback("logDir", userHome+"/NovellaForge/Logs"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	//Convert the PNG icon to a fyne resource
 	iconResource, err := fyne.LoadResourceFromPath(Icon)
 	if err != nil {
 		log.Printf("Failed to load icon: %v", err)
-		application.SetIcon(theme.FileApplicationIcon())
+		a.SetIcon(theme.FileApplicationIcon())
 	} else {
-		application.SetIcon(iconResource)
-		window.SetIcon(application.Icon())
+		a.SetIcon(iconResource)
+		w.SetIcon(a.Icon())
 	}
 
-	NFEditor.CreateMainContent(window)
+	NFEditor.CreateMainContent(w)
 
-	go SplashScreenLoop(window)
-	application.Run()
+	go SplashScreenLoop(w)
+	a.Run()
 }
 
 func SplashScreenLoop(window fyne.Window) {

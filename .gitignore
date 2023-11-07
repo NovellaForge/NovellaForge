@@ -29,7 +29,7 @@ configs/
 go.work
 
 # Build File
-/build/
+/export/
 /defaults/
 /assets/debug/
 

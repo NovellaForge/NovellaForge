@@ -1,11 +1,24 @@
-package DefaultLayouts
+package Default
 
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"log"
 )
+
+// Import is a function that is used to allow importing of the default layouts package without errors or warnings
+func Import() { log.Println("Importing Default Layouts") }
+
+func init() {
+	NFLayout.Register("VBox", VBoxLayoutHandler)
+	NFLayout.Register("HBox", HBoxLayoutHandler)
+	NFLayout.Register("Grid", GridLayoutHandler)
+	NFLayout.Register("Tabs", TabLayoutHandler)
+	NFLayout.Register("Border", BorderLayoutHandler)
+}
 
 func VBoxLayoutHandler(window fyne.Window, args map[string]interface{}, children []NFWidget.Widget) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()

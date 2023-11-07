@@ -133,7 +133,7 @@ func NewDialog(hasName bool, text ...string) *Dialog {
 	return dialog
 }
 
-// Export exports the widget to a json file in the build/exports folder relative to the parent application,
+// Export exports the widget to a json file in the export folder relative to the parent application,
 // to allow for use in the editor
 func (d *Dialog) Export() error {
 	err := NFWidget.WidgetExport(d.JsonSafeDialog, "Dialog")

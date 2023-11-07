@@ -1,10 +1,13 @@
 package CalsWidgets
 
-import "github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+import (
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"log"
+)
 
-// You can import this package to register all the widgets stored in this package,
-// if your ide tells you it is unused add a _ prefix to the import
+func Import() { log.Println("Importing Cals Widgets") }
+
 func init() {
+	Import()
 	NFWidget.Register("Dialog", DialogHandler)
-
 }

@@ -19,8 +19,14 @@ type Scene struct {
 	Properties Properties      `json:"Properties"`
 }
 
-// All is a map of string to Scene that contains all scenes in the scenes folder for this to be populated you must call GetAll at least once
+// All is a map of string to Scene that contains all scenes in the scenes folder for this to be repopulated you must call GetAll
 var All = map[string]Scene{}
+
+func init() {
+	GetAll()
+	numScenes := len(All)
+	log.Printf("Loaded %v scenes", numScenes)
+}
 
 // GetAll returns all scenes reloading them from the disk, if you don't want to reload them, just use All
 func GetAll() map[string]Scene {
