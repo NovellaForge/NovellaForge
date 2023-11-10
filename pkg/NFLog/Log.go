@@ -4,16 +4,18 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"io"
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 var Directory = ""
+var LogList *widget.List
 var LogDialog *dialog.CustomDialog
-var table *widget.Table
 
 type entry struct {
 	Date    string
@@ -32,60 +34,17 @@ func (c writer) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// CreateLogDialog creates the log dialog
-func CreateLogDialog(window fyne.Window) {
-	//Create the log text
-	label := widget.NewLabel("Click on a log entry to copy it to the clipboard")
-	table = widget.NewList(
-		//Length of the table
-		func() (int, int) {
-			return len(entries), 6
-		},
-		//Populate the table
-		func() fyne.CanvasObject {
-			return widget.NewLabel("")
-		},
-		//Set the text of the table
-		func(i widget.TableCellID, o fyne.CanvasObject) {
-			switch i.Col {
-			case 0:
-				o.(*widget.Label).SetText(entries[i.Row].Date)
-			case 1:
-				o.(*widget.Label).SetText(entries[i.Row].Time)
-			case 2:
-				o.(*widget.Label).SetText(entries[i.Row].File)
-			case 3:
-				o.(*widget.Label).SetText(entries[i.Row].Line)
-			case 4:
-				o.(*widget.Label).SetText(entries[i.Row].Message)
-			}
-		},
-	)
-	table.OnSelected = func(id widget.TableCellID) {
-		//Get the entry from the row
-		curEntry := entries[id.Row]
-		//Create a string with the date, time, file, line, and message
-		str := curEntry.Date + " " + curEntry.Time + " " + curEntry.File + " " + curEntry.Line + " " + curEntry.Message
-		//Copy the string to the clipboard
-		window.Clipboard().SetContent(str)
-	}
-	vbox := container.NewVBox(label, container.NewPadded(table))
-
-	LogDialog = dialog.NewCustom("Log", "Close", vbox, window)
-	//Resize the log to be the size of the window - 50 pixels but clamped at 500 pixels square
-	width := max(window.Canvas().Size().Width-50, 500)
-	height := max(window.Canvas().Size().Height-50, 500)
-	LogDialog.Resize(fyne.NewSize(width, height))
-}
-
 // ShowDialog shows the log dialog
 func ShowDialog(window fyne.Window) {
 	//If the log dialog is nil, create it
 	if LogDialog == nil {
-		CreateLogDialog(window)
+		err := SetUp(window)
+		if err != nil {
+			return
+		}
 	}
-	//Show the log dialog
 	LogDialog.Show()
+
 }
 
 // GetDirectory returns the directory that the log files are stored in
@@ -110,7 +69,7 @@ func SetDirectory(dir string) {
 	Directory = dir
 }
 
-func SetUp(dir ...string) error {
+func SetUp(window fyne.Window, dir ...string) error {
 	if len(dir) > 0 {
 		SetDirectory(dir[0])
 	} else {
@@ -150,13 +109,58 @@ func SetUp(dir ...string) error {
 
 	log.SetOutput(multi)
 
-	// Inside SetUp or another function
+	LogList = widget.NewList(
+		func() int {
+			return len(entries)
+		},
+		func() fyne.CanvasObject {
+			return container.NewHBox(
+				widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {}),
+				widget.NewLabel("Template List Item"),
+			)
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			//create a message with everything but the date and time
+			message := entries[i].File + ":" + entries[i].Line + " | " + entries[i].Message
+			dateTime := entries[i].Date + "-" + entries[i].Time
+			//Set the button to copy the message to the clipboard
+			o.(*fyne.Container).Objects[0].(*widget.Button).OnTapped = func() {
+				window.Clipboard().SetContent(dateTime + " | " + entries[i].File + ":" + entries[i].Line + " | " + entries[i].Message)
+			}
+			//Set the label to the message
+			o.(*fyne.Container).Objects[1].(*widget.Label).SetText(message)
+			//Set the button text to the date and time
+			o.(*fyne.Container).Objects[0].(*widget.Button).SetText(dateTime)
+		},
+	)
+
+	LogDialog = dialog.NewCustom("Log", "Close", LogList, window)
+
+	//Listen for a screen size change
+	window.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
+		if key.Name == fyne.KeyEscape {
+			LogDialog.Hide()
+		}
+	})
+
+	go func() {
+		for {
+			if LogDialog != nil {
+				//Get the size of the screen
+				size := window.Canvas().Size()
+				//Set the size of the dialog to 80% of the screen
+				LogDialog.Resize(fyne.NewSize(size.Width*0.8, size.Height*0.8))
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
 	go func() {
 		for logEntry := range logChannel {
 			e := parseLogEntry(logEntry)
 			entries = append(entries, e)
-			if table != nil {
-				table.Refresh()
+			if LogDialog != nil {
+				LogDialog.Refresh()
 			}
 		}
 	}()
@@ -177,7 +181,7 @@ func parseLogEntry(logEntry string) entry {
 
 	// Further split the "file:line" into file and line
 	fileAndLine := strings.Split(parts[2], ":")
-	if len(fileAndLine) == 2 {
+	if len(fileAndLine) >= 2 {
 		e.File = fileAndLine[0]
 		e.Line = fileAndLine[1]
 	} else {

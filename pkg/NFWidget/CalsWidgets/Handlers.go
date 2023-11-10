@@ -4,15 +4,15 @@ import "fyne.io/fyne/v2"
 
 // DialogHandler creates a dialog with the given settings
 func DialogHandler(window fyne.Window, args ...interface{}) (fyne.CanvasObject, error) {
-	fullDialog := NewDialog(false)
-	var dialog JsonSafeDialog
+	fullDialog := NewNarrativeBox(false)
+	var dialog SafeNarrativeBox
 	for _, value := range args {
 		switch value.(type) {
-		case JsonSafeDialog:
-			dialog = value.(JsonSafeDialog)
+		case SafeNarrativeBox:
+			dialog = value.(SafeNarrativeBox)
 		}
 	}
-	fullDialog.JsonSafeDialog = dialog
+	fullDialog.SafeNarrativeBox = dialog
 	fullDialog.Refresh()
 
 	return fullDialog, nil

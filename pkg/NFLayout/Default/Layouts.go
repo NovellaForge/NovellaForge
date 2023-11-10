@@ -9,10 +9,12 @@ import (
 	"log"
 )
 
-// Import is a function that is used to allow importing of the default layouts package without errors or warnings
-func Import() { log.Println("Importing Default Layouts") }
+// Import is a function used to allow importing of the default layouts package without errors or warnings
+func Import() {}
 
 func init() {
+	Import()
+	log.Println("Registering Default Layouts")
 	NFLayout.Register("VBox", VBoxLayoutHandler)
 	NFLayout.Register("HBox", HBoxLayoutHandler)
 	NFLayout.Register("Grid", GridLayoutHandler)

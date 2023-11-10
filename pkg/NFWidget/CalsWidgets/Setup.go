@@ -9,5 +9,5 @@ func Import() { log.Println("Importing Cals Widgets") }
 
 func init() {
 	Import()
-	NFWidget.Register("Dialog", DialogHandler)
+	NFWidget.Register("NarrativeBox", DialogHandler)
 }

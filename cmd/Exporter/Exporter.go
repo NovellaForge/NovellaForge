@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	dialog := CalsWidgets.NewDialog(false, "Lorem Ipsum", "Dolor sit amet")
+	dialog := CalsWidgets.NewNarrativeBox(false, "Lorem Ipsum", "Dolor sit amet")
 	err := dialog.Export()
 	if err != nil {
 		panic(err)

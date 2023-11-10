@@ -17,14 +17,13 @@ import (
 )
 
 // Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,
-// while still running the init function without disabling the unused import warning
+// while still running the init function without disabling the unused import warning,
 // You can also import a functions package for side effects by changing its alias to _ but this way allows you to still use the package
-func Import() {
-	log.Println("Importing Default Functions(if you see this more than once it is fine)")
-}
+func Import() {}
 
 func init() {
 	Import()
+	log.Println("Registering Default Functions")
 	//Register the default functions
 	QuitFunction := NFFunction.Function{
 		Name:         "Quit",

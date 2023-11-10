@@ -33,7 +33,7 @@ var Widgets = map[string]widgetHandler{}
 func Register(name string, handler widgetHandler) {
 	//Check if the name is already registered
 	if _, ok := Widgets[name]; ok {
-
+		return
 	}
 	Widgets[name] = handler
 }

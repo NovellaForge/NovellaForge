@@ -50,7 +50,7 @@ func CreateMainContent(window fyne.Window) {
 		}
 	}
 	continueLastButton.OnTapped = func() {
-		err = OpenProject(project.Path, window)
+		err = OpenPath(project.Path, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)
@@ -84,7 +84,7 @@ func CreateMainMenu(window fyne.Window) {
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = OpenProject(projects[i].Path, window)
+				err = OpenPath(projects[i].Path, window)
 				if err != nil {
 					//Show an NFerror dialog
 					dialog.ShowError(err, window)
@@ -160,7 +160,7 @@ func OpenRecentDialog(window fyne.Window) {
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(projects[id].OpenDate.Format("01/02/2006 15:04:05"))
 		})
 	list.OnSelected = func(id widget.ListItemID) {
-		err = OpenProject(projects[id].Path, window)
+		err = OpenPath(projects[id].Path, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)
@@ -200,14 +200,14 @@ func OpenProjectDialog(window fyne.Window) {
 			return
 		}
 		// Deserialize the project
-		project, err := DeserializeProject(file)
+		project, err := Deserialize(file)
 		if err != nil {
 			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Load the project
-		err = LoadProject(project, window)
+		err = project.Load(window)
 		if err != nil {
 			// Show an error dialog
 			dialog.ShowError(err, window)
@@ -294,13 +294,17 @@ func NewProjectDialog(window fyne.Window) {
 		newProject.Author = authorEntry.Text
 		newProject.Version = "0.0.1"
 		newProject.Credits = "Created with NovellaForge"
-		err = CreateProject(newProject, window)
+		err = newProject.Create(window)
 		if err != nil {
 			dialog.ShowError(err, window)
 			return
 		}
 		log.Printf("Created project %s", newProject.GameName)
 		projectDialog.Hide()
+
+		//Open the project and add it to the recent projects list
+		err = OpenPath(newProject.GameName, window)
+
 	}
 	authorBackButton.OnTapped = func() {
 		authorConfirmButton.Hide()

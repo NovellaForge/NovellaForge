@@ -13,13 +13,13 @@ import (
 	"strconv"
 )
 
-var dialogBox *CalsWidgets.Dialog
+var dialogBox *CalsWidgets.NarrativeBox
 var multiImage *CalsWidgets.MultiImage
 
 func main() {
 	a := app.NewWithID("com.callial.novellaforge.testing")
 	w := a.NewWindow("WidgetTesting")
-	dialogBox = CalsWidgets.NewDialog(false, "This is a test message")
+	dialogBox = CalsWidgets.NewNarrativeBox(false, "This is a test message")
 	multiImage = CalsWidgets.NewMultiImage([]*canvas.Image{})
 
 	//Listen for f5 to refresh the preview
@@ -105,7 +105,7 @@ func RefreshPreview(w fyne.Window) {
 		}
 		dialogBox.SetName(s)
 	}
-	nameEntry.SetText("Dialog Name")
+	nameEntry.SetText("NarrativeBox Name")
 	toggleName := widget.NewButton("Toggle Name", func() {
 		dialogBox.SetHasName(!dialogBox.HasName)
 	})
@@ -599,13 +599,13 @@ func RefreshPreview(w fyne.Window) {
 				}, w)
 			}),
 		),
-		widget.NewLabelWithStyle("Dialog Text", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox Text", fyne.TextAlignCenter, fyne.TextStyle{}),
 		contentEntry,
 		addMessageButton,
 		setContentButton,
 		setStrokeColorButton,
 		setFillColorButton,
-		widget.NewLabelWithStyle("Dialog Text Styling", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox Text Styling", fyne.TextAlignCenter, fyne.TextStyle{}),
 		container.NewGridWithColumns(2,
 			labelBold,
 			labelItalic,
@@ -613,7 +613,7 @@ func RefreshPreview(w fyne.Window) {
 			labelSymbol,
 			labelTabWidth,
 		),
-		widget.NewLabelWithStyle("Dialog Sizing", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox Sizing", fyne.TextAlignCenter, fyne.TextStyle{}),
 		container.NewGridWithColumns(2,
 			sizingMinWidth,
 			sizingMaxWidth,
@@ -622,21 +622,21 @@ func RefreshPreview(w fyne.Window) {
 			sizingFitWidth,
 			sizingFitHeight,
 		),
-		widget.NewLabelWithStyle("Dialog Internal Padding", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox Internal Padding", fyne.TextAlignCenter, fyne.TextStyle{}),
 		container.NewGridWithColumns(2,
 			paddingTop,
 			paddingBottom,
 			paddingLeft,
 			paddingRight,
 		),
-		widget.NewLabelWithStyle("Dialog External Padding", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox External Padding", fyne.TextAlignCenter, fyne.TextStyle{}),
 		container.NewGridWithColumns(2,
 			externalPaddingTop,
 			externalPaddingBottom,
 			externalPaddingLeft,
 			externalPaddingRight,
 		),
-		widget.NewLabelWithStyle("Dialog Name Plate Configuration", fyne.TextAlignCenter, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("NarrativeBox Name Plate Configuration", fyne.TextAlignCenter, fyne.TextStyle{}),
 		nameEntry,
 		toggleName,
 		setNameStrokeColorButton,

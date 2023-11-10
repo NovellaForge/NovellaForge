@@ -5,10 +5,11 @@ import (
 	"log"
 )
 
-func Import() { log.Println("Importing Default Widgets") }
+func Import() {}
 
 func init() {
 	Import()
+	log.Println("Registering Default Widgets")
 	NFWidget.Register("VBoxContainer", VBoxContainerHandler)
 	NFWidget.Register("HBoxContainer", HBoxContainerHandler)
 	NFWidget.Register("Form", FormHandler)

@@ -77,7 +77,49 @@ func ReadProjectInfo() ([]ProjectInfo, error) {
 	return projects, nil
 }
 
-func OpenProject(path string, window fyne.Window) error {
+func OpenName(name string, window fyne.Window) error {
+	//Search for the project in the projects.nf file
+	projects, err := ReadProjectInfo()
+	if err != nil {
+		return err
+	}
+
+	//Loop through the projects and find the one with the matching name
+	for _, project := range projects {
+		if project.Name == name {
+			//Open the project
+			err = OpenPath(project.Path, window)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+
+	//Check the projects directory for a project with the matching name
+	configDir, err := os.UserConfigDir()
+	projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", configDir+"/NovellaForge/projects")
+
+	//Walk the projects directory
+	err = filepath.Walk(projectsDir, func(path string, info os.FileInfo, err error) error {
+		//Check if the path is a directory
+		if info.IsDir() {
+			//Check if the directory name matches the name
+			if info.Name() == name {
+				//Open the project
+				err = OpenPath(path, window)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+		}
+		return nil
+	})
+	return NFError.ErrProjectNotFound
+}
+
+func OpenPath(path string, window fyne.Window) error {
 	//Check if the path even exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return NFError.ErrProjectNotFound
@@ -101,13 +143,13 @@ func OpenProject(path string, window fyne.Window) error {
 	}
 
 	//Deserialize the project
-	project, err := DeserializeProject(file)
+	project, err := Deserialize(file)
 	if err != nil {
 		return err
 	}
 
 	//Load the project
-	err = LoadProject(project, window)
+	err = project.Load(window)
 	if err != nil {
 		return err
 	}
@@ -116,7 +158,7 @@ func OpenProject(path string, window fyne.Window) error {
 
 }
 
-func DeserializeProject(file []byte) (Project, error) {
+func Deserialize(file []byte) (Project, error) {
 	project := Project{}
 	err := json.Unmarshal(file, &project)
 	if err != nil {
@@ -125,23 +167,26 @@ func DeserializeProject(file []byte) (Project, error) {
 	return project, nil
 }
 
-// LoadProject takes a deserialized project and loads it into the editor loading the scenes and functions as well
-func LoadProject(project Project, window fyne.Window) error {
-	return NFError.ErrProjectNotFound
+// Load takes a deserialized project and loads it into the editor loading the scenes and functions as well
+func (p Project) Load(window fyne.Window) error {
+	ActiveProject = p
+	//Load the scenes
+	//TODO: Load Everything and open the scene editor
+	return NFError.ErrNotImplemented
 }
 
-func CreateProject(project Project, window fyne.Window) error {
+func (p Project) Create(window fyne.Window) error {
 	//Pop up a dialog with a progress bar and a label that says "Creating Project"
-	progressDialog := dialog.NewCustomWithoutButtons("Creating Project", container.NewVBox(widget.NewProgressBarInfinite(), widget.NewLabel("Creating Project: "+project.GameName)), window)
+	progressDialog := dialog.NewCustomWithoutButtons("Creating Project", container.NewVBox(widget.NewProgressBarInfinite(), widget.NewLabel("Creating Project: "+p.GameName)), window)
 	progressDialog.Show()
 	defer progressDialog.Hide()
 
 	configDir, err := os.UserConfigDir()
 	projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", configDir+"/NovellaForge/projects")
 
-	_, err = os.Stat(projectsDir + "/" + project.GameName)
+	_, err = os.Stat(projectsDir + "/" + p.GameName)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(projectsDir+"/"+project.GameName, 0755)
+		err = os.MkdirAll(projectsDir+"/"+p.GameName, 0755)
 		if err != nil {
 			return err
 		}
@@ -150,7 +195,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//First check if the project directory already exists
-	projectDir := projectsDir + "/" + project.GameName
+	projectDir := projectsDir + "/" + p.GameName
 	//Create the project directory
 	err = os.MkdirAll(projectDir, 0755)
 	if err != nil {
@@ -158,13 +203,13 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//Create the project file
-	err = os.WriteFile(projectDir+"/"+project.GameName+".NFProject", SerializeProject(project), 0644)
+	err = os.WriteFile(projectDir+"/"+p.GameName+".NFProject", p.Serialize(), 0644)
 	if err != nil {
 		return err
 	}
 
 	neededDirectories := []string{
-		"cmd/" + project.GameName,
+		"cmd/" + p.GameName,
 		"data/assets/image",
 		"data/assets/audio",
 		"data/assets/video",
@@ -184,9 +229,9 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 
 	//Create a default game.go file with an empty main function for now
-	err = os.WriteFile(projectDir+"/cmd/"+project.GameName+"/"+project.GameName+".go", []byte(
+	err = os.WriteFile(projectDir+"/cmd/"+p.GameName+"/"+p.GameName+".go", []byte(
 		`package main`+"\n"+
-			`import . "`+project.GameName+`/internal/config"`+"\n"+
+			`import . "`+p.GameName+`/internal/config"`+"\n"+
 			MainGameTemplate), 0666)
 	if err != nil {
 		return err
@@ -195,10 +240,10 @@ func CreateProject(project Project, window fyne.Window) error {
 	err = os.WriteFile(projectDir+"/internal/config/Config.go", []byte(
 		`package config`+"\n"+
 			`const (`+"\n"+
-			`GameName = "`+project.GameName+`"`+"\n"+
+			`GameName = "`+p.GameName+`"`+"\n"+
 			`GameVersion = "0.0.1"`+"\n"+
-			`GameAuthor = "`+project.Author+`"`+"\n"+
-			`GameCredits = "`+project.Credits+`"`+"\n"+
+			`GameAuthor = "`+p.Author+`"`+"\n"+
+			`GameCredits = "`+p.Credits+`"`+"\n"+
 			`StartupScene = "MainMenu""`+"\n"+
 			`NewGameScene = "NewScene"`+"\n"), 0666)
 	if err != nil {
@@ -207,7 +252,7 @@ func CreateProject(project Project, window fyne.Window) error {
 
 	err = os.WriteFile(projectDir+"/internal/function/CustomFunctions.go", []byte(
 		`package Functions`+"\n"+
-			`import . "`+project.GameName+`/internal/function/handlers"`+"\n"+
+			`import . "`+p.GameName+`/internal/function/handlers"`+"\n"+
 			CustomFunctionTemplate), 0666)
 	if err != nil {
 		return err
@@ -215,7 +260,7 @@ func CreateProject(project Project, window fyne.Window) error {
 
 	err = os.WriteFile(projectDir+"/internal/layout/CustomLayouts.go", []byte(
 		`package Layouts`+"\n"+
-			`import . "`+project.GameName+`/internal/layout/handlers"`+"\n"+
+			`import . "`+p.GameName+`/internal/layout/handlers"`+"\n"+
 			CustomLayoutTemplate), 0666)
 	if err != nil {
 		return err
@@ -223,7 +268,7 @@ func CreateProject(project Project, window fyne.Window) error {
 
 	err = os.WriteFile(projectDir+"/internal/widget/CustomWidgets.go", []byte(
 		`package Widgets`+"\n"+
-			`import . "`+project.GameName+`/internal/widget/handlers"`+"\n"+
+			`import . "`+p.GameName+`/internal/widget/handlers"`+"\n"+
 			CustomWidgetTemplate), 0666)
 	if err != nil {
 		return err
@@ -240,7 +285,7 @@ func CreateProject(project Project, window fyne.Window) error {
 	}
 	err = os.WriteFile(projectDir+"/internal/widget/handlers/ExampleWidget.go", []byte(
 		`package handlers`+"\n"+
-			`import (`+"\n"+project.GameName+`/internal/function/handlers"`+"\n"+
+			`import (`+"\n"+p.GameName+`/internal/function/handlers"`+"\n"+
 			ExampleWidgetTemplate), 0666)
 	if err != nil {
 		return err
@@ -251,7 +296,7 @@ func CreateProject(project Project, window fyne.Window) error {
 
 	// Initialize the go mod
 	var stderr bytes.Buffer
-	cmd := exec.Command("go", "mod", "init", project.GameName)
+	cmd := exec.Command("go", "mod", "init", p.GameName)
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
 	err = cmd.Run()
@@ -287,12 +332,18 @@ func CreateProject(project Project, window fyne.Window) error {
 	//Wait for 2 seconds to finish the progress bar and make sure everything is done
 	time.Sleep(1 * time.Second)
 
+	//Open the project
+	err = OpenPath(projectDir+"/"+p.GameName+".NFProject", window)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func SerializeProject(project Project) []byte {
+func (p Project) Serialize() []byte {
 	//Marshal the project to JSON
-	serializedProject, err := json.MarshalIndent(project, "", "  ")
+	serializedProject, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return nil
 	}
