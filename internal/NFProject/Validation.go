@@ -1,4 +1,4 @@
-package NFEditor
+package NFProject
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// sanitizeProjectName sanitizes the project name to ensure it's a valid Go identifier
-func sanitizeProjectName(name string) (bool, error) {
+// SanitizeProjectName sanitizes the project name to ensure it's a valid Go identifier
+func SanitizeProjectName(name string) (bool, error) {
 	// Initialize Regular Expression (rgx)
 	rgx := regexp.MustCompile(`[^\w\s]`)
 	if rgx.MatchString(name) {

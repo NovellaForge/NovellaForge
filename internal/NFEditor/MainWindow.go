@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
@@ -15,7 +16,7 @@ import (
 
 func CreateMainContent(window fyne.Window) {
 
-	CheckAndInstallDependencies(window)
+	NFProject.CheckAndInstallDependencies(window)
 	CreateMainMenu(window)
 
 	//Create a grid layout for the four main buttons
@@ -31,13 +32,13 @@ func CreateMainContent(window fyne.Window) {
 		OpenRecentDialog(window)
 	})
 	continueLastButton := widget.NewButton("Continue Last", func() {})
-	projects, err := ReadProjectInfo()
+	projects, err := NFProject.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
 		return
 	}
-	var project ProjectInfo
+	var project NFProject.ProjectInfo
 	if len(projects) == 0 {
 		continueLastButton.Disable()
 	} else {
@@ -50,7 +51,7 @@ func CreateMainContent(window fyne.Window) {
 		}
 	}
 	continueLastButton.OnTapped = func() {
-		err = OpenPath(project.Path, window)
+		err = NFProject.OpenPath(project.Path, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)
@@ -72,7 +73,7 @@ func CreateMainMenu(window fyne.Window) {
 	})
 	projectMenu := fyne.NewMenu("Project")
 
-	projects, err := ReadProjectInfo()
+	projects, err := NFProject.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
@@ -84,7 +85,7 @@ func CreateMainMenu(window fyne.Window) {
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = OpenPath(projects[i].Path, window)
+				err = NFProject.OpenPath(projects[i].Path, window)
 				if err != nil {
 					//Show an NFerror dialog
 					dialog.ShowError(err, window)
@@ -134,7 +135,7 @@ func CreateMainMenu(window fyne.Window) {
 func OpenRecentDialog(window fyne.Window) {
 	box := container.NewVBox()
 	newDialog := dialog.NewCustom("Open Recent", "Open", box, window)
-	projects, err := ReadProjectInfo()
+	projects, err := NFProject.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
@@ -160,7 +161,7 @@ func OpenRecentDialog(window fyne.Window) {
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(projects[id].OpenDate.Format("01/02/2006 15:04:05"))
 		})
 	list.OnSelected = func(id widget.ListItemID) {
-		err = OpenPath(projects[id].Path, window)
+		err = NFProject.OpenPath(projects[id].Path, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)
@@ -200,7 +201,7 @@ func OpenProjectDialog(window fyne.Window) {
 			return
 		}
 		// Deserialize the project
-		project, err := Deserialize(file)
+		project, err := NFProject.Deserialize(file)
 		if err != nil {
 			// Show an error dialog
 			dialog.ShowError(err, window)
@@ -236,7 +237,7 @@ func NewProjectDialog(window fyne.Window) {
 	var err error
 	box := container.NewVBox()
 	projectDialog := dialog.NewCustom("New Project", "Cancel", container.NewVBox(layout.NewSpacer(), box, layout.NewSpacer()), window)
-	newProject := Project{}
+	newProject := NFProject.Project{}
 	projectName := ""
 	nameEntry := widget.NewEntry()
 	nameValidationLabel := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
@@ -258,7 +259,7 @@ func NewProjectDialog(window fyne.Window) {
 	authorEntry.Hide()
 
 	nameEntry.Validator = func(s string) error {
-		_, err = sanitizeProjectName(s)
+		_, err = NFProject.SanitizeProjectName(s)
 		if err != nil {
 			nameValidationLabel.SetText(err.Error())
 		} else {
@@ -275,7 +276,7 @@ func NewProjectDialog(window fyne.Window) {
 		}
 	})
 	nameConfirmButton.OnTapped = func() {
-		_, err = sanitizeProjectName(nameEntry.Text)
+		_, err = NFProject.SanitizeProjectName(nameEntry.Text)
 		if err != nil {
 			dialog.ShowError(err, window)
 			nameEntry.SetValidationError(err)
@@ -303,7 +304,7 @@ func NewProjectDialog(window fyne.Window) {
 		projectDialog.Hide()
 
 		//Open the project and add it to the recent projects list
-		err = OpenPath(newProject.GameName, window)
+		err = NFProject.OpenPath(newProject.GameName, window)
 
 	}
 	authorBackButton.OnTapped = func() {

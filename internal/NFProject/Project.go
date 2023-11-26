@@ -1,4 +1,4 @@
-package NFEditor
+package NFProject
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
@@ -25,14 +26,20 @@ type ProjectInfo struct {
 	OpenDate time.Time `json:"Last Opened"`
 }
 
+type Project struct {
+	GameName string `json:"Game Name"`
+	Version  string `json:"Version"`
+	Author   string `json:"Author"`
+	Credits  string `json:"Credits"`
+}
+
 var (
 	ActiveProject        Project
 	ActiveLayouts        []NFLayout.Layout
 	ActiveWidgets        []NFWidget.Widget
-	ActiveSceneGroups    []SceneGroup
-	ActiveScenes         []NFScene.Scene // Ungrouped scenes
-	ActiveFunctionGroups []FunctionGroup
-	ActiveFunctions      []Function // Ungrouped functions
+	ActiveSceneGroups    map[string]NFScene.Scene
+	ActiveFunctions      []NFFunction.Function // Ungrouped functions
+	ActiveFunctionGroups map[string][]NFFunction.Function
 )
 
 // ReadProjectInfo reads the project info from the project file
@@ -171,7 +178,6 @@ func Deserialize(file []byte) (Project, error) {
 func (p Project) Load(window fyne.Window) error {
 	ActiveProject = p
 	//Load the scenes
-	//TODO: Load Everything and open the scene editor
 	return NFError.ErrNotImplemented
 }
 

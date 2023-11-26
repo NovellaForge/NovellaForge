@@ -20,6 +20,8 @@ import _ "net/http/pprof"
 
 /*
 TODO New Editor Requirements:
+	- Parsers:
+		- Potentially switch all handlers over to ...interface{} and then use reflection to determine the type of the interface and parse it instead of using a map[string]interface{}
 	- Scene Editor:
 		- The scene editor should be a window that takes up the right side of the main window
 		- The scene editor should have a tree view on the left side that shows all the objects in the scene and allows the user to select them and edit their values containers should be able to be expanded and collapsed

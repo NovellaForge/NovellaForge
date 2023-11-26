@@ -228,6 +228,8 @@ type multiImageRenderer struct {
 	multi   *MultiImage
 }
 
+func (r *multiImageRenderer) Destroy() {}
+
 func (r *multiImageRenderer) Objects() []fyne.CanvasObject {
 	return r.objects
 }
@@ -238,10 +240,6 @@ func (r *multiImageRenderer) Refresh() {
 
 func (r *multiImageRenderer) BackgroundColor() color.Color {
 	return r.multi.background
-}
-
-func (r *multiImageRenderer) Destroy() {
-
 }
 
 func (r *multiImageRenderer) MinSize() fyne.Size {
