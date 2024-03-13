@@ -161,13 +161,13 @@ func main() {
 	go func() {
 		<-loading.complete
 		if splash != nil {
+			window.SetMaster()
 			splash.Close()
 			window.Show()
 			window.RequestFocus()
 		}
 	}()
 	go CreateMainContent(window, loading)
-	window.SetMaster()
 	if splash != nil {
 		splash.Show()
 		application.Run()
@@ -216,7 +216,7 @@ func CreateMainContent(window fyne.Window, loading *Loading) {
 		}
 	}
 	continueLastButton.OnTapped = func() {
-		err = NFProject.OpenPath(project.Path, window)
+		err = NFProject.OpenFromInfo(project, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)

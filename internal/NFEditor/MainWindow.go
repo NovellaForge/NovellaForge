@@ -12,6 +12,7 @@ import (
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
 	"os"
+	"time"
 )
 
 func CreateMainMenu(window fyne.Window) {
@@ -33,7 +34,7 @@ func CreateMainMenu(window fyne.Window) {
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = NFProject.OpenPath(projects[i].Path, window)
+				err = NFProject.OpenFromInfo(projects[i], window)
 				if err != nil {
 					//Show an NFerror dialog
 					dialog.ShowError(err, window)
@@ -82,7 +83,7 @@ func CreateMainMenu(window fyne.Window) {
 
 func OpenRecentDialog(window fyne.Window) {
 	box := container.NewVBox()
-	newDialog := dialog.NewCustom("Open Recent", "Open", box, window)
+	newDialog := dialog.NewCustom("Open Recent", "Close", box, window)
 	projects, err := NFProject.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
@@ -95,34 +96,61 @@ func OpenRecentDialog(window fyne.Window) {
 		return
 	}
 
+	//Sort the projects by the last opened date
+	for i := 0; i < len(projects); i++ {
+		for j := 0; j < len(projects); j++ {
+			if projects[i].OpenDate.After(projects[j].OpenDate) {
+				temp := projects[i]
+				projects[i] = projects[j]
+				projects[j] = temp
+			}
+		}
+	}
+
 	//Create a scrollable list of all the projects
 	list := widget.NewList(
 		func() int {
-			return len(projects)
+			return len(projects) + 1
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewLabel("Name"), widget.NewLabel("Last Opened"))
+			nameLabel := widget.NewLabel("Name")
+			lastOpenedLabel := widget.NewLabel("Last Opened")
+			//Set the style of the labels to bold
+			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+			lastOpenedLabel.TextStyle = fyne.TextStyle{Bold: true}
+			// Align the labels to the center
+			nameLabel.Alignment = fyne.TextAlignCenter
+			lastOpenedLabel.Alignment = fyne.TextAlignCenter
+			return container.NewHBox(widget.NewLabel("Name"), layout.NewSpacer(), widget.NewLabel("Last Opened"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
+			if id == 0 {
+				return
+			}
 			//Set the first label to the project name and the second to the last opened date
-			item.(*fyne.Container).Objects[0].(*widget.Label).SetText(projects[id].Name)
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(projects[id].OpenDate.Format("01/02/2006 15:04:05"))
+			item.(*fyne.Container).Objects[0].(*widget.Label).SetText(projects[id-1].Name)
+			item.(*fyne.Container).Objects[2].(*widget.Label).SetText(projects[id-1].OpenDate.Format("01/02/2006 13:04"))
 		})
 	list.OnSelected = func(id widget.ListItemID) {
-		err = NFProject.OpenPath(projects[id].Path, window)
+		if id == 0 {
+			return
+		}
+		err = NFProject.OpenFromInfo(projects[id-1], window)
 		if err != nil {
 			//Show an error dialog
-			dialog.ShowError(err, window)
+			errDialog := dialog.NewError(err, window)
+			errDialog.SetOnClosed(func() {
+				newDialog.Hide()
+			})
+			errDialog.Show()
+		} else {
+			newDialog.Hide()
 		}
 	}
-	scrollBox := container.NewVScroll(list)
 
-	openProjectButton := widget.NewButton("Open Project", func() {
-		OpenProjectDialog(window)
-		newDialog.Hide()
-	})
+	scrollBox := container.NewVScroll(list)
+	scrollBox.SetMinSize(fyne.NewSize(400, 300))
 	box.Add(scrollBox)
-	box.Add(openProjectButton)
 	newDialog.Resize(fyne.NewSize(800, 600))
 	newDialog.Show()
 }
@@ -131,6 +159,7 @@ func OpenProjectDialog(window fyne.Window) {
 	// Create a custom file dialog
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
+			log.Println("Error opening file")
 			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
@@ -144,6 +173,7 @@ func OpenProjectDialog(window fyne.Window) {
 		// Read the file
 		file, err := os.ReadFile(reader.URI().Path())
 		if err != nil {
+			log.Println("Error reading file")
 			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
@@ -151,14 +181,22 @@ func OpenProjectDialog(window fyne.Window) {
 		// Deserialize the project
 		project, err := NFProject.Deserialize(file)
 		if err != nil {
+			log.Println("Error deserializing project")
 			// Show an error dialog
 			dialog.ShowError(err, window)
 			return
 		}
 		// Load the project
-		err = project.Load(window)
+
+		info := NFProject.ProjectInfo{
+			Name:     project.GameName,
+			Path:     reader.URI().Path(),
+			OpenDate: time.Now(),
+		}
+		err = project.Load(window, info)
 		if err != nil {
 			// Show an error dialog
+			log.Println("Error loading project")
 			dialog.ShowError(err, window)
 			return
 		}
@@ -250,10 +288,10 @@ func NewProjectDialog(window fyne.Window) {
 		}
 		log.Printf("Created project %s", newProject.GameName)
 		projectDialog.Hide()
-
-		//Open the project and add it to the recent projects list
-		err = NFProject.OpenPath(newProject.GameName, window)
-
+		err := newProject.Load(window)
+		if err != nil {
+			return
+		}
 	}
 	authorBackButton.OnTapped = func() {
 		authorConfirmButton.Hide()

@@ -1,4 +1,4 @@
-package Default
+package DefaultLayouts
 
 import (
 	"fyne.io/fyne/v2"
