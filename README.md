@@ -1,36 +1,39 @@
 # NovellaForge
 An Open Source Visual Novel Creator In GO
 
-## What is NovellaForge?
-NovellaForge is a visual novel creator written in GO. It is designed to be easy to use and easy to learn. It is also designed to be cross-platform and run on Windows, Linux, and Mac. And Support games across all three and mobile as well.
+## Mission Statement
+NovellaForge aims to democratize the creation of visual novels by providing a game engine that requires zero programming knowledge for building a functional visual novel. However, the framework and editor are fully extensible and modular, allowing full control over the game's source code. For advanced developers with an understanding of GO this flexibility enables the creation of games that go beyond the traditional visual novel genre.
 
-# Rough initial Roadmap
-- [ ] Initial Game Engine (Will have basic functionality)
-- [ ] Initial Editor (Will have basic functionality)
-- [ ] Open Source the project
-- [ ] Create a website for the project
-- [ ] Flesh Out this roadmap
+## Roadmap to Initial Release
+Here are the key milestones we're targeting for our initial release:
 
-Features:
+- [ ] Basic Editor UI built with [Fyne](https://fyne.io/)  **- In Progress 50%**
+- [ ] Basic Project creation and storage system **- In Progress 70%**
+- [ ] Basic Game Framework with support for text, images, and choices, in a scene based system **- In Progress 60%**
+- [ ] Basic Game Exporter that can export to linux and windows with 0 additional steps with guides for other platforms
+- [ ] Game preview that allows for preview versions of widgets for in preview editing and adjustments
+- [ ] Save System with support for multiple save slots
+- [ ] Basic Audio support for music and sound effects
+- [ ] Basic Video/Gif support for cutscenes - No promises for Audio sync
+- [ ] *Optional* Game terminal/console system for game development and debugging
+- [ ] *Optional* Game analytics system for tracking player choices and game progress
+- [ ] *Optional* Full embed support to allow the game exe to contain all assets and be a single file
 
-Multi-Platform Support: using Fyne will allow the application to run on multiple platforms (Windows, macOS, Linux, Android, iOS).
+## Feature Breakdown
+- **User-Friendly GUI**: An intuitive interface that makes game creation as simple as possible.
+- **Modular and Extensible Framework**: A flexible architecture that allows for custom modules and extensions.
+- **Full Source Code Control**: Users have complete access to their game's source code, allowing for limitless customization.
+- **Zero Programming Knowledge Required**: The basic functionality of the game engine can be used without any programming knowledge.
+- **Performance and Reliability**: The game engine is designed to run smoothly and reliably, even on lower-end hardware.
 
-Save/Load Menu: This is where the player can save their current progress or load a previous save.
+## Installation Instructions
+*Coming Soon*
 
-Inheritance/Editing: All scene/menu templates should be inheritable and editable, allowing users to customize them to fit their specific needs.
+## Custom Expansion Instructions
+*Coming Soon*
 
-Visual Editor: This is a GUI that allows users to easily create and edit scenes/menus for their game. It should include a variety of tools and options for customizing the appearance and behavior of scenes/menus.
+## Contributing
+We welcome contributions from the community. Whether it's reporting a bug, proposing a new feature, or writing code, every contribution helps us improve NovellaForge. Please see our contributing guide for more information.
 
-Development Goals:
-
-Usability: The application should be easy to use, even for people with no programming experience. The visual editor should be intuitive and user-friendly.
-
-Flexibility: The application should be flexible enough to accommodate a wide variety of visual novel styles and genres. Users should be able to customize nearly every aspect of their game.
-
-Performance: The application should run smoothly and efficiently, even on lower-end hardware.
-
-Reliability: The application should be stable and reliable, with minimal bugs or issues.
-
-Documentation: The application should be well-documented, with clear instructions on how to use each feature.
-
-Community: Encourage a community around the application, where users can share their creations, provide feedback, and help each other.
+## License
+NovellaForge is open source and licensed under the [GNU General Public Licence V3](LICENSE).
