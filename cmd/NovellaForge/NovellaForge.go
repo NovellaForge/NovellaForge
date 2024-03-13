@@ -4,10 +4,14 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/internal/NFEditor"
+	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
 	"net/http"
@@ -19,6 +23,15 @@ import (
 import _ "net/http/pprof"
 
 /*
+TODO Priorities:
+	- Update to use the new splash screen format
+	- Update the templates to use the actual go template functionality
+	- Update the project creation to use the new templates
+		- Update the project creation to use the built in os perm modes
+	- Refactor all the parsing
+
+
+
 TODO New Editor Requirements:
 	- Parsers:
 		- Potentially switch all handlers over to ...interface{} and then use reflection to determine the type of the interface and parse it instead of using a map[string]interface{}
@@ -54,18 +67,61 @@ const (
 )
 
 var WindowTitle = "Novella Forge" + " " + Version
-var window fyne.Window
-var application fyne.App
-var appReady = false
 
-func init() {
+type Loading struct {
+	progress binding.Float
+	complete chan struct{}
+	status   binding.String
+}
+
+func NewLoading() *Loading {
+	return &Loading{
+		progress: binding.NewFloat(),
+		complete: make(chan struct{}),
+		status:   binding.NewString(),
+	}
+}
+
+func (l *Loading) SetProgress(progress float64, timeToSleep time.Duration, status ...string) {
+	err := l.progress.Set(progress)
+	if err != nil {
+		log.Println(err)
+	}
+	if len(status) > 0 {
+		err = l.status.Set(status[0])
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	time.Sleep(timeToSleep)
+}
+func (l *Loading) BindProgress() binding.Float {
+	return l.progress
+}
+func (l *Loading) BindStatus() binding.String {
+	return l.status
+}
+func (l *Loading) SetStatus(status string) {
+	err := l.status.Set(status)
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println(status)
+	}
+}
+func (l *Loading) Complete() {
+	l.complete <- struct{}{}
+	close(l.complete)
+	l.SetStatus("Complete")
+}
+
+func main() {
 	//Start the profiler
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-
-	application = app.NewWithID("com.novellaforge.editor")
-	window = application.NewWindow(WindowTitle)
+	application := app.NewWithID("com.novellaforge.editor")
+	window := application.NewWindow(WindowTitle)
 	window.Resize(fyne.NewSize(1280, 720))
 	iconResource, err := fyne.LoadResourceFromPath(Icon)
 	if err != nil {
@@ -83,41 +139,97 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go SplashScreenLoop(window)
-}
-
-func main() {
-	NFEditor.CreateMainContent(window)
-	appReady = true
-	application.Run()
-}
-
-func SplashScreenLoop(window fyne.Window) {
-	drv := fyne.CurrentApp().Driver()
-	for {
-		//Check if the driver is ready
-		if drv != nil {
-			//If it is, break out of the loop
-			break
-		}
-	}
-
-	if drv, ok := drv.(desktop.Driver); ok {
-		splash := drv.CreateSplashWindow()
-		splashBox := container.NewVBox(
+	loading := NewLoading()
+	var splash fyne.Window
+	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
+		splash = drv.CreateSplashWindow()
+		loadingBar := widget.NewProgressBarWithData(loading.BindProgress())
+		loadingBar.Min = 0
+		loadingBar.Max = 100
+		statusText := widget.NewLabelWithData(loading.BindStatus())
+		statusText.TextStyle = fyne.TextStyle{Bold: true, Italic: true}
+		statusText.Alignment = fyne.TextAlignCenter
+		splash.SetContent(container.NewVBox(
 			widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		)
-		splash.SetContent(splashBox)
-		splash.Show()
-		go func() {
-			for !appReady {
-			}
-			time.Sleep(time.Second * 3)
+			statusText,
+			loadingBar,
+		))
+	}
+	go func() {
+		<-loading.complete
+		if splash != nil {
 			splash.Close()
 			window.Show()
-		}()
+			window.RequestFocus()
+		}
+	}()
+	go CreateMainContent(window, loading)
+	window.SetMaster()
+	if splash != nil {
+		splash.Show()
+		application.Run()
+	} else {
+		window.ShowAndRun()
 	}
+}
+
+func CreateMainContent(window fyne.Window, loading *Loading) {
+	loading.SetProgress(0, 0, "Checking Dependencies")
+	NFProject.CheckAndInstallDependencies(window)
+	loading.SetProgress(10, 00*time.Millisecond, "Creating Main Menu")
+	NFEditor.CreateMainMenu(window)
+	loading.SetProgress(20, 00*time.Millisecond, "Creating Main Content")
+
+	//Create a grid layout for the four main buttons
+	grid := container.New(layout.NewGridLayout(2))
+	//Create the buttons
+	newProjectButton := widget.NewButton("New Project", func() {
+		NFEditor.NewProjectDialog(window)
+	})
+	openProjectButton := widget.NewButton("Open Project", func() {
+		NFEditor.OpenProjectDialog(window)
+	})
+	openRecentButton := widget.NewButton("Open Recent", func() {
+		NFEditor.OpenRecentDialog(window)
+	})
+	continueLastButton := widget.NewButton("Continue Last", func() {})
+	loading.SetProgress(50, 00*time.Millisecond, "Checking for Recent Projects")
+	projects, err := NFProject.ReadProjectInfo()
+	if err != nil {
+		//Show an error dialog
+		dialog.ShowError(err, window)
+		return
+	}
+	var project NFProject.ProjectInfo
+	if len(projects) == 0 {
+		continueLastButton.Disable()
+	} else {
+		//Get the most recently opened project
+		project = projects[0]
+		for i := 0; i < len(projects); i++ {
+			if projects[i].OpenDate.After(project.OpenDate) {
+				project = projects[i]
+			}
+		}
+	}
+	continueLastButton.OnTapped = func() {
+		err = NFProject.OpenPath(project.Path, window)
+		if err != nil {
+			//Show an error dialog
+			dialog.ShowError(err, window)
+		}
+	}
+	loading.SetProgress(95, 00*time.Millisecond, "Adding Content to Grid")
+	//Add the buttons to the grid
+	grid.Add(newProjectButton)
+	grid.Add(openProjectButton)
+	grid.Add(openRecentButton)
+	grid.Add(continueLastButton)
+	loading.SetProgress(100, 00*time.Millisecond, "Setting Content")
+	window.SetContent(grid)
+	time.Sleep(1 * time.Second)
+	loading.Complete()
 }

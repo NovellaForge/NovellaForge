@@ -14,58 +14,6 @@ import (
 	"os"
 )
 
-func CreateMainContent(window fyne.Window) {
-
-	NFProject.CheckAndInstallDependencies(window)
-	CreateMainMenu(window)
-
-	//Create a grid layout for the four main buttons
-	grid := container.New(layout.NewGridLayout(2))
-	//Create the buttons
-	newProjectButton := widget.NewButton("New Project", func() {
-		NewProjectDialog(window)
-	})
-	openProjectButton := widget.NewButton("Open Project", func() {
-		OpenProjectDialog(window)
-	})
-	openRecentButton := widget.NewButton("Open Recent", func() {
-		OpenRecentDialog(window)
-	})
-	continueLastButton := widget.NewButton("Continue Last", func() {})
-	projects, err := NFProject.ReadProjectInfo()
-	if err != nil {
-		//Show an error dialog
-		dialog.ShowError(err, window)
-		return
-	}
-	var project NFProject.ProjectInfo
-	if len(projects) == 0 {
-		continueLastButton.Disable()
-	} else {
-		//Get the most recently opened project
-		project = projects[0]
-		for i := 0; i < len(projects); i++ {
-			if projects[i].OpenDate.After(project.OpenDate) {
-				project = projects[i]
-			}
-		}
-	}
-	continueLastButton.OnTapped = func() {
-		err = NFProject.OpenPath(project.Path, window)
-		if err != nil {
-			//Show an error dialog
-			dialog.ShowError(err, window)
-		}
-	}
-	//Add the buttons to the grid
-	grid.Add(newProjectButton)
-	grid.Add(openProjectButton)
-	grid.Add(openRecentButton)
-	grid.Add(continueLastButton)
-
-	window.SetContent(grid)
-}
-
 func CreateMainMenu(window fyne.Window) {
 
 	openRecentMenu := fyne.NewMenuItem("Open Recent", func() {
