@@ -5,10 +5,16 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"log"
 )
 
 func init() {
 	NFWidget.Register("ExampleWidget", ExampleWidgetHandler)
+}
+
+func Register() {
+	//init is run when the package is imported, so this is just a dummy function to make sure the init function is run
+	log.Printf("Registering ExampleWidget")
 }
 
 func ExampleWidgetHandler(window fyne.Window, args ...interface{}) (fyne.CanvasObject, error) {

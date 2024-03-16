@@ -284,9 +284,15 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	mainGameData := struct {
-		LocalConfig string
+		LocalConfig    string
+		LocalFunctions string
+		LocalLayouts   string
+		LocalWidgets   string
 	}{
-		LocalConfig: p.GameName + "/internal/config/Config.go",
+		LocalConfig:    p.GameName + "/internal/config",
+		LocalFunctions: p.GameName + "/internal/function",
+		LocalLayouts:   p.GameName + "/internal/layout",
+		LocalWidgets:   p.GameName + "/internal/widget",
 	}
 
 	err = t.Execute(mainGameFile, mainGameData)
@@ -403,6 +409,19 @@ func (p Project) Create(window fyne.Window) error {
 		log.Printf("Error installing NovellaForge: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
 		return errors.New("error installing NovellaForge")
+	}
+
+	//Run go mod tidy
+	log.Printf("Running go mod tidy")
+	cmd = exec.Command("go", "mod", "tidy")
+	cmd.Stderr = &stderr
+	cmd.Dir = projectDir
+	err = cmd.Run()
+	if err != nil {
+		log.Printf("Error running go mod tidy: %v", err)
+		log.Printf("Stderr: %s", stderr.String())
+		return errors.New("error running go mod tidy")
+
 	}
 
 	log.Printf("Initialization successful")

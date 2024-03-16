@@ -6,10 +6,16 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"log"
 )
 
 func init() {
 	NFLayout.Register("ExampleLayout", ExampleLayoutHandler)
+}
+
+func Register() {
+	//init is run when the package is imported, so this is just a dummy function to make sure the init function is run
+	log.Printf("Registering ExampleLayouts")
 }
 
 func ExampleLayoutHandler(window fyne.Window, args map[string]interface{}, children []NFWidget.Widget) (fyne.CanvasObject, error) {

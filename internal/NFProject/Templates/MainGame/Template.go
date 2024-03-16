@@ -20,9 +20,10 @@ import (
 	"log"
 	"os"
 	config "{{.LocalConfig}}"
+	ExampleFunctions "{{.LocalFunctions}}"
+	ExampleLayouts "{{.LocalLayouts}}"
+	ExampleWidgets "{{.LocalWidgets}}"
 )
-
-// TODO Fix the template to properly import the local config package when the game is built
 
 func main() {
 	DefaultFunctions.Import()
@@ -32,7 +33,7 @@ func main() {
 	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
 	gameApp := app.NewWithID("com.novellaforge." + config.GameName)
 	//window is the main window for the game, this is where the game is displayed and scenes are rendered
-	window := gameApp.NewWindow(config.GameName + " " + config.GameVersion)
+	window := gameApp.NewWindow(config.GameName + " " + config.Version)
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
@@ -59,7 +60,7 @@ func main() {
 					Type: "ExampleWidget",
 					Properties: map[string]interface{}{
 						"message": "Hello World",
-						"action":  "ExampleFunction",
+						"action":  "CustomFunction.ExampleFunction",
 					},
 				},
 			},
@@ -67,11 +68,16 @@ func main() {
 		},
 		Properties: nil,
 	}
+	ExampleFunctions.Register()
+	ExampleLayouts.Register()
+	ExampleWidgets.Register()
 	scene, err := TempGameScene.Parse(window)
 	if err != nil {
+		log.Println("Error Parsing Scene: " + err.Error())
 		_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Error Parsing Scene: " + err.Error()})
 	}
 	window.SetContent(scene)
+	window.Show()
 	gameApp.Run()
 }
 
@@ -79,7 +85,7 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	currentApp := fyne.CurrentApp()
 	window.SetFullScreen(currentApp.Preferences().BoolWithFallback("fullscreen", false))
 	window.SetContent(container.NewVBox())
-	window.SetTitle(config.GameName + " " + config.GameVersion)
+	window.SetTitle(config.GameName + " " + config.Version)
 	window.SetCloseIntercept(func() {
 		dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 			if b {
@@ -128,7 +134,7 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 		),
 	))
 
-	if len(allScenes) < 1 {
+	if len(allScenes) == 0 {
 		//All functions with the function parser can return a map[string]interface{} and an error, the map[string]interface{} is used to return data to the main function, in this case we do not need to use any data from the function so we can just ignore it
 		// An _ is used to ignore the data returned by the function, other functions will need error handling as shown here,
 		// This function is the same as the functions.NewError function, but it uses the parser instead of the function directly,
@@ -166,7 +172,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene)
 	creditsModal = widget.NewModalPopUp(
 		container.NewVBox(
 			widget.NewLabelWithStyle("Credits", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle(config.GameCredits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(config.Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			creditsCloseButton,
 		),
 		window.Canvas(),
@@ -271,8 +277,8 @@ func CreateSettings(isStartup bool, window fyne.Window) fyne.CanvasObject {
 	settingsBox := container.NewVBox(
 		widget.NewLabelWithStyle("Startup Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle(config.GameName, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Version: "+config.GameVersion, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Author: "+config.GameAuthor, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Version: "+config.Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Author: "+config.Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
 		widget.NewLabelWithStyle("Game Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		SettingsScrollBox,
 		layout.NewSpacer(),

@@ -4,7 +4,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
@@ -13,6 +12,7 @@ import (
 	"github.com/NovellaForge/NovellaForge/internal/NFEditor"
 	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
 	"log"
 	"net/http"
 	"os"
@@ -68,53 +68,6 @@ const (
 
 var WindowTitle = "Novella Forge" + " " + Version
 
-type Loading struct {
-	progress binding.Float
-	complete chan struct{}
-	status   binding.String
-}
-
-func NewLoading() *Loading {
-	return &Loading{
-		progress: binding.NewFloat(),
-		complete: make(chan struct{}),
-		status:   binding.NewString(),
-	}
-}
-
-func (l *Loading) SetProgress(progress float64, timeToSleep time.Duration, status ...string) {
-	err := l.progress.Set(progress)
-	if err != nil {
-		log.Println(err)
-	}
-	if len(status) > 0 {
-		err = l.status.Set(status[0])
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	time.Sleep(timeToSleep)
-}
-func (l *Loading) BindProgress() binding.Float {
-	return l.progress
-}
-func (l *Loading) BindStatus() binding.String {
-	return l.status
-}
-func (l *Loading) SetStatus(status string) {
-	err := l.status.Set(status)
-	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println(status)
-	}
-}
-func (l *Loading) Complete() {
-	l.complete <- struct{}{}
-	close(l.complete)
-	l.SetStatus("Complete")
-}
-
 func main() {
 	//Start the profiler
 	go func() {
@@ -139,27 +92,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	loading := NewLoading()
+	loadingChannel := make(chan struct{})
+	loading := CalsWidgets.NewLoading(loadingChannel, 0, 100)
 	var splash fyne.Window
 	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
 		splash = drv.CreateSplashWindow()
-		loadingBar := widget.NewProgressBarWithData(loading.BindProgress())
-		loadingBar.Min = 0
-		loadingBar.Max = 100
-		statusText := widget.NewLabelWithData(loading.BindStatus())
-		statusText.TextStyle = fyne.TextStyle{Bold: true, Italic: true}
-		statusText.Alignment = fyne.TextAlignCenter
 		splash.SetContent(container.NewVBox(
 			widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			statusText,
-			loadingBar,
+			loading,
 		))
 	}
 	go func() {
-		<-loading.complete
+		<-loadingChannel
 		if splash != nil {
 			window.SetMaster()
 			splash.Close()
@@ -176,7 +123,7 @@ func main() {
 	}
 }
 
-func CreateMainContent(window fyne.Window, loading *Loading) {
+func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	loading.SetProgress(0, 0, "Checking Dependencies")
 	NFProject.CheckAndInstallDependencies(window)
 	loading.SetProgress(10, 00*time.Millisecond, "Creating Main Menu")
