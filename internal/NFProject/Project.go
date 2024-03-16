@@ -282,7 +282,14 @@ func (p Project) Create(window fyne.Window) error {
 	if err != nil {
 		return err
 	}
-	err = t.Execute(mainGameFile, nil)
+
+	mainGameData := struct {
+		LocalConfig string
+	}{
+		LocalConfig: p.GameName + "/internal/config/Config.go",
+	}
+
+	err = t.Execute(mainGameFile, mainGameData)
 	if err != nil {
 		return err
 	}
@@ -293,7 +300,7 @@ func (p Project) Create(window fyne.Window) error {
 	if err != nil {
 		return err
 	}
-	data := struct {
+	configData := struct {
 		GameName     string
 		GameVersion  string
 		GameAuthor   string
@@ -312,7 +319,7 @@ func (p Project) Create(window fyne.Window) error {
 	if err != nil {
 		return err
 	}
-	err = t.Execute(configFile, data)
+	err = t.Execute(configFile, configData)
 	if err != nil {
 		return err
 	}
