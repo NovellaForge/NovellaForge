@@ -1,6 +1,11 @@
 package main
 
 import (
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -13,14 +18,11 @@ import (
 	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
-	"log"
-	"net/http"
-	"os"
-	"time"
-)
 
-//Profiler stuff
-import _ "net/http/pprof"
+	//Profiler stuff
+
+	_ "net/http/pprof"
+)
 
 /*
 TODO Priorities:
@@ -73,8 +75,12 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+
+	// Create a new application and window with the title based on the version
 	application := app.NewWithID("com.novellaforge.editor")
 	window := application.NewWindow(WindowTitle)
+
+	// Use common 720p resolution for base window size
 	window.Resize(fyne.NewSize(1280, 720))
 	iconResource, err := fyne.LoadResourceFromPath(Icon)
 	if err != nil {
@@ -92,9 +98,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Create a loading widget shown while the main NovellaForge content is loading
 	loadingChannel := make(chan struct{})
 	loading := CalsWidgets.NewLoading(loadingChannel, 0, 100)
 	var splash fyne.Window
+
+	// If the user is on a desktop, show a splash screen while the main content is loading
 	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
 		splash = drv.CreateSplashWindow()
 		splash.SetContent(container.NewVBox(
@@ -105,6 +115,11 @@ func main() {
 			loading,
 		))
 	}
+
+	// Once the loading bar is complete, close the splash screen and show the main window
+	// This code runs in a thread, so we can continue to load the main content while the splash screen is shown
+	// Note that the splash variable contains the loading bar, and once the loading bar is complete, the splash screen is closed
+	// The window variable contains the NovellaForge main content, which is shown after the splash screen is closed
 	go func() {
 		<-loadingChannel
 		if splash != nil {
@@ -114,7 +129,11 @@ func main() {
 			window.RequestFocus()
 		}
 	}()
+
+	// Create the main NovellaForge content in a thread, which will also update the loading bar
 	go CreateMainContent(window, loading)
+
+	// Show the splash screen if it was created, otherwise show the main window
 	if splash != nil {
 		splash.Show()
 		application.Run()
@@ -123,15 +142,21 @@ func main() {
 	}
 }
 
+// Update the loading variable as the NovellaForge content is created
 func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
+
+	// Runs "go version" to check if Go is installed
 	loading.SetProgress(0, 0, "Checking Dependencies")
 	NFProject.CheckAndInstallDependencies(window)
+
+	// Creates a main menu to hold the buttons below
 	loading.SetProgress(10, 00*time.Millisecond, "Creating Main Menu")
 	NFEditor.CreateMainMenu(window)
-	loading.SetProgress(20, 00*time.Millisecond, "Creating Main Content")
 
-	//Create a grid layout for the four main buttons
+	// Create a grid layout for the four main buttons
+	loading.SetProgress(20, 00*time.Millisecond, "Creating Main Content")
 	grid := container.New(layout.NewGridLayout(2))
+
 	//Create the buttons
 	newProjectButton := widget.NewButton("New Project", func() {
 		NFEditor.NewProjectDialog(window)
