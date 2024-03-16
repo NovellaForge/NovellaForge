@@ -70,7 +70,7 @@ const (
 var WindowTitle = "Novella Forge" + " " + Version
 
 func main() {
-	//Start the profiler
+	// Start the profiler (located at localhost:6060/debug/pprof/)
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
@@ -141,7 +141,7 @@ func main() {
 	}
 }
 
-// Update the loading variable as the NovellaForge content is created
+// CreateMainContent updates the loading variable as the NovellaForge content is created
 func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 
 	// Runs "go version" to check if Go is installed
