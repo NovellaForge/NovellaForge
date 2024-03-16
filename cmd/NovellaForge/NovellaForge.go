@@ -156,16 +156,19 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	loading.SetProgress(20, 00*time.Millisecond, "Creating Main Content")
 	grid := container.New(layout.NewGridLayout(2))
 
-	//Create the buttons
+	// Create a New Project button in the top left
 	newProjectButton := widget.NewButton("New Project", func() {
 		NFEditor.NewProjectDialog(window)
 	})
+	// Create a Open Project button in the top right
 	openProjectButton := widget.NewButton("Open Project", func() {
 		NFEditor.OpenProjectDialog(window)
 	})
+	// Create an Open Recent button in the bottom left
 	openRecentButton := widget.NewButton("Open Recent", func() {
 		NFEditor.OpenRecentDialog(window)
 	})
+	// Create a Continue Last button in the bottom right
 	continueLastButton := widget.NewButton("Continue Last", func() {})
 	loading.SetProgress(50, 00*time.Millisecond, "Checking for Recent Projects")
 	projects, err := NFEditor.ReadProjectInfo()
