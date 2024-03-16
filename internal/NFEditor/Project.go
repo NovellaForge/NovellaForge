@@ -1,4 +1,4 @@
-package NFProject
+package NFEditor
 
 import (
 	"bytes"
@@ -212,7 +212,7 @@ func (p Project) Load(window fyne.Window, info ...ProjectInfo) error {
 	if err != nil {
 		return err
 	}
-	//Load the scenes
+	window.SetContent(CreateSceneEditor(window))
 	return nil
 }
 

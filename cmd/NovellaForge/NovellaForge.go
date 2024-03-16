@@ -15,7 +15,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/internal/NFEditor"
-	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
 
@@ -147,7 +146,7 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 
 	// Runs "go version" to check if Go is installed
 	loading.SetProgress(0, 0, "Checking Dependencies")
-	NFProject.CheckAndInstallDependencies(window)
+	NFEditor.CheckAndInstallDependencies(window)
 
 	// Creates a main menu to hold the buttons below
 	loading.SetProgress(10, 00*time.Millisecond, "Creating Main Menu")
@@ -169,13 +168,13 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	})
 	continueLastButton := widget.NewButton("Continue Last", func() {})
 	loading.SetProgress(50, 00*time.Millisecond, "Checking for Recent Projects")
-	projects, err := NFProject.ReadProjectInfo()
+	projects, err := NFEditor.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
 		return
 	}
-	var project NFProject.ProjectInfo
+	var project NFEditor.ProjectInfo
 	if len(projects) == 0 {
 		continueLastButton.Disable()
 	} else {
@@ -188,7 +187,7 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 		}
 	}
 	continueLastButton.OnTapped = func() {
-		err = NFProject.OpenFromInfo(project, window)
+		err = NFEditor.OpenFromInfo(project, window)
 		if err != nil {
 			//Show an error dialog
 			dialog.ShowError(err, window)

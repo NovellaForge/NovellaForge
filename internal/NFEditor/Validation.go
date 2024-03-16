@@ -1,4 +1,4 @@
-package NFProject
+package NFEditor
 
 import (
 	"errors"

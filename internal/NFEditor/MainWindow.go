@@ -7,7 +7,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/internal/NFProject"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"log"
@@ -22,7 +21,7 @@ func CreateMainMenu(window fyne.Window) {
 	})
 	projectMenu := fyne.NewMenu("Project")
 
-	projects, err := NFProject.ReadProjectInfo()
+	projects, err := ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
@@ -34,7 +33,7 @@ func CreateMainMenu(window fyne.Window) {
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
 			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = NFProject.OpenFromInfo(projects[i], window)
+				err = OpenFromInfo(projects[i], window)
 				if err != nil {
 					//Show an NFerror dialog
 					dialog.ShowError(err, window)
@@ -84,7 +83,7 @@ func CreateMainMenu(window fyne.Window) {
 func OpenRecentDialog(window fyne.Window) {
 	box := container.NewVBox()
 	newDialog := dialog.NewCustom("Open Recent", "Close", box, window)
-	projects, err := NFProject.ReadProjectInfo()
+	projects, err := ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
@@ -135,7 +134,7 @@ func OpenRecentDialog(window fyne.Window) {
 		if id == 0 {
 			return
 		}
-		err = NFProject.OpenFromInfo(projects[id-1], window)
+		err = OpenFromInfo(projects[id-1], window)
 		if err != nil {
 			//Show an error dialog
 			errDialog := dialog.NewError(err, window)
@@ -179,7 +178,7 @@ func OpenProjectDialog(window fyne.Window) {
 			return
 		}
 		// Deserialize the project
-		project, err := NFProject.Deserialize(file)
+		project, err := Deserialize(file)
 		if err != nil {
 			log.Println("Error deserializing project")
 			// Show an error dialog
@@ -188,7 +187,7 @@ func OpenProjectDialog(window fyne.Window) {
 		}
 		// Load the project
 
-		info := NFProject.ProjectInfo{
+		info := ProjectInfo{
 			Name:     project.GameName,
 			Path:     reader.URI().Path(),
 			OpenDate: time.Now(),
@@ -223,7 +222,7 @@ func NewProjectDialog(window fyne.Window) {
 	var err error
 	box := container.NewVBox()
 	projectDialog := dialog.NewCustom("New Project", "Cancel", container.NewVBox(layout.NewSpacer(), box, layout.NewSpacer()), window)
-	newProject := NFProject.Project{}
+	newProject := Project{}
 	projectName := ""
 	nameEntry := widget.NewEntry()
 	nameValidationLabel := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
@@ -245,7 +244,7 @@ func NewProjectDialog(window fyne.Window) {
 	authorEntry.Hide()
 
 	nameEntry.Validator = func(s string) error {
-		_, err = NFProject.SanitizeProjectName(s)
+		_, err = SanitizeProjectName(s)
 		if err != nil {
 			nameValidationLabel.SetText(err.Error())
 		} else {
@@ -262,7 +261,7 @@ func NewProjectDialog(window fyne.Window) {
 		}
 	})
 	nameConfirmButton.OnTapped = func() {
-		_, err = NFProject.SanitizeProjectName(nameEntry.Text)
+		_, err = SanitizeProjectName(nameEntry.Text)
 		if err != nil {
 			dialog.ShowError(err, window)
 			nameEntry.SetValidationError(err)
