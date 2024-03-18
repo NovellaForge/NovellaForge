@@ -2,6 +2,12 @@ package DefaultFunctions
 
 import (
 	"errors"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -9,11 +15,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFSave"
-	"log"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 // Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,
@@ -69,6 +70,7 @@ func init() {
 	NFFunction.Register(ContinueGameFunction, ContinueGame)
 }
 
+// Quit simply closes the window after promting the user for confirmation
 func Quit(window fyne.Window, _ map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
 	dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 		if b {
@@ -78,7 +80,9 @@ func Quit(window fyne.Window, _ map[string]interface{}) (map[string]interface{},
 	return nil, nil, nil
 }
 
-// CustomError creates a dialog for when an error occurs in the game
+// CustomError creates a dialog window over the current game window
+// The user is prompted if they would like to try and continue the game despite the error
+// If they choose to continue, the error is not returned
 func CustomError(window fyne.Window, args map[string]interface{}) (results map[string]interface{}, widgets map[string]fyne.CanvasObject, err error) {
 	isErrored := true
 	message := args["message"].(string)

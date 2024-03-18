@@ -2,6 +2,7 @@ package NFLayout
 
 import (
 	"errors"
+
 	"fyne.io/fyne/v2"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 )
@@ -27,6 +28,8 @@ func (layout *Layout) Parse(window fyne.Window) (fyne.CanvasObject, error) {
 }
 
 // Register registers a custom layout handler
+// If the name is already registered, it will not be registered again
+// View the DefaultLayouts package for an example of how to use this function
 func Register(name string, handler layoutHandler) {
 	//Check if the name is already registered, if it is, return
 	if _, ok := layouts[name]; ok {

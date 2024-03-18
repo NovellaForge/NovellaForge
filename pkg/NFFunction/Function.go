@@ -2,10 +2,11 @@ package NFFunction
 
 import (
 	"encoding/json"
-	"fyne.io/fyne/v2"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 	"log"
 	"os"
+
+	"fyne.io/fyne/v2"
+	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 )
 
 type Function struct {
@@ -21,6 +22,7 @@ type Function struct {
 }
 
 // Export is a function that is used to export the function to a json file
+// These files are used in the main editor to determine inputs needed to call a function in a scene
 func (f Function) Export() error {
 	jsonBytes, err := json.MarshalIndent(f, "", "	")
 	if err != nil {
@@ -34,8 +36,14 @@ func (f Function) Export() error {
 	return nil
 }
 
+// This map contains a reference to all registered functions, so they can easily be found and
+// called, no matter which files they are registered in
 var functions = map[string]functionHandler{}
 
+// All functions are handled in a standard way, with two inputs, a window and a map of arguments
+// To determine what goes into the map of arguments, you can look at the RequiredArgs and OptionalArgs fields of the Function struct
+// These are also exported to a json file in the exports/functions directory
+// The functionHandler returns a map of strings to interfaces and a map of strings to fyne.CanvasObjects
 type functionHandler func(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error)
 
 // ParseAndRun parses a function from its string name runs it and returns the results
