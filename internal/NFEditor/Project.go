@@ -385,6 +385,38 @@ func (p Project) Create(window fyne.Window) error {
 	}
 	customWidgetFile.Close()
 
+	//Put the scene templates in the data/scenes directory
+	loading.SetProgress(75, "Creating Scene Templates")
+	//Parse the Scenes/MainMenu.json template
+	t, err = template.ParseFS(Templates, "Templates/Scenes/MainMenu.json")
+	if err != nil {
+		return err
+	}
+	MainMenuSceneFile, err := os.Create(projectDir + "/data/scenes/MainMenu.NFScene")
+	if err != nil {
+		return err
+	}
+	err = t.Execute(MainMenuSceneFile, nil)
+	if err != nil {
+		return err
+	}
+	MainMenuSceneFile.Close()
+
+	//Parse the Scenes/NewGame.json template
+	t, err = template.ParseFS(Templates, "Templates/Scenes/NewGame.json")
+	if err != nil {
+		return err
+	}
+	NewGameSceneFile, err := os.Create(projectDir + "/data/scenes/NewGame.NFScene")
+	if err != nil {
+		return err
+	}
+	err = t.Execute(NewGameSceneFile, nil)
+	if err != nil {
+		return err
+	}
+	NewGameSceneFile.Close()
+
 	//Initialize the go mod file by running go mod init with os/exec
 	loading.SetProgress(80, "Initializing go mod file")
 	log.Printf("Initializing go mod file")

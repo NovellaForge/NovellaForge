@@ -1,0 +1,59 @@
+{
+	"Name": "MainMenu",
+	"Layout": {
+		"Type": "VBox",
+		"Widgets": [
+			{
+				"ID": "MainMenu.Label#1",
+				"Type": "Label",
+				"Children": null,
+				"Properties": {
+					"Text": "Main Menu"
+				},
+				"JsonSafe": null
+			},
+			{
+				"ID": "MainMenu.Button#1",
+				"Type": "Button",
+				"Children": null,
+				"Properties": {
+					"Action": "NewGame",
+					"Text": "New Game"
+				},
+				"JsonSafe": null
+			},
+			{
+				"ID": "MainMenu.Button#2",
+				"Type": "Button",
+				"Children": null,
+				"Properties": {
+					"Action": "LoadGame",
+					"Text": "Load Game"
+				},
+				"JsonSafe": null
+			},
+			{
+				"ID": "MainMenu.Button#3",
+				"Type": "Button",
+				"Children": null,
+				"Properties": {
+					"Action": "Settings",
+					"Text": "Settings"
+				},
+				"JsonSafe": null
+			},
+			{
+				"ID": "MainMenu.Button#4",
+				"Type": "Button",
+				"Children": null,
+				"Properties": {
+					"Action": "Quit",
+					"Text": "Quit"
+				},
+				"JsonSafe": null
+			}
+		],
+		"Properties": null
+	},
+	"Properties": null
+}

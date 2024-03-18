@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -45,6 +46,7 @@ func GetAll(path ...string) map[string]Scene {
 // LoadAll returns all scenes reloading them from the disk. If you don't want to reload them, use GetAll
 func LoadAll(path ...string) map[string]Scene {
 	if len(path) == 0 {
+		log.Println("No path provided, using default path")
 		path = append(path, "data/scenes")
 	}
 	// Start scanning from the base directory
@@ -175,4 +177,46 @@ func (scene *Scene) Parse(window fyne.Window, overlay ...fyne.CanvasObject) (fyn
 		stack.Add(o)
 	}
 	return stack, err
+}
+
+// Export exports the scene to a file
+func (scene *Scene) Export() error {
+	//Make sure each of the layouts children have a unique ID by counting the ones of the same type and naming them SceneName.TypeName#Number
+	//Create a map of string to int
+	counts := map[string]int{}
+	//Iterate over the children
+	for i, child := range scene.Layout.Children {
+		//Check if the child has an ID
+		if child.ID == "" {
+			//If it doesn't, check the count of the type
+			if count, ok := counts[child.Type]; ok {
+				//if it does add one to the count and name it SceneName.TypeName#Number
+				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
+				scene.Layout.Children[i] = child
+				counts[child.Type] = count + 1
+			} else {
+				//Set the count to 1 and name it SceneName.TypeName#1
+				counts[child.Type] = 1
+				child.ID = scene.Name + "." + child.Type + "#1"
+				scene.Layout.Children[i] = child
+			}
+		}
+	}
+	//check if the file already exists before writing to it
+	if _, err := os.Stat("exports/scenes/" + scene.Name + ".json"); err == nil {
+		return errors.New("file already exists")
+	}
+	//Create the jsonBytes for the scene
+	jsonBytes, err := json.MarshalIndent(scene, "", "	")
+	if err != nil {
+		return err
+	}
+	//Create the directories if they don't exist
+	err = os.MkdirAll("exports/scenes", 0755)
+	//Write the file
+	err = os.WriteFile("exports/scenes/"+scene.Name+".json", jsonBytes, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }

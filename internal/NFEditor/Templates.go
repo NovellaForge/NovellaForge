@@ -53,6 +53,17 @@ var MainMenuSceneTemplate = NFScene.Scene{
 var NewGameSceneTemplate = NFScene.Scene{
 	Name: "NewGame",
 	Layout: NFLayout.Layout{
-		Type: "VBox",
+		Type: "ExampleLayout",
+		Children: []NFWidget.Widget{
+			{
+				Type: "ExampleWidget",
+				Properties: map[string]interface{}{
+					"message": "Hello World",
+					"action":  "CustomFunction.ExampleFunction",
+				},
+			},
+		},
+		Properties: nil,
 	},
+	Properties: nil,
 }

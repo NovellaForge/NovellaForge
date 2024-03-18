@@ -6,19 +6,19 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFFunction/DefaultFunctions"
-	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLayout/DefaultLayouts"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
 	"github.com/NovellaForge/NovellaForge/pkg/NFSave"
 	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/DefaultWidgets"
 	"log"
 	"os"
+	"time"
 	config "{{.LocalConfig}}"
 	ExampleFunctions "{{.LocalFunctions}}"
 	ExampleLayouts "{{.LocalLayouts}}"
@@ -46,42 +46,43 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//splashScreen := gameApp.Preferences().BoolWithFallback("splashScreen", true)
-	//startupSettings := gameApp.Preferences().BoolWithFallback("startupSettings", true)
-
-	//TODO Setup settings that lead into splash screen and then game, with both splash screen and settings being optional
-
-	TempGameScene := NFScene.Scene{
-		Name: "TempGameScene",
-		Layout: NFLayout.Layout{
-			Type: "ExampleLayout",
-			Children: []NFWidget.Widget{
-				{
-					Type: "ExampleWidget",
-					Properties: map[string]interface{}{
-						"message": "Hello World",
-						"action":  "CustomFunction.ExampleFunction",
-					},
-				},
-			},
-			Properties: nil,
-		},
-		Properties: nil,
-	}
+	splashScreen := gameApp.Preferences().BoolWithFallback("splashScreen", true)
+	startupSettings := gameApp.Preferences().BoolWithFallback("startupSettings", true)
 	ExampleFunctions.Register()
 	ExampleLayouts.Register()
 	ExampleWidgets.Register()
-	scene, err := TempGameScene.Parse(window)
-	if err != nil {
-		log.Println("Error Parsing Scene: " + err.Error())
-		_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Error Parsing Scene: " + err.Error()})
+	if startupSettings {
+		ShowStartupSettings(window, NFScene.GetAll(), splashScreen)
+	} else {
+		ShowGame(window, NFScene.GetAll(), "MainMenu", splashScreen)
 	}
-	window.SetContent(scene)
-	window.Show()
-	gameApp.Run()
+	window.ShowAndRun()
 }
 
-func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene string) {
+func createSplashScreen() fyne.Window {
+	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
+		splash := drv.CreateSplashWindow()
+		splash.SetContent(container.NewVBox(
+			widget.NewLabelWithStyle(config.GameName, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle("Version: "+config.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Developed By: "+config.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Powered By: NovellaForge and Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		))
+		return splash
+	}
+	return nil
+}
+
+func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene string, screen bool) {
+	window.SetMaster()
+	if screen {
+		splash := createSplashScreen()
+		window.Hide()
+		splash.Show()
+		time.Sleep(1 * time.Second)
+		splash.Close()
+		window.Show()
+	}
 	currentApp := fyne.CurrentApp()
 	window.SetFullScreen(currentApp.Preferences().BoolWithFallback("fullscreen", false))
 	window.SetContent(container.NewVBox())
@@ -163,7 +164,7 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	window.SetContent(sceneObject)
 }
 
-func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene) {
+func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene, splashScreen bool) {
 	settingsBox := CreateSettings(true, window)
 	var creditsModal *widget.PopUp
 	creditsCloseButton := widget.NewButton("Close", func() {
@@ -181,8 +182,11 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene)
 		creditsModal.Show()
 	})
 	startButton := widget.NewButton("Start Game", func() {
-		//The main game window runs in a separate go routine so that waits using time.Sleep() do not block the UI
-		//go ShowGame(window, allScenes, StartupScene)
+		if splashScreen {
+			go ShowGame(window, allScenes, "MainMenu", true)
+		} else {
+			go ShowGame(window, allScenes, "MainMenu", false)
+		}
 	})
 	settingsBox.(*fyne.Container).Add(container.NewVBox(creditsButton, startButton))
 	window.SetFixedSize(true)

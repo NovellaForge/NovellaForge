@@ -1,0 +1,20 @@
+{
+	"Name": "NewGame",
+	"Layout": {
+		"Type": "ExampleLayout",
+		"Widgets": [
+			{
+				"ID": "NewGame.ExampleWidget#1",
+				"Type": "ExampleWidget",
+				"Children": null,
+				"Properties": {
+					"action": "CustomFunction.ExampleFunction",
+					"message": "Hello World"
+				},
+				"JsonSafe": null
+			}
+		],
+		"Properties": null
+	},
+	"Properties": null
+}
