@@ -100,7 +100,7 @@ func main() {
 
 	// Create a loading widget shown while the main NovellaForge content is loading
 	loadingChannel := make(chan struct{})
-	loading := CalsWidgets.NewLoading(loadingChannel, 0, 100)
+	loading := CalsWidgets.NewLoading(loadingChannel, 0*time.Second, 100)
 	var splash fyne.Window
 
 	// If the user is on a desktop, show a splash screen while the main content is loading
@@ -111,7 +111,7 @@ func main() {
 			widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			loading,
+			loading.Box,
 		))
 	}
 
@@ -143,17 +143,16 @@ func main() {
 
 // CreateMainContent updates the loading variable as the NovellaForge content is created
 func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
-
 	// Runs "go version" to check if Go is installed
-	loading.SetProgress(0, 0, "Checking Dependencies")
+	loading.SetProgress(0, "Checking Dependencies")
 	NFEditor.CheckAndInstallDependencies(window)
 
 	// Creates a main menu to hold the buttons below
-	loading.SetProgress(10, 00*time.Millisecond, "Creating Main Menu")
+	loading.SetProgress(10, "Creating Main Menu")
 	NFEditor.CreateMainMenu(window)
 
 	// Create a grid layout for the four main buttons
-	loading.SetProgress(20, 00*time.Millisecond, "Creating Main Content")
+	loading.SetProgress(20, "Creating Main Content")
 	grid := container.New(layout.NewGridLayout(2))
 
 	// Create a New Project button in the top left
@@ -170,7 +169,7 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	})
 	// Create a Continue Last button in the bottom right
 	continueLastButton := widget.NewButton("Continue Last", func() {})
-	loading.SetProgress(50, 00*time.Millisecond, "Checking for Recent Projects")
+	loading.SetProgress(50, "Checking for Recent Projects")
 	projects, err := NFEditor.ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
@@ -196,13 +195,13 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 			dialog.ShowError(err, window)
 		}
 	}
-	loading.SetProgress(95, 00*time.Millisecond, "Adding Content to Grid")
+	loading.SetProgress(95, "Adding Content to Grid")
 	//Add the buttons to the grid
 	grid.Add(newProjectButton)
 	grid.Add(openProjectButton)
 	grid.Add(openRecentButton)
 	grid.Add(continueLastButton)
-	loading.SetProgress(100, 00*time.Millisecond, "Setting Content")
+	loading.SetProgress(100, "Setting Content")
 	window.SetContent(grid)
 	time.Sleep(1 * time.Second)
 	loading.Complete()
