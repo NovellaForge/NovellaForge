@@ -76,3 +76,6 @@ func (l *Loading) Complete() {
 	l.complete <- struct{}{}
 	l.SetStatus("Complete")
 }
+func (l *Loading) GetProgress() float64 {
+	return l.bar.Value
+}

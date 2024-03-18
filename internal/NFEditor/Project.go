@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/widget"
 	"github.com/NovellaForge/NovellaForge/pkg/NFError"
 	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
 	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
 	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
 	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
 	"html/template"
 	"log"
 	"os"
@@ -217,8 +216,11 @@ func (p Project) Load(window fyne.Window, info ...ProjectInfo) error {
 }
 
 func (p Project) Create(window fyne.Window) error {
+	loadingChannel := make(chan struct{})
+	loading := CalsWidgets.NewLoading(loadingChannel, 100*time.Millisecond, 100)
+	loading.SetProgress(0, "Creating Project: "+p.GameName)
 	//Pop up a dialog with a progress bar and a label that says "Creating Project"
-	progressDialog := dialog.NewCustomWithoutButtons("Creating Project", container.NewVBox(widget.NewProgressBarInfinite(), widget.NewLabel("Creating Project: "+p.GameName)), window)
+	progressDialog := dialog.NewCustomWithoutButtons("Creating Project", loading.Box, window)
 	progressDialog.Show()
 	defer progressDialog.Hide()
 
@@ -229,6 +231,9 @@ func (p Project) Create(window fyne.Window) error {
 	novellaForgeDir := homeDir + "/Documents/NovellaForge"
 	projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", novellaForgeDir+"/projects")
 
+	//First check if the project directory already exists
+
+	loading.SetProgress(10, "Checking if project already exists")
 	_, err = os.Stat(projectsDir + "/" + p.GameName)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(projectsDir+"/"+p.GameName, 0755)
@@ -239,15 +244,16 @@ func (p Project) Create(window fyne.Window) error {
 		return NFError.ErrProjectAlreadyExists
 	}
 
-	//First check if the project directory already exists
-	projectDir := projectsDir + "/" + p.GameName
 	//Create the project directory
+	loading.SetProgress(20, "Creating Project Directory")
+	projectDir := projectsDir + "/" + p.GameName
 	err = os.MkdirAll(projectDir, 0755)
 	if err != nil {
 		return err
 	}
 
 	//Create the project file
+	loading.SetProgress(30, "Creating Project File")
 	err = os.WriteFile(projectDir+"/"+p.GameName+".NFProject", p.Serialize(), 0644)
 	if err != nil {
 		return err
@@ -266,7 +272,9 @@ func (p Project) Create(window fyne.Window) error {
 		"internal/widget",
 	}
 
+	percentPerDir := 10 / len(neededDirectories)
 	for _, dir := range neededDirectories {
+		loading.SetProgress(loading.GetProgress()+float64(percentPerDir), "Creating "+dir)
 		err = os.MkdirAll(projectDir+"/"+dir, 0755)
 		if err != nil {
 			return err
@@ -274,6 +282,7 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	//Write the main.go file
+	loading.SetProgress(50, "Creating main.go file")
 	t, err := template.ParseFS(Templates, "Templates/MainGame/Template.go")
 	if err != nil {
 		return err
@@ -302,6 +311,7 @@ func (p Project) Create(window fyne.Window) error {
 	mainGameFile.Close()
 
 	//Write the config file
+	loading.SetProgress(60, "Creating Config file")
 	t, err = template.ParseFS(Templates, "Templates/Config/Template.go")
 	if err != nil {
 		return err
@@ -332,6 +342,7 @@ func (p Project) Create(window fyne.Window) error {
 	configFile.Close()
 
 	//Write the custom import files
+	loading.SetProgress(70, "Creating Custom Import Files")
 	t, err = template.ParseFS(Templates, "Templates/CustomFunction/Template.go")
 	if err != nil {
 		return err
@@ -375,6 +386,7 @@ func (p Project) Create(window fyne.Window) error {
 	customWidgetFile.Close()
 
 	//Initialize the go mod file by running go mod init with os/exec
+	loading.SetProgress(80, "Initializing go mod file")
 	log.Printf("Initializing go mod file")
 
 	// Initialize the go mod
@@ -389,6 +401,7 @@ func (p Project) Create(window fyne.Window) error {
 		return errors.New("error initializing go mod file")
 	}
 
+	loading.SetProgress(90, "Installing fyne")
 	log.Printf("Installing fyne")
 	cmd = exec.Command("go", "get", "fyne.io/fyne/v2@latest")
 	cmd.Stderr = &stderr
@@ -400,6 +413,7 @@ func (p Project) Create(window fyne.Window) error {
 		return errors.New("error installing fyne")
 	}
 
+	loading.SetProgress(95, "Installing NovellaForge")
 	log.Printf("Installing NovellaForge")
 	cmd = exec.Command("go", "get", "github.com/NovellaForge/NovellaForge")
 	cmd.Stderr = &stderr
@@ -412,6 +426,7 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	//Run go mod tidy
+	loading.SetProgress(97, "Running go mod tidy")
 	log.Printf("Running go mod tidy")
 	cmd = exec.Command("go", "mod", "tidy")
 	cmd.Stderr = &stderr
@@ -424,7 +439,9 @@ func (p Project) Create(window fyne.Window) error {
 
 	}
 
+	loading.SetProgress(100, "Project Created")
 	log.Printf("Initialization successful")
+	time.Sleep(1 * time.Second)
 	return nil
 }
 
