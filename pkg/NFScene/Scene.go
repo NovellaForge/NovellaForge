@@ -116,6 +116,7 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 	//Create a map of string to Scene
 	scenes := map[string]Scene{}
 	//Scan the directory
+	log.Println("Scanning directory", s)
 	err := filepath.Walk(s, func(path string, info os.FileInfo, err error) error {
 		name := args[0]
 		if findScene {
