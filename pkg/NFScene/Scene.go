@@ -118,16 +118,18 @@ func LoadByName(name string) (Scene, error) {
 func scanDir(s string, args ...string) (map[string]Scene, error) {
 	//If the args are empty, set findScene to false and then set both args to ""
 	findScene := false
-	if args[0] != "" {
+	if len(args) > 0 && args[0] != "" {
 		findScene = true
 	}
+
 	//Create a map of string to Scene
 	scenes := map[string]Scene{}
 	//Scan the directory
 	log.Println("Scanning directory", s)
 	err := filepath.Walk(s, func(path string, info os.FileInfo, err error) error {
-		name := args[0]
+		name := ""
 		if findScene {
+			name = args[0]
 			//Make sure the name ends in .NFScene
 			if !strings.HasSuffix(name, ".NFScene") {
 				name += ".NFScene"
