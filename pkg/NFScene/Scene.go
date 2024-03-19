@@ -37,7 +37,11 @@ func GetAll(path ...string) map[string]Scene {
 	log.Println("Getting all Loaded scenes")
 	if len(all) == 0 {
 		log.Println("No scenes yet loaded, loading all scenes")
-		LoadAll(path[0])
+		if len(path) == 0 {
+			LoadAll()
+		} else {
+			LoadAll(path[0])
+		}
 		log.Printf("Loaded %d scenes", len(all))
 	}
 	return all
@@ -47,7 +51,7 @@ func GetAll(path ...string) map[string]Scene {
 func LoadAll(path ...string) map[string]Scene {
 	if len(path) == 0 {
 		log.Println("No path provided, using default path")
-		path = append(path, "data/scenes")
+		path[0] = "./data/scenes"
 	}
 	// Start scanning from the base directory
 	scenes, err := scanDir(path[0])
