@@ -48,13 +48,17 @@ func GetAll(path ...string) map[string]Scene {
 }
 
 // LoadAll returns all scenes reloading them from the disk. If you don't want to reload them, use GetAll
-func LoadAll(path ...string) map[string]Scene {
-	if len(path) == 0 {
+func LoadAll(p ...string) map[string]Scene {
+	path := ""
+	if len(p) == 0 {
 		log.Println("No path provided, using default path")
-		path[0] = "./data/scenes"
+		path = "./data/scenes"
+	} else {
+		path = p[0]
 	}
+	log.Println("Loading all scenes from", path)
 	// Start scanning from the base directory
-	scenes, err := scanDir(path[0])
+	scenes, err := scanDir(path)
 	if err != nil {
 		return nil
 	} else if scenes == nil {
