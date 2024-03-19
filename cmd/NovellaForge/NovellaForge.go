@@ -115,6 +115,9 @@ func main() {
 		))
 	}
 
+	//Sets the main window to be the master window so that it can be focused and when it is closed the application will close
+	window.SetMaster()
+
 	// Once the loading bar is complete, close the splash screen and show the main window
 	// This code runs in a thread, so we can continue to load the main content while the splash screen is shown
 	// Note that the splash variable contains the loading bar, and once the loading bar is complete, the splash screen is closed
@@ -122,7 +125,6 @@ func main() {
 	go func() {
 		<-loadingChannel
 		if splash != nil {
-			window.SetMaster()
 			splash.Close()
 			window.Show()
 			window.RequestFocus()
