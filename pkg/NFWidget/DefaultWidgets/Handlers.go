@@ -7,9 +7,9 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
-	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 // VBoxContainerHandler creates a vertical box container

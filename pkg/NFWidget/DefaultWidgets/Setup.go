@@ -1,7 +1,7 @@
 package DefaultWidgets
 
 import (
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 )
 

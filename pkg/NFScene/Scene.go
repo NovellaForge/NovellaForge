@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"log"
 	"os"
 	"path/filepath"

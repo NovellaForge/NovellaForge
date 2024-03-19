@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"fyne.io/fyne/v2"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
 )
 
 type Function struct {

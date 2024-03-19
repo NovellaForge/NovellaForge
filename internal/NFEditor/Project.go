@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
-	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
-	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
-	"github.com/NovellaForge/NovellaForge/pkg/NFScene"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFScene"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"html/template"
 	"log"
 	"os"
@@ -447,7 +447,7 @@ func (p Project) Create(window fyne.Window) error {
 
 	loading.SetProgress(95, "Installing NovellaForge")
 	log.Printf("Installing NovellaForge")
-	cmd = exec.Command("go", "get", "github.com/NovellaForge/NovellaForge")
+	cmd = exec.Command("go", "get", "go.novellaforge.dev/novellaforge")
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
 	err = cmd.Run()

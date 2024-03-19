@@ -6,7 +6,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"image/color"
 )
 

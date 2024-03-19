@@ -5,9 +5,9 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
-	"github.com/NovellaForge/NovellaForge/pkg/NFLayout"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 // Import is a function used to allow importing of the default layouts package without errors or warnings

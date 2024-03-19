@@ -14,9 +14,9 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/internal/NFEditor"
-	"github.com/NovellaForge/NovellaForge/pkg/NFLog"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget/CalsWidgets"
+	"go.novellaforge.dev/novellaforge/internal/NFEditor"
+	"go.novellaforge.dev/novellaforge/pkg/NFLog"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 
 	//Profiler stuff
 

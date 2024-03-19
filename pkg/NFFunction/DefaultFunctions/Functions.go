@@ -13,8 +13,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
-	"github.com/NovellaForge/NovellaForge/pkg/NFSave"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFSave"
 )
 
 // Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,

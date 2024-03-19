@@ -2,9 +2,8 @@ package NFLayout
 
 import (
 	"errors"
-
 	"fyne.io/fyne/v2"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 // This is the type of function that will be used to handle layouts

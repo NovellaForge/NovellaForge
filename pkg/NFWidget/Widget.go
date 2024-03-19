@@ -3,7 +3,7 @@ package NFWidget
 import (
 	"encoding/json"
 	"fyne.io/fyne/v2"
-	"github.com/NovellaForge/NovellaForge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"os"
 	"reflect"
 	"strings"

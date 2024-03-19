@@ -1,4 +1,4 @@
-module github.com/NovellaForge/NovellaForge
+module go.novellaforge.dev/novellaforge
 
 go 1.22.1
 
