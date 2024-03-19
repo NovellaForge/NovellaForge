@@ -24,41 +24,31 @@ import (
 )
 
 /*
-TODO Priorities:
-	- Update to use the new splash screen format
-	- Update the templates to use the actual go template functionality
-	- Update the project creation to use the new templates
-		- Update the project creation to use the built in os perm modes
-	- Refactor all the parsing
-
-
-
-TODO New Editor Requirements:
-	- Parsers:
-		- Potentially switch all handlers over to ...interface{} and then use reflection to determine the type of the interface and parse it instead of using a map[string]interface{}
-	- Scene Editor:
-		- The scene editor should be a window that takes up the right side of the main window
-		- The scene editor should have a tree view on the left side that shows all the objects in the scene and allows the user to select them and edit their values containers should be able to be expanded and collapsed
-		- Objects should be displayed as their type and name in the tree view like type: name
-		- At the top of the object tree view there should be a search bar that allows the user to search for a specific object by name
-		- Underneath the search bar there should be a button that allows the user to add a new object to the scene that will pop up a dialog with a drop down menu that is populated with all the available object types from the default widgets and containers and the custom ones and a text box that allows the user to name the object
-		- When the user clicks the add button the object should be added to the scene and the object tree view and the user should be able to edit its values
-		- Values are populated into the object editor based on the type of object selected custom objects will pull the types from the json data and populate the editor with the correct type fields
-		- When the user clicks an object in the tree view the object editor should be populated with the objects values and the user should be able to edit them
-		- When the user clicks the save button the object editor should save the values back to the object and the object tree view should update to reflect the changes
-		- Above the search bar in the main project tree, there should be a build game button that will build the game and save it to the project directory in a build folder
-		- When the build button is clicked it should give options for the user to build the game for windows, mac, linux, android, and ios
-	- Main Editor:
-		- Should store project info in a file that can be loaded and opened to view the project history and info allowing to continue last project and open recent projects
-		- Terminal window that displays the output of the game or editor when it is running with an entry box at the bottom that allows the user to enter commands
-
-
-
-Todo IDEAS:
-	- in game Shift + f1 will quick save to the oldest or first empty save slot and Shift + f2 will quick load from the newest save slot pressing Shift plus f5 through f8 will save to those slots and f9 through f12 will load from those slots (Max of 4 quick saves and 4 quick loads)
-	- Open the terminal with Shift f3 and close it with Shift f4 or escape. Shift f3 will open the saves menu
-	- Check for GO and automatically install it if it is not there after prompting the user for an automatic install
-	- Check for the fyne dependencies and install them if they are not there (fyne install)
+TODO:
+ [ ] Finish documentation/comments
+ [ ] Finish the scene editor
+ 	[ ] Property manager needs to be able to fully edit all widget and container properties
+	[ ] Add in the ability to add and remove widgets and containers and change all their relevant properties
+	[ ] Add in the ability to add and remove scenes
+	[ ] Add in the ability to change the order of scenes
+	[ ] Add in the ability to change the name of scenes
+	[ ] Add in the ability to group widgets and containers in scenes and group scenes in a project
+	[ ] Add in the ability to change the order of widgets and containers
+ [ ] Add in a way to run the game from the editor for testing
+ [ ] Add in the preview run mode (with the ability to edit text fields in the preview)
+ [ ] Add in the ability to open the project in the default IDE
+ [ ] Add in the ability to open the project in the default file manager
+ [ ] Add in the ability to open the project in the default terminal
+ [ ] Add in the ability to change what IDE is used to open the project
+ [ ] Add in the build manager (for building the game on all platforms)
+ [ ] Add in the ability to generate a keystore for android builds
+---- above this line will be version 0.1.0 and will be the stability requirement for 1.0.0
+---- this means that if all features exist and can work in a basic fashion we are in 0.1.0
+---- if all features exist in a fully fleshed out and stable fashion we are in 1.0.0
+---- THIS LIST IS STILL HEAVILY IN FLUX AND WILL CHANGE AS PROJECT GOALS EVOLVE
+TODO Future:
+ [ ] Add in drag and drop widget support
+ [ ] Add in IOS and Mac support for game builds and Mac support for editor functionality
 */
 
 const (
