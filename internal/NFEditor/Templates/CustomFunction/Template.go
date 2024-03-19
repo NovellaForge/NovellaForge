@@ -3,7 +3,7 @@ package CustomFunction
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
-	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"log"
 )
 

@@ -3,8 +3,8 @@ package CustomWidget
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
-	"github.com/NovellaForge/NovellaForge/pkg/NFFunction"
-	"github.com/NovellaForge/NovellaForge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 )
 
