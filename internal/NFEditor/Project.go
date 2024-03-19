@@ -447,7 +447,7 @@ func (p Project) Create(window fyne.Window) error {
 
 	loading.SetProgress(95, "Installing NovellaForge")
 	log.Printf("Installing NovellaForge")
-	cmd = exec.Command("go", "get", "go.novellaforge.dev/novellaforge")
+	cmd = exec.Command("go", "get", "go.novellaforge.dev/novellaforge@latest")
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
 	err = cmd.Run()
