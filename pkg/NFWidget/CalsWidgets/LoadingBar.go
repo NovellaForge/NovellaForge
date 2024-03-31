@@ -56,6 +56,7 @@ func (l *Loading) SetProgress(progress float64, status ...string) {
 			log.Println(err)
 		}
 	}
+	log.Println(status)
 	time.Sleep(l.timeToSleep)
 }
 func (l *Loading) BindProgress() binding.Float {

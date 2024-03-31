@@ -2,6 +2,7 @@ package DefaultFunctions
 
 import (
 	"errors"
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,79 +14,28 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFSave"
 )
 
-// Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,
-// while still running the init function without disabling the unused import warning,
-// You can also import a functions package for side effects by changing its alias to _ but this way allows you to still use the package
-func Import() {}
-
-func init() {
-	Import()
-	log.Println("Registering Default Functions")
-	//Register the default functions
-	QuitFunction := NFFunction.Function{
-		Name:         "Quit",
-		Type:         "Quit",
-		RequiredArgs: nil,
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(QuitFunction, Quit)
-	ErrorFunction := NFFunction.Function{
-		Name:         "Error",
-		Type:         "Error",
-		RequiredArgs: map[string]interface{}{"message": ""},
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(ErrorFunction, CustomError)
-	NewGameFunction := NFFunction.Function{
-		Name:         "New Game",
-		Type:         "NewGame",
-		RequiredArgs: map[string]interface{}{"NewGameScene": ""},
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(NewGameFunction, NewGame)
-	SaveAsFunction := NFFunction.Function{
-		Name:         "Save As",
-		Type:         "SaveAs",
-		RequiredArgs: nil,
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(SaveAsFunction, SaveAs)
-	LoadGameFunction := NFFunction.Function{
-		Name:         "Load Game",
-		Type:         "LoadGame",
-		RequiredArgs: nil,
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(LoadGameFunction, LoadGame)
-	ContinueGameFunction := NFFunction.Function{
-		Name:         "Continue Game",
-		Type:         "ContinueGame",
-		RequiredArgs: nil,
-		OptionalArgs: nil,
-	}
-	NFFunction.Register(ContinueGameFunction, ContinueGame)
-}
-
-// Quit simply closes the window after promting the user for confirmation
-func Quit(window fyne.Window, _ map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+// Quit simply closes the window after prompting the user for confirmation
+func Quit(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
 	dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 		if b {
 			window.Close()
 		}
 	}, window)
-	return nil, nil, nil
+	return args, nil
 }
 
 // CustomError creates a dialog window over the current game window
 // The user is prompted if they would like to try and continue the game despite the error
 // If they choose to continue, the error is not returned
-func CustomError(window fyne.Window, args map[string]interface{}) (results map[string]interface{}, widgets map[string]fyne.CanvasObject, err error) {
-	isErrored := true
-	message := args["message"].(string)
+func CustomError(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+	var message string
+	err := args.Get("Error", &message)
+	if err != nil {
+		return args, err
+	}
 	var errDialog *dialog.CustomDialog
 	errTextLabel := widget.NewLabel(message)
 	errBox := container.NewVBox(
@@ -93,7 +43,6 @@ func CustomError(window fyne.Window, args map[string]interface{}) (results map[s
 		container.NewHBox(
 			widget.NewButton("Attempt to Continue", func() {
 				errDialog.Hide()
-				isErrored = false
 			}),
 			widget.NewButton("Close Game", func() {
 				window.Close()
@@ -101,33 +50,22 @@ func CustomError(window fyne.Window, args map[string]interface{}) (results map[s
 		),
 	)
 	errDialog = dialog.NewCustomWithoutButtons("Error", errBox, window)
-	errDialog.SetOnClosed(func() {
-		isErrored = false
-	})
+	errDialog.SetOnClosed(func() {})
 	errDialog.Show()
-	for isErrored {
-		//Sleep the thread for 0.1 seconds
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil, nil, nil
+	log.Printf("Error: %v", message)
+	return args, nil
 }
 
 // NewGame creates a new game save file and starts the game
-func NewGame(window fyne.Window, args map[string]interface{}) (results map[string]interface{}, widgets map[string]fyne.CanvasObject, err error) {
-	//Check if the NewGameScene in the args exists in the args
-	if _, ok := args["NewGameScene"]; !ok {
-		return nil, nil, errors.New("no NewGameScene in args")
+func NewGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+	var newGameScene string
+	err := args.Get("NewGameScene", &newGameScene)
+	if err != nil {
+		return args, err
 	}
-	//Check if the NewGameScene in the args is not nil or empty
-	if args["NewGameScene"] == nil || args["NewGameScene"] == "" {
-		return nil, nil, errors.New("NewGameScene is nil or empty")
-	}
-	//Get the NewGameScene from the args
-	newGameScene := args["NewGameScene"].(string)
-
 	if NFSave.Active != nil {
 		saveAsButton := func() {
-			_, _, _ = SaveAs(window, args)
+			_, _ = SaveAs(window, args)
 		}
 		dialog.ShowCustomConfirm("Do you want to save your current game first?", "Save Game", "Don't Save", widget.NewButton("Save Game As", saveAsButton), func(b bool) {
 			if b {
@@ -149,7 +87,8 @@ func NewGame(window fyne.Window, args map[string]interface{}) (results map[strin
 					//Save the game
 					err = NFSave.Active.Save()
 					if err != nil {
-						_, _, _ = CustomError(window, map[string]interface{}{"window": args["window"], "message": err.Error()})
+						_ = args.Set("Error", err.Error())
+						_, _ = CustomError(window, args)
 						return
 					}
 				}
@@ -160,15 +99,15 @@ func NewGame(window fyne.Window, args map[string]interface{}) (results map[strin
 	//Create a new save file
 	newSave, err := NFSave.New(newGameScene)
 	if err != nil {
-		return nil, nil, err
+		return args, err
 	}
 	//Set the active save to the new save
 	NFSave.Active = newSave
-	return nil, nil, nil
+	return args, nil
 }
 
 // SaveAs saves the game as a new save file
-func SaveAs(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+func SaveAs(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
 	//Popup a dialog asking for the save name
 	saveNameEntry := widget.NewEntry()
 	saveNameEntry.SetPlaceHolder("Save Name")
@@ -187,9 +126,10 @@ func SaveAs(window fyne.Window, args map[string]interface{}) (map[string]interfa
 							//Set the save name to the entry text
 							NFSave.Active.Name = saveNameEntry.Text
 							//Save the game
-							err := NFSave.Active.Save()
+							err = NFSave.Active.Save()
 							if err != nil {
-								_, _, _ = CustomError(window, map[string]interface{}{"window": args["window"], "message": err.Error()})
+								_ = args.Set("Error", err.Error())
+								_, _ = CustomError(window, args)
 								return
 							}
 						} else {
@@ -205,7 +145,8 @@ func SaveAs(window fyne.Window, args map[string]interface{}) (map[string]interfa
 			//Save the game
 			err := NFSave.Active.Save()
 			if err != nil {
-				_, _, _ = CustomError(window, map[string]interface{}{"window": args["window"], "message": err.Error()})
+				_ = args.Set("Error", err.Error())
+				_, _ = CustomError(window, args)
 				return
 			}
 		} else {
@@ -220,12 +161,11 @@ func SaveAs(window fyne.Window, args map[string]interface{}) (map[string]interfa
 		}
 	}, window)
 	confirmDialog.Show()
-	return nil, nil, nil
+	return args, nil
 }
 
 // LoadGame loads a game save file and starts the game
-func LoadGame(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
-
+func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
 	type FileWithModTime struct {
 		Name    string
 		Path    string
@@ -263,14 +203,16 @@ func LoadGame(window fyne.Window, args map[string]interface{}) (map[string]inter
 	}
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
-			_, _, _ = CustomError(window, map[string]interface{}{"window": args["window"], "message": err.Error()})
+			_ = args.Set("Error", err.Error())
+			_, _ = CustomError(window, args)
 			return
 		}
 		//Get the path of the save file and load it
 		path := reader.URI().Path()
 		NFSave.Active, err = NFSave.Load(path)
 		if err != nil {
-			_, _, _ = CustomError(window, map[string]interface{}{"window": args["window"], "message": err.Error()})
+			_ = args.Set("Error", err.Error())
+			_, _ = CustomError(window, args)
 			return
 		}
 	}, window)
@@ -335,7 +277,8 @@ func LoadGame(window fyne.Window, args map[string]interface{}) (map[string]inter
 						var err error
 						NFSave.Active, err = NFSave.Load(historySaveMap[s])
 						if err != nil {
-							_, _, _ = CustomError(window, map[string]interface{}{"message": err.Error()})
+							_ = args.Set("Error", err.Error())
+							_, _ = CustomError(window, args)
 							return
 						}
 					}),
@@ -353,11 +296,11 @@ func LoadGame(window fyne.Window, args map[string]interface{}) (map[string]inter
 	)
 	listDialog := dialog.NewCustomWithoutButtons("Load Game", vbox, window)
 	listDialog.Show()
-	return nil, nil, nil
+	return args, nil
 }
 
 // ContinueGame continues the game from the last save file
-func ContinueGame(_ fyne.Window, _ map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+func ContinueGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
 	//Walk the save directory
 	type FileWithModTime struct {
 		Name    string
@@ -378,7 +321,10 @@ func ContinueGame(_ fyne.Window, _ map[string]interface{}) (map[string]interface
 
 	//if there are no save files, return an error
 	if len(saveFiles) == 0 {
-		return nil, nil, errors.New("no save files found")
+		err := errors.New("no save files found")
+		_ = args.Set("Error", err.Error())
+		_, _ = CustomError(window, args)
+		return args, err
 	}
 
 	//Sort the saves by the last modified time
@@ -396,8 +342,10 @@ func ContinueGame(_ fyne.Window, _ map[string]interface{}) (map[string]interface
 	var err error
 	NFSave.Active, err = NFSave.Load(saveFiles[0].Path)
 	if err != nil {
-		return nil, nil, err
+		_ = args.Set("Error", err.Error())
+		_, _ = CustomError(window, args)
+		return args, err
 	}
 
-	return nil, nil, nil
+	return args, nil
 }

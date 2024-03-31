@@ -4,24 +4,28 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 )
 
+// Import is a function used to allow importing of the custom layout package
+// while still allowing the package to be used normally and not be yelled at by the compiler
+func Import() {}
+
 func init() {
-	NFLayout.Register("ExampleLayout", ExampleLayoutHandler)
-}
-
-func Register() {
-	//init is run when the package is imported, so this is just a dummy function to make sure the init function is run
 	log.Printf("Registering ExampleLayouts")
+	NFLayout.Layout{
+		Type:         "ExampleLayout",
+		RequiredArgs: NFData.NewNFInterface(),
+		OptionalArgs: NFData.NewNFInterface(),
+	}.Register(ExampleLayoutHandler)
 }
 
-func ExampleLayoutHandler(window fyne.Window, args map[string]interface{}, children []NFWidget.Widget) (fyne.CanvasObject, error) {
+func ExampleLayoutHandler(window fyne.Window, args NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()
 	vbox.Add(widget.NewLabel("Example Layout"))
-	for _, child := range children {
+	for _, child := range l.Children {
 		parsedChild, err := child.Parse(window)
 		if err != nil {
 			return nil, err

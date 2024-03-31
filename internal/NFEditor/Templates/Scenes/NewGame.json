@@ -7,14 +7,14 @@
 				"ID": "NewGame.ExampleWidget#1",
 				"Type": "ExampleWidget",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"action": "CustomFunction.ExampleFunction",
 					"message": "Hello World"
 				},
 				"JsonSafe": null
 			}
 		],
-		"Properties": null
+		"Args": null
 	},
-	"Properties": null
+	"Args": null
 }

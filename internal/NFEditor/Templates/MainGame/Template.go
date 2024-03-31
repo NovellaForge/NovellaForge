@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
@@ -26,9 +27,13 @@ import (
 )
 
 func main() {
+	//These functions allow specifying which functions, layouts, and widgets are available to the game
 	DefaultFunctions.Import()
 	DefaultLayouts.Import()
 	DefaultWidgets.Import()
+	ExampleFunctions.Import()
+	ExampleLayouts.Import()
+	ExampleWidgets.Import()
 	//gameApp is the main app for the game to run on, when in a desktop environment this is the window manager that allows multiple windows to be open
 	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
 	gameApp := app.NewWithID("com.novellaforge." + config.GameName)
@@ -37,7 +42,38 @@ func main() {
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
-		_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Error Getting User Home Directory: " + err.Error()})
+		//NFInterface is a custom type that stores any data type mapping it to a string key for easy access there are two methods of declaring it,
+		// the first is to use the NewNFInterface function like this before running set like you see below
+		functionArgs := NFData.NewNFInterface()
+		argErr := functionArgs.Set("Error", "Error Getting User Home Directory: "+err.Error())
+		if argErr != nil {
+			//The only time this error should exist is if you try to set or add a key that contains a period, as that is used to reference global or scene variables
+			log.Println(argErr.Error())
+		}
+
+		/*
+			//The second method is to declare the key value in the function call like this. Please note that the first method is safer as it will catch any errors thrown by the Set function,
+			//but this method allows you to declare multiple key value pairs in the function call
+			functionArgs = NFData.NewNFInterface(NFData.NewKeyVal("Error", "Error Getting User Home Directory: "+err.Error()))
+			//An example of setting multiple values at once (You can use the same format in the NewNFInterface function SetMulti is just a method to do it after the initial declaration)
+			functionArgs.SetMulti(NFData.NewKeyVal("Error", "Error Getting User Home Directory: "+err.Error()), NFData.NewKeyVal("Test", "Test"))
+		*/
+
+		//When calling a function it returns two values, the first is the data returned by the function, the second is an error if there is one, if there is not it will be nil
+		returnArgs, funcErr := DefaultFunctions.CustomError(window, functionArgs)
+		if funcErr != nil {
+			log.Println(err.Error())
+		}
+		//to get a value from the arguments you first declare the variable and its type before passing it in to the Get Function as a ref
+		var message string
+		//This function also returns an error but as you can see we have declared the err as _ which in go means it is ignored, you can ignore any value by using _
+		//and it will prevent the compiler from throwing an error if you don't use the value
+		//You can see this used a lot later throughout the code when we don't care about the return value of a function
+		//Also as you may have picked up on there are two ways of declaring variables in go, the first is to use := which is shorthand for declaring and assigning a variable to the type of the value
+		//The second is to use var and then the variable name and type, this is used when you want to declare a variable but not assign it a value
+		//When using _ to ignore a value, you never declare the value so if all return values are ignored you can just use = function() instead of := function()
+		//if you are only ignoring one of multiple return values you need to declare the variable or use := when calling the function to assign it, _ variables are not affected by this
+		_ = returnArgs.Get("TestGetMessage", &message)
 	}
 
 	NFSave.Directory = gameApp.Preferences().StringWithFallback("savesDir", userHome+"/MyGames/"+config.GameName+"/Saves")
@@ -48,9 +84,6 @@ func main() {
 	}
 	splashScreen := gameApp.Preferences().BoolWithFallback("splashScreen", true)
 	startupSettings := gameApp.Preferences().BoolWithFallback("startupSettings", true)
-	ExampleFunctions.Register()
-	ExampleLayouts.Register()
-	ExampleWidgets.Register()
 	if startupSettings {
 		ShowStartupSettings(window, NFScene.GetAll(), splashScreen)
 	} else {
@@ -103,23 +136,29 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 				dialog.ShowCustomWithoutButtons("Settings", CreateSettings(false, window), window)
 			}),
 			fyne.NewMenuItem("New", func() {
-				_, _, _ = DefaultFunctions.NewGame(window, nil)
+				functionArgs := NFData.NewNFInterface()
+				_, _ = DefaultFunctions.NewGame(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Load", func() {
-				_, _, _ = DefaultFunctions.LoadGame(window, nil)
+				functionArgs := NFData.NewNFInterface()
+				_, _ = DefaultFunctions.LoadGame(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Save", func() {
 				err := NFSave.Active.Save()
 				if err != nil {
-					_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Error Saving Game: " + err.Error()})
+					functionArgs := NFData.NewNFInterface()
+					_ = functionArgs.Set("Error", "Error Saving Game: "+err.Error())
+					_, _ = DefaultFunctions.CustomError(window, functionArgs)
 					return
 				}
 			}),
 			fyne.NewMenuItem("Save As", func() {
-				_, _, _ = DefaultFunctions.SaveAs(window, nil)
+				functionArgs := NFData.NewNFInterface()
+				_, _ = DefaultFunctions.SaveAs(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Quit", func() {
-				_, _, _ = DefaultFunctions.Quit(window, nil)
+				functionArgs := NFData.NewNFInterface()
+				_, _ = DefaultFunctions.Quit(window, functionArgs)
 			}),
 		),
 		fyne.NewMenu("View",
@@ -136,22 +175,19 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	))
 
 	if len(allScenes) == 0 {
-		//All functions with the function parser can return a map[string]interface{} and an error, the map[string]interface{} is used to return data to the main function, in this case we do not need to use any data from the function so we can just ignore it
-		// An _ is used to ignore the data returned by the function, other functions will need error handling as shown here,
-		// This function is the same as the functions.NewError function, but it uses the parser instead of the function directly,
-		// The error handling is not needed for this function as it will never return an error, this is just to show a very basic example of how to handle errors
-		// All functions that use the parser will need to be added to either the default or custom functions map, and they must have all three return values
-		// If you are importing or creating a custom package for functions, you should add an init function to the package that adds the functions to the map and takes in the map as a parameter, so you don't have to have a recursive import
-		_, err, _ := NFFunction.ParseAndRun(window, "Error", map[string]interface{}{"message": "No Scenes Found"})
-		if err != nil {
-			panic(err)
-		}
+		//There are actually two ways to call a function, the first is the way we have been doing it so far, the second is to parse it as it happens in the scene parser
+		//This parsing method looks for the function by name in our loaded functions and then calls it with the arguments passed to it
+		functionArgs := NFData.NewNFInterface()
+		_ = functionArgs.Set("Error", "No Scenes Found")
+		_, _ = NFFunction.ParseAndRun(window, "Error", functionArgs) // This Error function is just DefaultFunctions.CustomError, this is how scenes can store functions in their data files
 	}
 
 	//Check if the startup scene exists
 	if _, ok := allScenes[scene]; !ok {
-		//The error dialog does not actually return anything, so we can ignore the data returned by the function
-		_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Startup Scene Not Found"})
+		//If it doesn't exist, return an error
+		functionArgs := NFData.NewNFInterface()
+		_ = functionArgs.Set("Error", "Startup Scene Not Found")
+		_, _ = DefaultFunctions.CustomError(window, functionArgs)
 	}
 
 	startupScene := allScenes[scene]
@@ -159,7 +195,9 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	//SceneParser parses the scene and returns a fyne.CanvasObject that can be added to the window
 	sceneObject, err := startupScene.Parse(window)
 	if err != nil {
-		_, _, _ = DefaultFunctions.CustomError(window, map[string]interface{}{"message": "Error Parsing Scene: " + err.Error()})
+		functionArgs := NFData.NewNFInterface()
+		_ = functionArgs.Set("Error", "Error Parsing Scene: "+err.Error())
+		_, _ = DefaultFunctions.CustomError(window, functionArgs)
 	}
 	window.SetContent(sceneObject)
 }

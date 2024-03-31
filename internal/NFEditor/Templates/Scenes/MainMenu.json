@@ -7,7 +7,7 @@
 				"ID": "MainMenu.Label#1",
 				"Type": "Label",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"Text": "Main Menu"
 				},
 				"JsonSafe": null
@@ -16,7 +16,7 @@
 				"ID": "MainMenu.Button#1",
 				"Type": "Button",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"Action": "NewGame",
 					"Text": "New Game"
 				},
@@ -26,7 +26,7 @@
 				"ID": "MainMenu.Button#2",
 				"Type": "Button",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"Action": "LoadGame",
 					"Text": "Load Game"
 				},
@@ -36,7 +36,7 @@
 				"ID": "MainMenu.Button#3",
 				"Type": "Button",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"Action": "Settings",
 					"Text": "Settings"
 				},
@@ -46,14 +46,14 @@
 				"ID": "MainMenu.Button#4",
 				"Type": "Button",
 				"Children": null,
-				"Properties": {
+				"Args": {
 					"Action": "Quit",
 					"Text": "Quit"
 				},
 				"JsonSafe": null
 			}
 		],
-		"Properties": null
+		"Args": null
 	},
-	"Properties": null
+	"Args": null
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"log"
 	"os"
@@ -16,23 +17,16 @@ import (
 type Properties map[string]interface{}
 
 type Scene struct {
-	Name       string          `json:"Name"`
-	Layout     NFLayout.Layout `json:"Layout"`
-	Properties Properties      `json:"Properties"`
-}
-
-// make sure that the compiler doesn't complain about the unused functions since they are meant for external use
-func _() {
-	GetAll()
-	LoadAll()
-	_, _ = Load("An example path")
-	_, _ = LoadByName("An example name")
+	Name   string             `json:"Name"`
+	Layout NFLayout.Layout    `json:"Layout"`
+	Args   NFData.NFInterface `json:"Args"`
 }
 
 // all is a map of string to Scene that contains all scenes in the scenes folder
 // for this to be repopulated you must call LoadAll
 var all = map[string]Scene{}
 
+// GetAll returns all scenes that have been loaded. If no scenes have been loaded, it will load all scenes from the disk
 func GetAll(path ...string) map[string]Scene {
 	log.Println("Getting all Loaded scenes")
 	if len(all) == 0 {
@@ -69,6 +63,7 @@ func LoadAll(p ...string) map[string]Scene {
 
 }
 
+// Load loads a scene from a file
 func Load(path string) (Scene, error) {
 	//Check if the path ends in .NFScene
 	if !strings.HasSuffix(path, ".NFScene") {
@@ -92,6 +87,7 @@ func Load(path string) (Scene, error) {
 	return scene, nil
 }
 
+// LoadByName loads a scene by name
 func LoadByName(name string) (Scene, error) {
 	//Check if the name ends in .NFScene
 	if !strings.HasSuffix(name, ".NFScene") {
@@ -115,6 +111,7 @@ func LoadByName(name string) (Scene, error) {
 	return Scene{}, errors.New("scene not found")
 }
 
+// scanDir scans a directory for scenes
 func scanDir(s string, args ...string) (map[string]Scene, error) {
 	//If the args are empty, set findScene to false and then set both args to ""
 	findScene := false
@@ -153,7 +150,7 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 				//Join the path back together
 				path = strings.Join(splitPath, "/")
 				//Add the scene to the group
-				scene.Properties["Group"] = path
+				_ = scene.Args.Add("SceneGroup", path)
 			}
 			//Add the scene to the map
 			scenes[scene.Name] = scene

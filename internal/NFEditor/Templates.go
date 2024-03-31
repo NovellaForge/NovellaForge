@@ -1,6 +1,7 @@
 package NFEditor
 
 import (
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
@@ -13,41 +14,68 @@ var MainMenuSceneTemplate = NFScene.Scene{
 		Children: []NFWidget.Widget{
 			{
 				Type: "Label",
-				Properties: map[string]interface{}{
-					"Text": "Main Menu",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "Text",
+						Value: "Main Menu",
+					},
+				),
 			},
 			{
 				Type: "Button",
-				Properties: map[string]interface{}{
-					"Text":   "New Game",
-					"Action": "NewGame",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "Text",
+						Value: "New Game",
+					},
+					NFData.KeyVal{
+						Key:   "OnTapped",
+						Value: "NewGame",
+					},
+				),
 			},
 			{
 				Type: "Button",
-				Properties: map[string]interface{}{
-					"Text":   "Load Game",
-					"Action": "LoadGame",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "Text",
+						Value: "Load Game",
+					},
+					NFData.KeyVal{
+						Key:   "OnTapped",
+						Value: "LoadGame",
+					},
+				),
 			},
 			{
 				Type: "Button",
-				Properties: map[string]interface{}{
-					"Text":   "Settings",
-					"Action": "Settings",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "Text",
+						Value: "Settings",
+					},
+					NFData.KeyVal{
+						Key:   "OnTapped",
+						Value: "Settings",
+					},
+				),
 			},
 			{
 				Type: "Button",
-				Properties: map[string]interface{}{
-					"Text":   "Quit",
-					"Action": "Quit",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "Text",
+						Value: "Quit",
+					},
+					NFData.KeyVal{
+						Key:   "OnTapped",
+						Value: "Quit",
+					},
+				),
 			},
 		},
 	},
-	Properties: nil,
+	Args: NFData.NewNFInterface(),
 }
 
 var NewGameSceneTemplate = NFScene.Scene{
@@ -57,13 +85,18 @@ var NewGameSceneTemplate = NFScene.Scene{
 		Children: []NFWidget.Widget{
 			{
 				Type: "ExampleWidget",
-				Properties: map[string]interface{}{
-					"message": "Hello World",
-					"action":  "CustomFunction.ExampleFunction",
-				},
+				Args: NFData.NewNFInterface(
+					NFData.KeyVal{
+						Key:   "message",
+						Value: "Hello World",
+					},
+					NFData.KeyVal{
+						Key:   "action",
+						Value: "CustomFunction.ExampleFunction",
+					},
+				),
 			},
 		},
-		Properties: nil,
 	},
-	Properties: nil,
+	Args: NFData.NewNFInterface(),
 }

@@ -3,28 +3,28 @@ package CustomFunction
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"log"
 )
 
+// Import is a function used to allow importing of the custom function package
+// while still allowing the package to be used normally and not be yelled at by the compiler
+func Import() {}
+
 func init() {
-	ExampleFunction := NFFunction.Function{
+	log.Printf("Registering ExampleFunction")
+	NFFunction.Function{
 		Name:         "ExampleFunction",
 		Type:         "CustomFunction.ExampleFunction",
-		RequiredArgs: map[string]interface{}{},
-		OptionalArgs: map[string]interface{}{},
-	}
-	NFFunction.Register(ExampleFunction, ExampleFunctionHandler)
+		RequiredArgs: NFData.NewNFInterface(),
+		OptionalArgs: NFData.NewNFInterface(),
+	}.Register(ExampleFunctionHandler)
 }
 
-func Register() {
-	//init is run when the package is imported, so this is just a dummy function to make sure the init function is run
-	log.Printf("Registering ExampleFunction")
-}
-
-func ExampleFunctionHandler(window fyne.Window, args map[string]interface{}) (map[string]interface{}, map[string]fyne.CanvasObject, error) {
+func ExampleFunctionHandler(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
 	//Do something
 	log.Println("Example button was pressed!")
 	dialog.ShowInformation("Example", "Example button was pressed!", window)
-	return nil, nil, nil
+	return args, nil
 }

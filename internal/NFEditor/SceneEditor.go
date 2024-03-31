@@ -11,7 +11,7 @@ TODO: SceneEditor
  [] Scene Selector
 	[] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
  [] Scene Preview - Parses the scene fully using default values for all objects
- [] Scene Properties
+ [] Scene Other
 	[] Lists the scene name and object id of the selected object at the top
 	[] Lists all properties of the selected object
 	[] Allows for editing of the properties limiting to allowed types/values
@@ -25,7 +25,7 @@ func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	MainSplit := container.NewHSplit(
 		container.NewVBox(widget.NewLabel("Scene Selector")),
 		container.NewVSplit(container.NewVBox(widget.NewLabel("Scene Preview")),
-			container.NewHSplit(container.NewVBox(widget.NewLabel("Scene Properties")),
+			container.NewHSplit(container.NewVBox(widget.NewLabel("Scene Other")),
 				container.NewVBox(widget.NewLabel("Scene Objects")),
 			),
 		),

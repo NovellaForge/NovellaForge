@@ -133,16 +133,6 @@ func NewNarrativeBox(hasName bool, text ...string) *NarrativeBox {
 	return n
 }
 
-// Export exports the widget to a json file in the export folder relative to the parent application,
-// to allow for use in the editor
-func (n *NarrativeBox) Export() error {
-	err := NFWidget.WidgetExport(n.SafeNarrativeBox, "NarrativeBox")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (n *NarrativeBox) CreateRenderer() fyne.WidgetRenderer {
 	debugBorder := canvas.NewRectangle(color.RGBA{R: 255, A: 255})
 	debugBorder.StrokeColor = color.RGBA{R: 255, A: 255}

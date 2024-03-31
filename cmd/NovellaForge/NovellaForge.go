@@ -1,6 +1,10 @@
 package main
 
 import (
+	"go.novellaforge.dev/novellaforge/assets/icons"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +28,13 @@ import (
 )
 
 /*
+//TODO add in a mutex to the args interface to allow for safe concurrent access
+
+
 TODO:
+ [ ] Finish the parsing refactor to use the new interface system. This should also include a new remaster of the export system so that it just lists the types of the required and optional args
+ [ ] Scenes should include an argument interface that gets passed to all sub widgets and containers as a reference, thus allowing variables to be shared between widgets and containers
+ [ ] Finish the global variable refactor to use the new interface system and allow for better save control
  [ ] Finish documentation/comments
  [ ] Finish the scene editor
  	[ ] Property manager needs to be able to fully edit all widget and container properties
@@ -53,11 +63,20 @@ TODO Future:
 
 const (
 	Version = "0.0.1"
-	Icon    = "assets/icons/editor.png"
 	Author  = "The Novella Forge Team"
 )
 
 var WindowTitle = "Novella Forge" + " " + Version
+
+func init() {
+	// Set the imported functions to be exported
+	NFFunction.ShouldExport = true
+	NFFunction.ExportPath = "assets/functions"
+	NFWidget.ShouldExport = true
+	NFWidget.ExportPath = "assets/widgets"
+	NFLayout.ShouldExport = true
+	NFLayout.ExportPath = "assets/layouts"
+}
 
 func main() {
 	// Start the profiler (located at localhost:6060/debug/pprof/)
@@ -67,18 +86,24 @@ func main() {
 
 	// Create a new application and window with the title based on the version
 	application := app.NewWithID("com.novellaforge.editor")
+
+	//Load the embedded icons/EditorPng as bytes
+	iconBytes, err := icons.EditorPng.ReadFile("editor.png")
+	if err != nil {
+		//If the icon fails to load, log the error and set the icon to the default application icon
+		log.Printf("Failed to load icon: %v", err)
+		application.SetIcon(theme.FileApplicationIcon())
+	} else {
+		//If the icon loads successfully, set the icon to the loaded icon after converting it to a StaticResource
+		iconResource := fyne.NewStaticResource("editor.png", iconBytes)
+		application.SetIcon(iconResource)
+	}
+
 	window := application.NewWindow(WindowTitle)
 
 	// Use common 720p resolution for base window size
 	window.Resize(fyne.NewSize(1280, 720))
-	iconResource, err := fyne.LoadResourceFromPath(Icon)
-	if err != nil {
-		log.Printf("Failed to load icon: %v", err)
-		application.SetIcon(theme.FileApplicationIcon())
-	} else {
-		application.SetIcon(iconResource)
-		window.SetIcon(application.Icon())
-	}
+
 	userHome, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
@@ -92,17 +117,21 @@ func main() {
 	loadingChannel := make(chan struct{})
 	loading := CalsWidgets.NewLoading(loadingChannel, 0*time.Second, 100)
 	var splash fyne.Window
+	splashContent := container.NewVBox(
+		widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		loading.Box,
+	)
 
 	// If the user is on a desktop, show a splash screen while the main content is loading
-	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
+	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); !ok {
 		splash = drv.CreateSplashWindow()
-		splash.SetContent(container.NewVBox(
-			widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			loading.Box,
-		))
+		splash.SetContent(splashContent)
+	} else {
+		// If the user is not on a desktop, show the splash screen in the main window
+		window.SetContent(splashContent)
 	}
 
 	//Sets the main window to be the master window so that it can be focused and when it is closed the application will close
@@ -121,14 +150,14 @@ func main() {
 		}
 	}()
 
-	// Create the main NovellaForge content in a thread, which will also update the loading bar
-	go CreateMainContent(window, loading)
-
 	// Show the splash screen if it was created, otherwise show the main window
 	if splash != nil {
 		splash.Show()
+		// Create the main NovellaForge content in a thread, which will also update the loading bar
+		go CreateMainContent(window, loading)
 		application.Run()
 	} else {
+		go CreateMainContent(window, loading)
 		window.ShowAndRun()
 	}
 }
@@ -151,7 +180,7 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	newProjectButton := widget.NewButton("New Project", func() {
 		NFEditor.NewProjectDialog(window)
 	})
-	// Create a Open Project button in the top right
+	// Create an Open Project button in the top right
 	openProjectButton := widget.NewButton("Open Project", func() {
 		NFEditor.OpenProjectDialog(window)
 	})

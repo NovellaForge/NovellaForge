@@ -8,10 +8,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFScene"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"html/template"
 	"log"
@@ -36,13 +32,8 @@ type Project struct {
 
 var (
 	//go:embed Templates/*/*
-	Templates            embed.FS
-	ActiveProject        Project
-	ActiveLayouts        []NFLayout.Layout
-	ActiveWidgets        []NFWidget.Widget
-	ActiveSceneGroups    map[string]NFScene.Scene
-	ActiveFunctions      []NFFunction.Function // Ungrouped functions
-	ActiveFunctionGroups map[string][]NFFunction.Function
+	Templates  embed.FS
+	ActiveGame Project
 )
 
 func (p Project) UpdateProjectInfo(info ProjectInfo) error {
@@ -203,7 +194,7 @@ func Deserialize(file []byte) (Project, error) {
 
 // Load takes a deserialized project and loads it into the editor loading the scenes and functions as well
 func (p Project) Load(window fyne.Window, info ...ProjectInfo) error {
-	ActiveProject = p
+	ActiveGame = p
 	if len(info) == 0 {
 		return nil
 	}
