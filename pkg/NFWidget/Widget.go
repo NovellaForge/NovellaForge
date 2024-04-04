@@ -2,6 +2,7 @@ package NFWidget
 
 import (
 	"encoding/json"
+	"errors"
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
@@ -17,40 +18,104 @@ type Widget struct {
 	//custom ones prefix it with your package name like "MyPackage.MyWidget"
 	Type string `json:"Type"`
 	// Children is a list of widgets that are children of this widget
-	Children []Widget `json:"Children"`
+	Children []*Widget `json:"Children"`
 	// RequiredArgs is a list of arguments that are required for the widget to run
-	RequiredArgs NFData.NFInterface `json:"-"`
+	RequiredArgs *NFData.NFInterfaceMap `json:"-"`
 	// OptionalArgs is a list of arguments that are optional for the widget to run
-	OptionalArgs NFData.NFInterface `json:"-"`
+	OptionalArgs *NFData.NFInterfaceMap `json:"-"`
 	// Args is a list of arguments that are passed to the widget through the scene
-	Args NFData.NFInterface `json:"Args"`
+	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func (w Widget) CheckArgs() error {
+// NewWithID creates a new widget with the given ID and type
+func NewWithID(id, widgetType string, children []*Widget, args *NFData.NFInterfaceMap) *Widget {
+	return &Widget{
+		ID:       id,
+		Type:     widgetType,
+		Children: children,
+		Args:     args,
+	}
+}
+
+func NewChildren(children ...*Widget) []*Widget {
+	return children
+}
+
+// New creates a new widget with the given type
+func New(widgetType string, children []*Widget, args *NFData.NFInterfaceMap) *Widget {
+	return &Widget{
+		Type:     widgetType,
+		Children: children,
+		Args:     args,
+	}
+}
+
+// NewAndRegister creates a new widget with the given type and registers it
+func NewAndRegister(widgetType string, requiredArgs, optionalArgs *NFData.NFInterfaceMap, handler widgetHandler) {
+	widget := &Widget{
+		Type:         widgetType,
+		RequiredArgs: requiredArgs,
+		OptionalArgs: optionalArgs,
+	}
+	widget.Register(handler)
+}
+
+func (w *Widget) CheckArgs() error {
+	info, err := GetWidgetInfo(w.Type)
+	if err != nil {
+		return err
+	}
+	w.RequiredArgs = info.RequiredArgs
 	ok, miss := w.Args.HasAllKeys(w.RequiredArgs)
 	if ok {
 		return nil
 	}
-	return NFError.ErrMissingArgument(w.Type, miss...)
+	var missingErr error
+	for _, m := range miss {
+		errors.Join(missingErr, NFError.NewErrMissingArgument(w.Type, m))
+	}
+	return missingErr
 }
 
-type widgetHandler func(window fyne.Window, args NFData.NFInterface, widget Widget) (fyne.CanvasObject, error)
+type widgetHandler func(window fyne.Window, args *NFData.NFInterfaceMap, widget *Widget) (fyne.CanvasObject, error)
 
 // Widgets is a map of all the widgets that are registered and can be used by the engine
-var Widgets = map[string]widgetHandler{}
+var Widgets = map[string]widgetWithHandler{}
 
-func (w Widget) Parse(window fyne.Window) (fyne.CanvasObject, error) {
-	if handler, ok := Widgets[w.Type]; ok {
-		if err := w.CheckArgs(); err != nil {
-			return nil, err
-		}
-		return handler(window, w.Args, w)
-	} else {
-		return nil, NFError.ErrNotImplemented
+type widgetWithHandler struct {
+	Info    Widget
+	Handler widgetHandler
+}
+
+// NewWithHandler creates a new widget with the given info and handler
+func newWithHandler(info Widget, handler widgetHandler) widgetWithHandler {
+	return widgetWithHandler{
+		Info:    info,
+		Handler: handler,
 	}
 }
 
-func (w Widget) GetInfo() (ID, Type string) {
+// GetWidgetInfo gets the info of a widget
+func GetWidgetInfo(widget string) (Widget, error) {
+	if w, ok := Widgets[widget]; ok {
+		return w.Info, nil
+	} else {
+		return Widget{}, NFError.NewErrNotImplemented(widget)
+	}
+}
+
+func (w *Widget) Parse(window fyne.Window) (fyne.CanvasObject, error) {
+	if ref, ok := Widgets[w.Type]; ok {
+		if err := w.CheckArgs(); err != nil {
+			return nil, err
+		}
+		return ref.Handler(window, w.Args, w)
+	} else {
+		return nil, NFError.NewErrNotImplemented(w.Type + ":" + w.ID)
+	}
+}
+
+func (w *Widget) GetInfo() (ID, Type string) {
 	ID = w.ID
 	Type = w.Type
 	if ID == "" {
@@ -60,13 +125,13 @@ func (w Widget) GetInfo() (ID, Type string) {
 }
 
 // Register adds a custom widget to the customWidgets map
-func (w Widget) Register(handler widgetHandler) {
+func (w *Widget) Register(handler widgetHandler) {
 	//Check if the name is already registered
 	if _, ok := Widgets[w.Type]; ok {
 		log.Printf("Widget %s is already registered, if you are using third party widgets yell at the developer of this type to use proper type naming", w.Type)
 		return
 	}
-	Widgets[w.Type] = handler
+	Widgets[w.Type] = newWithHandler(*w, handler)
 	if ShouldExport {
 		err := w.Export()
 		if err != nil {
@@ -81,7 +146,7 @@ var ExportPath = "export/widgets"
 
 // Export is a function that is used to export the widget to a json file
 // These files are used in the main editor to determine inputs needed to call a widget in a scene
-func (w Widget) Export() error {
+func (w *Widget) Export() error {
 	//Make the json safe struct
 	wBytes := struct {
 		RequiredArgs map[string][]string `json:"RequiredArgs"`

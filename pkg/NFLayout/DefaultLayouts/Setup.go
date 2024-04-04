@@ -17,37 +17,42 @@ func init() {
 	log.Println("Registering Default Layouts")
 
 	// VBox Layout
-	NFLayout.Layout{
+	vbox := NFLayout.Layout{
 		Type:         "VBox",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(VBoxLayoutHandler)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	vbox.Register(VBoxLayoutHandler)
 
 	// HBox Layout
-	NFLayout.Layout{
+	hbox := NFLayout.Layout{
 		Type:         "HBox",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(HBoxLayoutHandler)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	hbox.Register(HBoxLayoutHandler)
 
 	// Grid Layout
-	NFLayout.Layout{
+	grid := NFLayout.Layout{
 		Type:         "Grid",
-		RequiredArgs: NFData.NewNFInterface(NFData.NewKeyVal("Columns", 0)),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(GridLayoutHandler)
+		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("Columns", 0)),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	grid.Register(GridLayoutHandler)
 
 	// Tab Layout
-	NFLayout.Layout{
+	tab := NFLayout.Layout{
 		Type:         "Tab",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(TabLayoutHandler)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	tab.Register(TabLayoutHandler)
 
 	// Border Layout
-	NFLayout.Layout{
+	border := NFLayout.Layout{
 		Type:         "Border",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(BorderLayoutHandler)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	border.Register(BorderLayoutHandler)
 }

@@ -2,6 +2,7 @@ package NFFunction
 
 import (
 	"encoding/json"
+	"errors"
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
@@ -16,24 +17,33 @@ type Function struct {
 	//custom ones prefix it with your package name like "MyPackage.MyFunction"
 	Type string `json:"Type"`
 	//RequiredArgs is a list of arguments that are required for the function to run
-	RequiredArgs NFData.NFInterface `json:"-"` //This is not exported to json
+	RequiredArgs *NFData.NFInterfaceMap `json:"-"` //This is not exported to json
 	//OptionalArgs is a list of arguments that are optional for the function to run
-	OptionalArgs NFData.NFInterface `json:"-"` //This is not exported to json
+	OptionalArgs *NFData.NFInterfaceMap `json:"-"` //This is not exported to json
 	//Args is a list of arguments that are passed to the function through the scene
-	Args NFData.NFInterface `json:"Args"`
+	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
 // CheckArgs checks if the function has all the required arguments
-func (f Function) CheckArgs() error {
+func (f *Function) CheckArgs() error {
+	info, err := GetFunctionInfo(f.Type)
+	if err != nil {
+		return err
+	}
+	f.RequiredArgs = info.RequiredArgs
 	ok, miss := f.Args.HasAllKeys(f.RequiredArgs)
 	if ok {
 		return nil
 	}
-	return NFError.ErrMissingArgument(f.Name, miss...)
+	var missArgs error
+	for _, m := range miss {
+		errors.Join(missArgs, NFError.NewErrMissingArgument(f.Name, m))
+	}
+	return missArgs
 }
 
 // SetAndCheckArgs sets the arguments and checks if the function has all the required arguments
-func (f Function) SetAndCheckArgs(args NFData.NFInterface) error {
+func (f *Function) SetAndCheckArgs(args *NFData.NFInterfaceMap) error {
 	f.Args = args
 	return f.CheckArgs()
 }
@@ -51,7 +61,7 @@ func GetFunctionInfo(function string) (Function, error) {
 	if f, ok := functionMap[function]; ok {
 		return f.Info, nil
 	} else {
-		return Function{}, NFError.ErrNotImplemented
+		return Function{}, NFError.NewErrNotImplemented("Function Type: " + function + " is not implemented")
 	}
 }
 
@@ -59,10 +69,10 @@ func GetFunctionInfo(function string) (Function, error) {
 // To determine what goes into the map of arguments, you can look at the RequiredArgs and OptionalArgs fields of the Function struct
 // These are also exported to a json file in the exports/functions directory
 // The functionHandler returns a map of strings to interfaces and a map of strings to fyne.CanvasObjects
-type functionHandler func(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error)
+type functionHandler func(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error)
 
 // ParseAndRun parses a function from its string name runs it and returns the results
-func ParseAndRun(window fyne.Window, function string, args NFData.NFInterface) (NFData.NFInterface, error) {
+func ParseAndRun(window fyne.Window, function string, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	//Checks if the function is registered, if it is, run it, if not, return an error
 	if f, ok := functionMap[function]; ok {
 		if err := f.Info.SetAndCheckArgs(args); err != nil {
@@ -70,18 +80,18 @@ func ParseAndRun(window fyne.Window, function string, args NFData.NFInterface) (
 		}
 		return f.Handler(window, args)
 	} else {
-		return args, NFError.ErrNotImplemented
+		return args, NFError.NewErrNotImplemented("Function Type: " + function + " is not implemented")
 	}
 }
 
 // Register adds a custom function to the Functions map
-func (f Function) Register(handler functionHandler) {
+func (f *Function) Register(handler functionHandler) {
 	//Check if the name is already registered, if it is, return
 	if _, ok := functionMap[f.Type]; ok {
 		log.Println("Error registering function: " + f.Type + " is already registered. If you are using third party functions yell at the developer that they need to properly namespace their functions so they are unique")
 		return
 	}
-	functionMap[f.Type] = functionWithHandler{Info: f, Handler: handler}
+	functionMap[f.Type] = functionWithHandler{Info: *f, Handler: handler}
 	if ShouldExport {
 		err := f.Export()
 		if err != nil {
@@ -96,7 +106,7 @@ var ExportPath = "export/functions"
 
 // Export is a function that is used to export the function to a json file
 // These files are used in the main editor to determine inputs needed to call a function in a scene
-func (f Function) Export() error {
+func (f *Function) Export() error {
 	fBytes := struct {
 		RequiredArgs map[string][]string `json:"RequiredArgs"`
 		OptionalArgs map[string][]string `json:"OptionalArgs"`

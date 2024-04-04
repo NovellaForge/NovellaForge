@@ -148,14 +148,14 @@ func OpenFromInfo(info ProjectInfo, window fyne.Window) error {
 			GameName: info.Name,
 		}
 		err = tmpProject.UpdateProjectInfo(info)
-		return NFError.ErrProjectNotFound
+		return NFError.NewErrProjectNotFound(info.Name)
 	}
 
 	//Check if the path ends in .NFProject
 	if filepath.Ext(path) != ".NFProject" {
 		//Check if the path is a directory and if the directory contains a .NFProject file
 		if _, err := os.Stat(path + "/" + filepath.Base(path) + ".NFProject"); os.IsNotExist(err) {
-			return NFError.ErrProjectNotFound
+			return NFError.NewErrProjectNotFound(info.Name)
 		} else {
 			//If it does, set the path to the directory
 			path = path + "/" + filepath.Base(path) + ".NFProject"
@@ -232,7 +232,7 @@ func (p Project) Create(window fyne.Window) error {
 			return err
 		}
 	} else {
-		return NFError.ErrProjectAlreadyExists
+		return NFError.NewErrProjectAlreadyExists(p.GameName)
 	}
 
 	//Create the project directory
@@ -410,7 +410,6 @@ func (p Project) Create(window fyne.Window) error {
 
 	//Initialize the go mod file by running go mod init with os/exec
 	loading.SetProgress(80, "Initializing go mod file")
-	log.Printf("Initializing go mod file")
 
 	// Initialize the go mod
 	var stderr bytes.Buffer
@@ -425,7 +424,6 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	loading.SetProgress(90, "Installing fyne")
-	log.Printf("Installing fyne")
 	cmd = exec.Command("go", "get", "fyne.io/fyne/v2@latest")
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
@@ -437,7 +435,6 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	loading.SetProgress(95, "Installing NovellaForge")
-	log.Printf("Installing NovellaForge")
 	cmd = exec.Command("go", "get", "go.novellaforge.dev/novellaforge@latest")
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
@@ -450,7 +447,6 @@ func (p Project) Create(window fyne.Window) error {
 
 	//Run go mod tidy
 	loading.SetProgress(97, "Running go mod tidy")
-	log.Printf("Running go mod tidy")
 	cmd = exec.Command("go", "mod", "tidy")
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
@@ -463,7 +459,6 @@ func (p Project) Create(window fyne.Window) error {
 	}
 
 	loading.SetProgress(100, "Project Created")
-	log.Printf("Initialization successful")
 	time.Sleep(1 * time.Second)
 	return nil
 }

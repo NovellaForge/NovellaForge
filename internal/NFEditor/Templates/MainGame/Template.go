@@ -106,7 +106,7 @@ func createSplashScreen() fyne.Window {
 	return nil
 }
 
-func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene string, screen bool) {
+func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene string, screen bool) {
 	window.SetMaster()
 	if screen {
 		splash := createSplashScreen()
@@ -202,7 +202,7 @@ func ShowGame(window fyne.Window, allScenes map[string]NFScene.Scene, scene stri
 	window.SetContent(sceneObject)
 }
 
-func ShowStartupSettings(window fyne.Window, allScenes map[string]NFScene.Scene, splashScreen bool) {
+func ShowStartupSettings(window fyne.Window, allScenes map[string]*NFScene.Scene, splashScreen bool) {
 	settingsBox := CreateSettings(true, window)
 	var creditsModal *widget.PopUp
 	creditsCloseButton := widget.NewButton("Close", func() {

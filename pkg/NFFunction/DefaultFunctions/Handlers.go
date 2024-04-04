@@ -3,6 +3,7 @@ package DefaultFunctions
 import (
 	"errors"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ import (
 )
 
 // Quit simply closes the window after prompting the user for confirmation
-func Quit(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func Quit(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 		if b {
 			window.Close()
@@ -30,7 +31,7 @@ func Quit(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, erro
 // CustomError creates a dialog window over the current game window
 // The user is prompted if they would like to try and continue the game despite the error
 // If they choose to continue, the error is not returned
-func CustomError(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func CustomError(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	var message string
 	err := args.Get("Error", &message)
 	if err != nil {
@@ -57,12 +58,13 @@ func CustomError(window fyne.Window, args NFData.NFInterface) (NFData.NFInterfac
 }
 
 // NewGame creates a new game save file and starts the game
-func NewGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func NewGame(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	var newGameScene string
 	err := args.Get("NewGameScene", &newGameScene)
 	if err != nil {
 		return args, err
 	}
+	log.Println("New Game Scene: ", newGameScene)
 	if NFSave.Active != nil {
 		saveAsButton := func() {
 			_, _ = SaveAs(window, args)
@@ -87,7 +89,7 @@ func NewGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, e
 					//Save the game
 					err = NFSave.Active.Save()
 					if err != nil {
-						_ = args.Set("Error", err.Error())
+						args.Set("Error", err.Error())
 						_, _ = CustomError(window, args)
 						return
 					}
@@ -103,11 +105,21 @@ func NewGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, e
 	}
 	//Set the active save to the new save
 	NFSave.Active = newSave
+	scene := NFScene.GetAll()[newGameScene]
+	if scene == nil {
+		return args, errors.New("scene not found")
+	} else {
+		sceneContent, err := scene.Parse(window)
+		if err != nil {
+			return args, err
+		}
+		window.SetContent(sceneContent)
+	}
 	return args, nil
 }
 
 // SaveAs saves the game as a new save file
-func SaveAs(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func SaveAs(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	//Popup a dialog asking for the save name
 	saveNameEntry := widget.NewEntry()
 	saveNameEntry.SetPlaceHolder("Save Name")
@@ -128,7 +140,7 @@ func SaveAs(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, er
 							//Save the game
 							err = NFSave.Active.Save()
 							if err != nil {
-								_ = args.Set("Error", err.Error())
+								args.Set("Error", err.Error())
 								_, _ = CustomError(window, args)
 								return
 							}
@@ -145,7 +157,7 @@ func SaveAs(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, er
 			//Save the game
 			err := NFSave.Active.Save()
 			if err != nil {
-				_ = args.Set("Error", err.Error())
+				args.Set("Error", err.Error())
 				_, _ = CustomError(window, args)
 				return
 			}
@@ -165,7 +177,7 @@ func SaveAs(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, er
 }
 
 // LoadGame loads a game save file and starts the game
-func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func LoadGame(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	type FileWithModTime struct {
 		Name    string
 		Path    string
@@ -203,7 +215,7 @@ func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, 
 	}
 	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
-			_ = args.Set("Error", err.Error())
+			args.Set("Error", err.Error())
 			_, _ = CustomError(window, args)
 			return
 		}
@@ -211,7 +223,7 @@ func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, 
 		path := reader.URI().Path()
 		NFSave.Active, err = NFSave.Load(path)
 		if err != nil {
-			_ = args.Set("Error", err.Error())
+			args.Set("Error", err.Error())
 			_, _ = CustomError(window, args)
 			return
 		}
@@ -277,7 +289,7 @@ func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, 
 						var err error
 						NFSave.Active, err = NFSave.Load(historySaveMap[s])
 						if err != nil {
-							_ = args.Set("Error", err.Error())
+							args.Set("Error", err.Error())
 							_, _ = CustomError(window, args)
 							return
 						}
@@ -300,7 +312,7 @@ func LoadGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, 
 }
 
 // ContinueGame continues the game from the last save file
-func ContinueGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func ContinueGame(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	//Walk the save directory
 	type FileWithModTime struct {
 		Name    string
@@ -322,7 +334,7 @@ func ContinueGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterfa
 	//if there are no save files, return an error
 	if len(saveFiles) == 0 {
 		err := errors.New("no save files found")
-		_ = args.Set("Error", err.Error())
+		args.Set("Error", err.Error())
 		_, _ = CustomError(window, args)
 		return args, err
 	}
@@ -342,7 +354,7 @@ func ContinueGame(window fyne.Window, args NFData.NFInterface) (NFData.NFInterfa
 	var err error
 	NFSave.Active, err = NFSave.Load(saveFiles[0].Path)
 	if err != nil {
-		_ = args.Set("Error", err.Error())
+		args.Set("Error", err.Error())
 		_, _ = CustomError(window, args)
 		return args, err
 	}

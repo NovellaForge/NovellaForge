@@ -28,7 +28,7 @@ import (
 )
 
 /*
-//TODO add in a mutex to the args interface to allow for safe concurrent access
+//TODO Fix up scene loading possibly using a jsonSafe struct
 
 
 TODO:
@@ -126,7 +126,7 @@ func main() {
 	)
 
 	// If the user is on a desktop, show a splash screen while the main content is loading
-	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); !ok {
+	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
 		splash = drv.CreateSplashWindow()
 		splash.SetContent(splashContent)
 	} else {
@@ -224,6 +224,5 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 	grid.Add(continueLastButton)
 	loading.SetProgress(100, "Setting Content")
 	window.SetContent(grid)
-	time.Sleep(1 * time.Second)
 	loading.Complete()
 }

@@ -7,96 +7,72 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
-var MainMenuSceneTemplate = NFScene.Scene{
-	Name: "MainMenu",
-	Layout: NFLayout.Layout{
-		Type: "VBox",
-		Children: []NFWidget.Widget{
-			{
-				Type: "Label",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "Text",
-						Value: "Main Menu",
-					},
+var MainMenuSceneTemplate = NFScene.NewScene(
+	"MainMenu", NFLayout.NewLayout(
+		"VBox",
+		NFLayout.NewChildren(
+			NFWidget.New(
+				"Label",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("Text", "Main Menu"),
 				),
-			},
-			{
-				Type: "Button",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "Text",
-						Value: "New Game",
-					},
-					NFData.KeyVal{
-						Key:   "OnTapped",
-						Value: "NewGame",
-					},
+			),
+			NFWidget.New(
+				"Button",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("Text", "New Game"),
+					NFData.NewKeyVal("OnTapped", "NewGame"),
+					NFData.NewKeyVal("OnTappedArgs", NFData.NewNFInterfaceMap(
+						NFData.NewKeyVal("NewGameScene", "NewGame"),
+					)),
 				),
-			},
-			{
-				Type: "Button",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "Text",
-						Value: "Load Game",
-					},
-					NFData.KeyVal{
-						Key:   "OnTapped",
-						Value: "LoadGame",
-					},
+			),
+			NFWidget.New(
+				"Button",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("Text", "Load Game"),
+					NFData.NewKeyVal("OnTapped", "LoadGame"),
 				),
-			},
-			{
-				Type: "Button",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "Text",
-						Value: "Settings",
-					},
-					NFData.KeyVal{
-						Key:   "OnTapped",
-						Value: "Settings",
-					},
+			),
+			NFWidget.New(
+				"Button",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("Text", "Settings"),
+					NFData.NewKeyVal("OnTapped", "Settings"),
 				),
-			},
-			{
-				Type: "Button",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "Text",
-						Value: "Quit",
-					},
-					NFData.KeyVal{
-						Key:   "OnTapped",
-						Value: "Quit",
-					},
+			),
+			NFWidget.New(
+				"Button",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("Text", "Quit"),
+					NFData.NewKeyVal("OnTapped", "Quit"),
 				),
-			},
-		},
-	},
-	Args: NFData.NewNFInterface(),
-}
+			),
+		),
+		NFData.NewNFInterfaceMap(),
+	),
+	NFData.NewNFInterfaceMap(),
+)
 
-var NewGameSceneTemplate = NFScene.Scene{
-	Name: "NewGame",
-	Layout: NFLayout.Layout{
-		Type: "ExampleLayout",
-		Children: []NFWidget.Widget{
-			{
-				Type: "ExampleWidget",
-				Args: NFData.NewNFInterface(
-					NFData.KeyVal{
-						Key:   "message",
-						Value: "Hello World",
-					},
-					NFData.KeyVal{
-						Key:   "action",
-						Value: "CustomFunction.ExampleFunction",
-					},
+var NewGameSceneTemplate = NFScene.NewScene(
+	"NewGame", NFLayout.NewLayout(
+		"ExampleLayout",
+		NFLayout.NewChildren(
+			NFWidget.New(
+				"ExampleWidget",
+				NFWidget.NewChildren(),
+				NFData.NewNFInterfaceMap(
+					NFData.NewKeyVal("message", "Hello World"),
+					NFData.NewKeyVal("action", "CustomFunction.ExampleFunction"),
 				),
-			},
-		},
-	},
-	Args: NFData.NewNFInterface(),
-}
+			),
+		),
+		NFData.NewNFInterfaceMap(),
+	),
+	NFData.NewNFInterfaceMap(),
+)

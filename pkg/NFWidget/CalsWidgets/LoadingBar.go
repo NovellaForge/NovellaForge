@@ -74,6 +74,7 @@ func (l *Loading) SetStatus(status string) {
 	}
 }
 func (l *Loading) Complete() {
+	time.Sleep(1 * time.Second)
 	l.complete <- struct{}{}
 	l.SetStatus("Complete")
 }

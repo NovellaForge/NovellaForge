@@ -1,4 +1,5 @@
 package NFData
 
-var GlobalVars = NewNFInterface()
+var GlobalVars = NewRemoteNFInterfaceMap()
+var GlobalBindings = NewNFBindingMap()
 var ActiveSceneData *SceneData

@@ -14,15 +14,16 @@ func Import() {}
 
 func init() {
 	log.Printf("Registering ExampleFunction")
-	NFFunction.Function{
+	customFunction := NFFunction.Function{
 		Name:         "ExampleFunction",
 		Type:         "CustomFunction.ExampleFunction",
 		RequiredArgs: NFData.NewNFInterface(),
 		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(ExampleFunctionHandler)
+	}
+	customFunction.Register(ExampleFunctionHandler)
 }
 
-func ExampleFunctionHandler(window fyne.Window, args NFData.NFInterface) (NFData.NFInterface, error) {
+func ExampleFunctionHandler(window fyne.Window, args *NFData.NFInterface) (*NFData.NFInterface, error) {
 	//Do something
 	log.Println("Example button was pressed!")
 	dialog.ShowInformation("Example", "Example button was pressed!", window)

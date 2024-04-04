@@ -9,9 +9,17 @@ import (
 )
 
 // VBoxLayoutHandler simply adds all children to a vertical box
-func VBoxLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func VBoxLayoutHandler(window fyne.Window, _ *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()
 	for _, child := range l.Children {
+		if child.Type == "Button" {
+			//Print the on tapped event
+			var onTapped string
+			err := child.Args.Get("OnTapped", &onTapped)
+			if err != nil {
+				return nil, NFError.NewErrMissingArgument(l.Type, "OnTapped")
+			}
+		}
 		widget, err := child.Parse(window)
 		if err != nil {
 			return nil, err
@@ -22,7 +30,7 @@ func VBoxLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layo
 }
 
 // HBoxLayoutHandler simply adds all children to a horizontal box
-func HBoxLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func HBoxLayoutHandler(window fyne.Window, _ *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	hbox := container.NewHBox()
 	for _, child := range l.Children {
 		widget, err := child.Parse(window)
@@ -35,11 +43,11 @@ func HBoxLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layo
 }
 
 // GridLayoutHandler simply adds all children to a grid that has args["Columns"] columns
-func GridLayoutHandler(window fyne.Window, args NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func GridLayoutHandler(window fyne.Window, args *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	var columns int
 	err := args.Get("Columns", &columns)
 	if err != nil {
-		return nil, NFError.ErrMissingArgument(l.Type, "Columns")
+		return nil, NFError.NewErrMissingArgument(l.Type, "Columns")
 	}
 	grid := container.NewGridWithColumns(columns)
 	for _, child := range l.Children {
@@ -53,7 +61,7 @@ func GridLayoutHandler(window fyne.Window, args NFData.NFInterface, l NFLayout.L
 }
 
 // TabLayoutHandler simply adds all children to a tab layout
-func TabLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func TabLayoutHandler(window fyne.Window, _ *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	tabs := container.NewAppTabs()
 	for _, child := range l.Children {
 		widget, err := child.Parse(window)
@@ -73,7 +81,7 @@ func TabLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layou
 // BorderLayoutHandler simply adds all children to a border layout
 // The children must have a "Position" property that is either "Top", "Bottom", "Left", "Right", or "Center"
 // The children are placed into the border layout based on their position
-func BorderLayoutHandler(window fyne.Window, _ NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func BorderLayoutHandler(window fyne.Window, _ *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	var top fyne.CanvasObject = nil
 	var bottom fyne.CanvasObject = nil
 	var left fyne.CanvasObject = nil

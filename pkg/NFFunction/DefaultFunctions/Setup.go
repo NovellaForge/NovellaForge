@@ -15,45 +15,51 @@ func init() {
 	Import()
 	log.Println("Registering Default Functions")
 
-	NFFunction.Function{
+	quit := NFFunction.Function{
 		Name:         "Quit",
 		Type:         "Quit",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(Quit)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	quit.Register(Quit)
 
-	NFFunction.Function{
+	customError := NFFunction.Function{
 		Name:         "Error",
 		Type:         "Error",
-		RequiredArgs: NFData.NewNFInterface(NFData.NewKeyVal("Error", "This should be an error message in a string format")),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(CustomError)
+		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("Error", "This should be an error message in a string format")),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	customError.Register(CustomError)
 
-	NFFunction.Function{
+	newGame := NFFunction.Function{
 		Name:         "New Game",
 		Type:         "NewGame",
-		RequiredArgs: NFData.NewNFInterface(NFData.NewKeyVal("NewGameScene", "This should be the name of the scene to start the game with. THIS IS CASE SENSITIVE")),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(NewGame)
+		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("NewGameScene", "This should be the name of the scene to start the game with. THIS IS CASE SENSITIVE")),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	newGame.Register(NewGame)
 
-	NFFunction.Function{
+	saveAs := NFFunction.Function{
 		Name:         "Save As",
 		Type:         "SaveAs",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(SaveAs)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	saveAs.Register(SaveAs)
 
-	NFFunction.Function{
+	loadGame := NFFunction.Function{
 		Name:         "Load Game",
 		Type:         "LoadGame",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(LoadGame)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	loadGame.Register(LoadGame)
 
-	NFFunction.Function{
+	continueGame := NFFunction.Function{
 		Name:         "Continue Game",
 		Type:         "ContinueGame",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(ContinueGame)
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	continueGame.Register(ContinueGame)
 }

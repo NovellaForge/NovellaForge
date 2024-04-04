@@ -15,17 +15,18 @@ func Import() {}
 
 func init() {
 	log.Printf("Registering ExampleWidget")
-	NFWidget.Widget{
+	customWidget := NFWidget.Widget{
 		Type: "ExampleWidget",
 		RequiredArgs: NFData.NewNFInterface(
 			NFData.NewKeyVal("action", ""),
 			NFData.NewKeyVal("message", ""),
 		),
 		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(ExampleWidgetHandler)
+	}
+	customWidget.Register(ExampleWidgetHandler)
 }
 
-func ExampleWidgetHandler(window fyne.Window, args NFData.NFInterface, w NFWidget.Widget) (fyne.CanvasObject, error) {
+func ExampleWidgetHandler(window fyne.Window, args *NFData.NFInterface, w *NFWidget.Widget) (fyne.CanvasObject, error) {
 	//Get the action from the args
 	var action string
 	err := args.Get("action", &action)

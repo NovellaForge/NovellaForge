@@ -15,14 +15,15 @@ func Import() {}
 
 func init() {
 	log.Printf("Registering ExampleLayouts")
-	NFLayout.Layout{
+	customLayout := NFLayout.Layout{
 		Type:         "ExampleLayout",
 		RequiredArgs: NFData.NewNFInterface(),
 		OptionalArgs: NFData.NewNFInterface(),
-	}.Register(ExampleLayoutHandler)
+	}
+	customLayout.Register(ExampleLayoutHandler)
 }
 
-func ExampleLayoutHandler(window fyne.Window, args NFData.NFInterface, l NFLayout.Layout) (fyne.CanvasObject, error) {
+func ExampleLayoutHandler(window fyne.Window, _ *NFData.NFInterface, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()
 	vbox.Add(widget.NewLabel("Example Layout"))
 	for _, child := range l.Children {

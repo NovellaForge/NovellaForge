@@ -17,17 +17,33 @@ import (
 type Properties map[string]interface{}
 
 type Scene struct {
-	Name   string             `json:"Name"`
-	Layout NFLayout.Layout    `json:"Layout"`
-	Args   NFData.NFInterface `json:"Args"`
+	Name   string                 `json:"Name"`
+	Layout *NFLayout.Layout       `json:"Layout"`
+	Args   *NFData.NFInterfaceMap `json:"Args"`
+}
+
+// NewScene creates a new scene with the given name, layout, and arguments
+func NewScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap) *Scene {
+	return &Scene{
+		Name:   name,
+		Layout: layout,
+		Args:   args,
+	}
+}
+
+// NewAndAddScene creates a new scene with the given name, layout, and arguments and adds it to the all map
+func NewAndAddScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap) *Scene {
+	scene := NewScene(name, layout, args)
+	all[name] = scene
+	return scene
 }
 
 // all is a map of string to Scene that contains all scenes in the scenes folder
 // for this to be repopulated you must call LoadAll
-var all = map[string]Scene{}
+var all = map[string]*Scene{}
 
 // GetAll returns all scenes that have been loaded. If no scenes have been loaded, it will load all scenes from the disk
-func GetAll(path ...string) map[string]Scene {
+func GetAll(path ...string) map[string]*Scene {
 	log.Println("Getting all Loaded scenes")
 	if len(all) == 0 {
 		log.Println("No scenes yet loaded, loading all scenes")
@@ -42,7 +58,7 @@ func GetAll(path ...string) map[string]Scene {
 }
 
 // LoadAll returns all scenes reloading them from the disk. If you don't want to reload them, use GetAll
-func LoadAll(p ...string) map[string]Scene {
+func LoadAll(p ...string) map[string]*Scene {
 	path := ""
 	if len(p) == 0 {
 		log.Println("No path provided, using default path")
@@ -60,59 +76,10 @@ func LoadAll(p ...string) map[string]Scene {
 	}
 	all = scenes
 	return scenes
-
-}
-
-// Load loads a scene from a file
-func Load(path string) (Scene, error) {
-	//Check if the path ends in .NFScene
-	if !strings.HasSuffix(path, ".NFScene") {
-		return Scene{}, errors.New("path must end in .NFScene")
-	}
-
-	//Open the file
-	file, err := os.Open(path)
-	if err != nil {
-		return Scene{}, err
-	}
-
-	//Decode the file
-	var scene Scene
-	err = json.NewDecoder(file).Decode(&scene)
-	if err != nil {
-		return Scene{}, err
-	}
-
-	//Return the scene
-	return scene, nil
-}
-
-// LoadByName loads a scene by name
-func LoadByName(name string) (Scene, error) {
-	//Check if the name ends in .NFScene
-	if !strings.HasSuffix(name, ".NFScene") {
-		name += ".NFScene"
-	}
-
-	//Check if the name contains / or \ and if it does run the load by path function
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
-		return Load(name)
-	}
-
-	//Scan the data/scenes directory
-	scenes, err := scanDir("data/scenes", name)
-	if err != nil {
-		return Scene{}, err
-	}
-	//get the first scene
-	for _, scene := range scenes {
-		return scene, nil
-	}
-	return Scene{}, errors.New("scene not found")
 }
 
 // scanDir scans a directory for scenes
-func scanDir(s string, args ...string) (map[string]Scene, error) {
+func scanDir(s string, args ...string) (map[string]*Scene, error) {
 	//If the args are empty, set findScene to false and then set both args to ""
 	findScene := false
 	if len(args) > 0 && args[0] != "" {
@@ -120,7 +87,7 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 	}
 
 	//Create a map of string to Scene
-	scenes := map[string]Scene{}
+	scenes := map[string]*Scene{}
 	//Scan the directory
 	log.Println("Scanning directory", s)
 	err := filepath.Walk(s, func(path string, info os.FileInfo, err error) error {
@@ -135,7 +102,7 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 		//Check if the path ends in .NFScene
 		if strings.HasSuffix(path, ".NFScene") && !findScene {
 			//Load the scene
-			scene, err := Load(path)
+			scene, err := Import(path)
 			if err != nil {
 				return err
 			}
@@ -156,7 +123,7 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 			scenes[scene.Name] = scene
 		} else if findScene && strings.HasSuffix(path, name) {
 			//Load the scene
-			scene, err := Load(path)
+			scene, err := Import(path)
 			if err != nil {
 				return err
 			}
@@ -176,19 +143,36 @@ func scanDir(s string, args ...string) (map[string]Scene, error) {
 
 }
 
+// ParseAndLoad runs Parse before loading the scene in to active scene data
+func (scene *Scene) ParseAndLoad(window fyne.Window, overlay ...NFLayout.Layout) (fyne.CanvasObject, error) {
+	NFData.ActiveSceneData = NFData.NewSceneData(scene.Name)
+	NFData.ActiveSceneData.Layouts.Set("main", *scene.Layout)
+	NFData.ActiveSceneData.Variables = scene.Args
+	for i, o := range overlay {
+		NFData.ActiveSceneData.Layouts.Set("overlay_"+strconv.Itoa(i), o)
+	}
+	return scene.Parse(window, overlay...)
+}
+
 // Parse parses a scene and returns a fyne.CanvasObject that can be added to the window each argument passed should be an overlay, with the first being the bottom most overlay
-func (scene *Scene) Parse(window fyne.Window, overlay ...fyne.CanvasObject) (fyne.CanvasObject, error) {
+func (scene *Scene) Parse(window fyne.Window, overlay ...NFLayout.Layout) (fyne.CanvasObject, error) {
 	stack := container.NewStack()
 	layout, err := scene.Layout.Parse(window)
+	if err != nil {
+		return nil, err
+	}
 	stack.Add(layout)
 	for _, o := range overlay {
-		stack.Add(o)
+		obj, e := o.Parse(window)
+		if e == nil {
+			stack.Add(obj)
+		}
 	}
 	return stack, err
 }
 
 // Export exports the scene to a file
-func (scene *Scene) Export() error {
+func (scene *Scene) Export(overwrite bool) error {
 	//Make sure each of the layouts children have a unique ID by counting the ones of the same type and naming them SceneName.TypeName#Number
 	//Create a map of string to int
 	counts := map[string]int{}
@@ -212,19 +196,48 @@ func (scene *Scene) Export() error {
 	}
 	//check if the file already exists before writing to it
 	if _, err := os.Stat("exports/scenes/" + scene.Name + ".json"); err == nil {
-		return errors.New("file already exists")
+		if !overwrite {
+			return errors.New("file already exists")
+		}
 	}
-	//Create the jsonBytes for the scene
-	jsonBytes, err := json.MarshalIndent(scene, "", "	")
+
+	// Marshal the jsonScene
+	jsonBytes, err := json.MarshalIndent(scene, "", "\t")
 	if err != nil {
 		return err
 	}
 	//Create the directories if they don't exist
 	err = os.MkdirAll("exports/scenes", 0755)
 	//Write the file
-	err = os.WriteFile("exports/scenes/"+scene.Name+".json", jsonBytes, 0644)
+	err = os.WriteFile("exports/scenes/"+scene.Name+".json", jsonBytes, 0755)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// Import imports a scene from a file
+func Import(path string) (*Scene, error) {
+
+	//Check if the path ends in .NFScene
+	if !strings.HasSuffix(path, ".NFScene") {
+		return nil, errors.New("path must end in .NFScene")
+	}
+
+	// Open the file
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Decode the file into a jsonScene
+	var scene Scene
+	err = json.NewDecoder(file).Decode(&scene)
+	if err != nil {
+		log.Println("Error decoding scene")
+		return nil, err
+	}
+
+	return &scene, nil
 }
