@@ -6,8 +6,8 @@
       "OnCancelledArgs"
     ],
     "bool": [
-      "Enabled",
-      "Hidden"
+      "Hidden",
+      "Enabled"
     ],
     "fyne.Position": [
       "Position"
@@ -16,10 +16,10 @@
       "Size"
     ],
     "string": [
-      "SubmitText",
+      "OnSubmitted",
       "CancelText",
       "OnCancelled",
-      "OnSubmitted"
+      "SubmitText"
     ]
   }
 }

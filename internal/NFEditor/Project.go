@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"html/template"
@@ -17,31 +20,24 @@ import (
 	"time"
 )
 
-type ProjectInfo struct {
+type NFInfo struct {
 	Name     string    `json:"Name"`
 	Path     string    `json:"Path"`
 	OpenDate time.Time `json:"Last Opened"`
 }
 
-type Project struct {
-	GameName string `json:"Game Name"`
-	Version  string `json:"Version"`
-	Author   string `json:"Author"`
-	Credits  string `json:"Credits"`
-}
-
-type ProjectData struct {
-	ProjectInfo ProjectInfo
-	Project     Project
+type NFProject struct {
+	Info   NFInfo
+	Config *NFConfig.NFConfig
 }
 
 var (
 	//go:embed Templates/*/*
-	Templates  embed.FS
-	ActiveGame ProjectData
+	Templates     embed.FS
+	ActiveProject *NFProject
 )
 
-func (p Project) UpdateProjectInfo(info ProjectInfo) error {
+func UpdateProjectInfo(info NFInfo) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -103,7 +99,7 @@ func (p Project) UpdateProjectInfo(info ProjectInfo) error {
 }
 
 // ReadProjectInfo reads the project info from the project file
-func ReadProjectInfo() ([]ProjectInfo, error) {
+func ReadProjectInfo() ([]NFInfo, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -135,25 +131,36 @@ func ReadProjectInfo() ([]ProjectInfo, error) {
 	}
 
 	//unmarshal the json into a slice of structs
-	var projects []ProjectInfo
+	var projects []NFInfo
 	err = json.Unmarshal(file, &projects)
 	if err != nil {
 		return nil, err
+	}
+
+	//Sort the projects by the last opened date
+	for i := 0; i < len(projects); i++ {
+		for j := 0; j < len(projects); j++ {
+			if projects[i].OpenDate.After(projects[j].OpenDate) {
+				temp := projects[i]
+				projects[i] = projects[j]
+				projects[j] = temp
+			}
+		}
 	}
 
 	//return the slice of structs
 	return projects, nil
 }
 
-func OpenFromInfo(info ProjectInfo, window fyne.Window) error {
+func OpenFromInfo(info NFInfo, window fyne.Window) error {
 	path := info.Path
 	//Check if the path even exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		tmpProject := Project{
-			GameName: info.Name,
+		newError := UpdateProjectInfo(info)
+		if newError != nil {
+			errors.Join(err, newError, NFError.NewErrProjectNotFound(info.Name))
 		}
-		err = tmpProject.UpdateProjectInfo(info)
-		return NFError.NewErrProjectNotFound(info.Name)
+		return err
 	}
 
 	//Check if the path ends in .NFProject
@@ -179,7 +186,7 @@ func OpenFromInfo(info ProjectInfo, window fyne.Window) error {
 		return err
 	}
 
-	err = project.Load(window, info)
+	err = project.Load(window)
 	if err != nil {
 		return err
 	}
@@ -188,31 +195,69 @@ func OpenFromInfo(info ProjectInfo, window fyne.Window) error {
 
 }
 
-func Deserialize(file []byte) (Project, error) {
-	project := Project{}
-	err := json.Unmarshal(file, &project)
+func Deserialize(file []byte) (project NFInfo, err error) {
+	err = json.Unmarshal(file, &project)
 	if err != nil {
-		return Project{}, err
+		return NFInfo{}, err
 	}
 	return project, nil
 }
 
 // Load takes a deserialized project and loads it into the editor loading the scenes and functions as well
-func (p Project) Load(window fyne.Window, info ProjectInfo) error {
-	ActiveGame.Project = p
-	ActiveGame.ProjectInfo = info
-	err := p.UpdateProjectInfo(info)
+func (p NFInfo) Load(window fyne.Window) error {
+	Project := &NFProject{
+		Info: p,
+	}
+	//Walk the local directory of the project for the .NFConfig file
+	//If it doesn't exist, return an error
+	localDir := filepath.Dir(p.Path) + "/local/"
+	//Look for the first file ending in .NFConfig
+	err := filepath.Walk(localDir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".NFConfig" {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			err = Project.Config.Load(file)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	err = UpdateProjectInfo(p)
 	if err != nil {
 		return err
 	}
+	ActiveProject = Project
 	window.SetContent(CreateSceneEditor(window))
 	return nil
 }
 
-func (p Project) Create(window fyne.Window) error {
+func (p NFProject) Create(window fyne.Window) error {
+	shouldDelete := false
+	deletePath := ""
+	defer func() {
+		if shouldDelete && deletePath != "" {
+			vbox := container.NewVBox(
+				widget.NewLabel("An error occurred while creating the project."),
+				widget.NewLabel("Would you like to delete the broken project?"),
+				widget.NewLabel("Delete will remove: "+deletePath),
+				widget.NewLabel("This action cannot be undone."),
+			)
+			dialog.ShowCustomConfirm("Delete Broken Project?", "Yes", "No", vbox, func(b bool) {
+				if b {
+					err := os.RemoveAll(deletePath)
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+				}
+			}, window)
+		}
+	}()
 	loadingChannel := make(chan struct{})
 	loading := CalsWidgets.NewLoading(loadingChannel, 100*time.Millisecond, 100)
-	loading.SetProgress(0, "Creating Project: "+p.GameName)
+	loading.SetProgress(0, "Creating Project: "+p.Config.Name)
 	//Pop up a dialog with a progress bar and a label that says "Creating Project"
 	progressDialog := dialog.NewCustomWithoutButtons("Creating Project", loading.Box, window)
 	progressDialog.Show()
@@ -228,199 +273,173 @@ func (p Project) Create(window fyne.Window) error {
 	//First check if the project directory already exists
 
 	loading.SetProgress(10, "Checking if project already exists")
-	_, err = os.Stat(projectsDir + "/" + p.GameName)
+	_, err = os.Stat(projectsDir + "/" + p.Config.Name)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(projectsDir+"/"+p.GameName, 0755)
+		err = os.MkdirAll(projectsDir+"/"+p.Config.Name, os.ModePerm)
 		if err != nil {
 			return err
 		}
 	} else {
-		return NFError.NewErrProjectAlreadyExists(p.GameName)
+		return NFError.NewErrProjectAlreadyExists(p.Config.Name)
 	}
 
 	//Create the project directory
 	loading.SetProgress(20, "Creating Project Directory")
-	projectDir := projectsDir + "/" + p.GameName
-	err = os.MkdirAll(projectDir, 0755)
+	projectDir := projectsDir + "/" + p.Config.Name
+	err = os.MkdirAll(projectDir, os.ModePerm)
+	deletePath = projectDir
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
 
 	//Create the project file
 	loading.SetProgress(30, "Creating Project File")
-	err = os.WriteFile(projectDir+"/"+p.GameName+".NFProject", p.Serialize(), 0644)
+	err = os.WriteFile(projectDir+"/"+p.Config.Name+".NFProject", p.SerializeInfo(), os.ModePerm)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
 
 	neededDirectories := []string{
-		"cmd/" + p.GameName,
-		"data/assets/image",
-		"data/assets/audio",
-		"data/assets/video",
-		"data/assets/other",
-		"data/scenes",
+		"cmd/" + p.Config.Name,
+		"local/assets/image",
+		"local/assets/audio",
+		"local/assets/video",
+		"local/assets/other",
+		"local/scenes",
 		"internal/config",
-		"internal/function",
-		"internal/layout",
-		"internal/widget",
+		"internal/functions",
+		"internal/layouts",
+		"internal/widgets",
 	}
 
 	percentPerDir := 10 / len(neededDirectories)
 	for _, dir := range neededDirectories {
 		loading.SetProgress(loading.GetProgress()+float64(percentPerDir), "Creating "+dir)
-		err = os.MkdirAll(projectDir+"/"+dir, 0755)
+		err = os.MkdirAll(projectDir+"/"+dir, os.ModePerm)
 		if err != nil {
+			shouldDelete = true
 			return err
 		}
 	}
 
 	//Write the main.go file
 	loading.SetProgress(50, "Creating main.go file")
-	t, err := template.ParseFS(Templates, "Templates/MainGame/Template.go")
-	if err != nil {
-		return err
-	}
-	mainGameFile, err := os.Create(projectDir + "/cmd/" + p.GameName + "/" + p.GameName + ".go")
-	if err != nil {
-		return err
-	}
-
 	mainGameData := struct {
 		LocalConfig    string
+		LocalFS        string
 		LocalFunctions string
 		LocalLayouts   string
 		LocalWidgets   string
 	}{
-		LocalConfig:    p.GameName + "/internal/config",
-		LocalFunctions: p.GameName + "/internal/function",
-		LocalLayouts:   p.GameName + "/internal/layout",
-		LocalWidgets:   p.GameName + "/internal/widget",
+		LocalConfig:    p.Config.Name + "/internal/config",
+		LocalFS:        p.Config.Name + "/local",
+		LocalFunctions: p.Config.Name + "/internal/functions",
+		LocalLayouts:   p.Config.Name + "/internal/layouts",
+		LocalWidgets:   p.Config.Name + "/internal/widgets",
 	}
-
-	err = t.Execute(mainGameFile, mainGameData)
+	err = MakeFromTemplate(
+		"Templates/MainGame/Template.go",
+		projectDir+"/cmd/"+p.Config.Name+"/"+p.Config.Name+".go",
+		mainGameData)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	mainGameFile.Close()
+
+	//Make the FileLoader.go file
+	fsData := struct {
+		EmbedData   bool
+		EmbedAssets bool
+	}{
+		EmbedData:   p.Config.UseEmbeddedData,
+		EmbedAssets: p.Config.UseEmbeddedAssets,
+	}
+	err = MakeFromTemplate(
+		"Templates/FileLoader/Template.go",
+		projectDir+"/local/FileSystem.go",
+		fsData)
 
 	//Write the config file
-	loading.SetProgress(60, "Creating Config file")
-	t, err = template.ParseFS(Templates, "Templates/Config/Template.go")
+	loading.SetProgress(60, "Creating Config files")
+	err = MakeFromTemplate(
+		"Templates/Config/Template.go",
+		projectDir+"/internal/config/Config.go",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	configData := struct {
-		GameName     string
-		GameVersion  string
-		GameAuthor   string
-		GameCredits  string
-		StartUpScene string
-		NewGameScene string
-	}{
-		GameName:     p.GameName,
-		GameVersion:  "0.0.1",
-		GameAuthor:   p.Author,
-		GameCredits:  p.Credits,
-		StartUpScene: "MainMenu",
-		NewGameScene: "NewGame",
-	}
-	configFile, err := os.Create(projectDir + "/internal/config/Config.go")
+
+	//Write the .NFConfig file
+	err = p.Config.Save(projectDir + "/local/" + p.Config.Name + ".NFConfig")
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	err = t.Execute(configFile, configData)
-	if err != nil {
-		return err
-	}
-	configFile.Close()
 
 	//Write the custom import files
 	loading.SetProgress(70, "Creating Custom Import Files")
-	t, err = template.ParseFS(Templates, "Templates/CustomFunction/Template.go")
+	err = MakeFromTemplate(
+		"Templates/CustomFunction/Template.go",
+		projectDir+"/internal/functions/CustomFunctions.go",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	customFunctionFile, err := os.Create(projectDir + "/internal/function/CustomFunctions.go")
-	if err != nil {
-		return err
-	}
-	err = t.Execute(customFunctionFile, nil)
-	if err != nil {
-		return err
-	}
-	customFunctionFile.Close()
 
-	t, err = template.ParseFS(Templates, "Templates/CustomLayout/Template.go")
+	err = MakeFromTemplate(
+		"Templates/CustomLayout/Template.go",
+		projectDir+"/internal/layouts/CustomLayouts.go",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	customLayoutFile, err := os.Create(projectDir + "/internal/layout/CustomLayouts.go")
-	if err != nil {
-		return err
-	}
-	err = t.Execute(customLayoutFile, nil)
-	if err != nil {
-		return err
-	}
-	customLayoutFile.Close()
 
-	t, err = template.ParseFS(Templates, "Templates/CustomWidget/Template.go")
+	err = MakeFromTemplate(
+		"Templates/CustomWidget/Template.go",
+		projectDir+"/internal/widgets/CustomWidgets.go",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	customWidgetFile, err := os.Create(projectDir + "/internal/widget/CustomWidgets.go")
-	if err != nil {
-		return err
-	}
-	err = t.Execute(customWidgetFile, nil)
-	if err != nil {
-		return err
-	}
-	customWidgetFile.Close()
 
 	//Put the scene templates in the data/scenes directory
 	loading.SetProgress(75, "Creating Scene Templates")
-	//Parse the Scenes/MainMenu.json template
-	t, err = template.ParseFS(Templates, "Templates/Scenes/MainMenu.json")
+	err = MakeFromTemplate(
+		"Templates/Scenes/MainMenu.NFScene",
+		projectDir+"/local/scenes/MainMenu.NFScene",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	MainMenuSceneFile, err := os.Create(projectDir + "/data/scenes/MainMenu.NFScene")
-	if err != nil {
-		return err
-	}
-	err = t.Execute(MainMenuSceneFile, nil)
-	if err != nil {
-		return err
-	}
-	MainMenuSceneFile.Close()
 
 	//Parse the Scenes/NewGame.json template
-	t, err = template.ParseFS(Templates, "Templates/Scenes/NewGame.json")
+	err = MakeFromTemplate(
+		"Templates/Scenes/NewGame.NFScene",
+		projectDir+"/local/scenes/NewGame.NFScene",
+		nil)
 	if err != nil {
+		shouldDelete = true
 		return err
 	}
-	NewGameSceneFile, err := os.Create(projectDir + "/data/scenes/NewGame.NFScene")
-	if err != nil {
-		return err
-	}
-	err = t.Execute(NewGameSceneFile, nil)
-	if err != nil {
-		return err
-	}
-	NewGameSceneFile.Close()
 
 	//Initialize the go mod file by running go mod init with os/exec
 	loading.SetProgress(80, "Initializing go mod file")
 
 	// Initialize the go mod
 	var stderr bytes.Buffer
-	cmd := exec.Command("go", "mod", "init", p.GameName)
+	cmd := exec.Command("go", "mod", "init", p.Config.Name)
 	cmd.Stderr = &stderr
 	cmd.Dir = projectDir
 	err = cmd.Run()
 	if err != nil {
+		shouldDelete = true
 		log.Printf("Error initializing go mod file: %v", err)
 		log.Printf("Stderr: %s", stderr.String())
 		return errors.New("error initializing go mod file")
@@ -466,11 +485,28 @@ func (p Project) Create(window fyne.Window) error {
 	return nil
 }
 
-func (p Project) Serialize() []byte {
+func (p NFProject) SerializeInfo() []byte {
 	//Marshal the project to JSON
-	serializedProject, err := json.MarshalIndent(p, "", "  ")
+	serializedProject, err := json.MarshalIndent(p.Info, "", "  ")
 	if err != nil {
 		return nil
 	}
 	return serializedProject
+}
+
+func MakeFromTemplate(templatePath, destinationPath string, data interface{}) error {
+	destinationFile, err := os.Create(destinationPath)
+	defer destinationFile.Close()
+	if err != nil {
+		return err
+	}
+	t, err := template.ParseFS(Templates, templatePath)
+	if err != nil {
+		return err
+	}
+	err = t.Execute(destinationFile, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

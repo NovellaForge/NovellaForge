@@ -3,12 +3,12 @@
   "OptionalArgs": {
     "*NFData.NFInterfaceMap": [
       "OnChangedArgs",
-      "OnCursorChangedArgs",
-      "OnSubmittedArgs"
+      "OnSubmittedArgs",
+      "OnCursorChangedArgs"
     ],
     "bool": [
-      "Enabled",
-      "Hidden"
+      "Hidden",
+      "Enabled"
     ],
     "fyne.Position": [
       "Position"
@@ -19,8 +19,8 @@
     "string": [
       "PlaceHolder",
       "Text",
-      "OnSubmitted",
       "OnChanged",
+      "OnSubmitted",
       "OnCursorChanged"
     ]
   }

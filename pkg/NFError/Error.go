@@ -6,6 +6,9 @@ import (
 )
 
 var (
+	ErrConfigLoad           = errors.New("error loading config")
+	ErrConfigSave           = errors.New("error saving config")
+	ErrFileGet              = errors.New("error getting file")
 	ErrNoProjects           = errors.New("no projects found")
 	ErrInvalidArgument      = errors.New("invalid argument")
 	ErrKeyAlreadyExists     = errors.New("key already exists")
@@ -47,4 +50,16 @@ func NewErrProjectNotFound(project string) error {
 
 func NewErrProjectAlreadyExists(project string) error {
 	return fmt.Errorf("%w: %s", ErrProjectAlreadyExists, project)
+}
+
+func NewErrFileGet(file, reason string) error {
+	return fmt.Errorf("%w: %s: %s", ErrFileGet, file, reason)
+}
+
+func NewErrConfigLoad(reason string) error {
+	return fmt.Errorf("%w: %s", ErrConfigLoad, reason)
+}
+
+func NewErrConfigSave(s string) error {
+	return fmt.Errorf("%w: %s", ErrConfigSave, s)
 }

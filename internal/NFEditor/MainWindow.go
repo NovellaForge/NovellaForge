@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFLog"
 	"log"
@@ -32,13 +33,29 @@ func CreateMainMenu(window fyne.Window) {
 		openRecentMenu.Disabled = false
 		//Create a list of all the projects as menu items of the child menu
 		for i := 0; i < len(projects); i++ {
-			newMenuItem := fyne.NewMenuItem(projects[i].Name, func() {
-				err = OpenFromInfo(projects[i], window)
-				if err != nil {
-					//Show an NFerror dialog
-					dialog.ShowError(err, window)
-				}
-			})
+			notFound := false
+			_, err := os.Stat(projects[i].Path)
+			if err != nil {
+				notFound = true
+			}
+			var newMenuItem *fyne.MenuItem
+			if notFound {
+				newMenuItem = fyne.NewMenuItem(projects[i].Name+" (Not Found)", func() {
+					err = UpdateProjectInfo(projects[i])
+					if err != nil {
+						//Show an error dialog
+						dialog.ShowError(err, window)
+					}
+					CreateMainMenu(window)
+				})
+			} else {
+				newMenuItem = fyne.NewMenuItem(projects[i].Name, func() {
+					err = OpenFromInfo(projects[i], window)
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+				})
+			}
 			projectMenu.Items = append(projectMenu.Items, newMenuItem)
 		}
 	}
@@ -95,17 +112,6 @@ func OpenRecentDialog(window fyne.Window) {
 		return
 	}
 
-	//Sort the projects by the last opened date
-	for i := 0; i < len(projects); i++ {
-		for j := 0; j < len(projects); j++ {
-			if projects[i].OpenDate.After(projects[j].OpenDate) {
-				temp := projects[i]
-				projects[i] = projects[j]
-				projects[j] = temp
-			}
-		}
-	}
-
 	//Create a scrollable list of all the projects
 	list := widget.NewList(
 		func() int {
@@ -127,13 +133,36 @@ func OpenRecentDialog(window fyne.Window) {
 				return
 			}
 			//Set the first label to the project name and the second to the last opened date
-			item.(*fyne.Container).Objects[0].(*widget.Label).SetText(projects[id-1].Name)
-			item.(*fyne.Container).Objects[2].(*widget.Label).SetText(projects[id-1].OpenDate.Format("01/02/2006 13:04"))
+			project := projects[id-1]
+			_, err := os.Stat(project.Path)
+			if err != nil {
+				item.(*fyne.Container).Objects[0].(*widget.Label).SetText(project.Name + " (Not Found, click to hide)")
+			} else {
+				item.(*fyne.Container).Objects[0].(*widget.Label).SetText(project.Name)
+			}
+			item.(*fyne.Container).Objects[2].(*widget.Label).SetText(project.OpenDate.Format("01/02/2006 13:04"))
 		})
 	list.OnSelected = func(id widget.ListItemID) {
 		if id == 0 {
 			return
 		}
+		project := projects[id-1]
+		_, err := os.Stat(project.Path)
+		if err != nil {
+			err := UpdateProjectInfo(project)
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			projects, err = ReadProjectInfo()
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			list.Refresh()
+			return
+		}
+
 		err = OpenFromInfo(projects[id-1], window)
 		if err != nil {
 			//Show an error dialog
@@ -185,14 +214,7 @@ func OpenProjectDialog(window fyne.Window) {
 			dialog.ShowError(err, window)
 			return
 		}
-		// Load the project
-
-		info := ProjectInfo{
-			Name:     project.GameName,
-			Path:     reader.URI().Path(),
-			OpenDate: time.Now(),
-		}
-		err = project.Load(window, info)
+		err = project.Load(window)
 		if err != nil {
 			// Show an error dialog
 			log.Println("Error loading project")
@@ -222,7 +244,7 @@ func NewProjectDialog(window fyne.Window) {
 	var err error
 	box := container.NewVBox()
 	projectDialog := dialog.NewCustom("New Project", "Cancel", container.NewVBox(layout.NewSpacer(), box, layout.NewSpacer()), window)
-	newProject := Project{}
+	projectInfo := NFInfo{}
 	projectName := ""
 	nameEntry := widget.NewEntry()
 	nameValidationLabel := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
@@ -276,18 +298,7 @@ func NewProjectDialog(window fyne.Window) {
 		authorBackButton.Show()
 	}
 	authorConfirmButton.OnTapped = func() {
-		newProject.GameName = projectName
-		newProject.Author = authorEntry.Text
-		newProject.Version = "0.0.1"
-		newProject.Credits = "Created with NovellaForge"
-		err = newProject.Create(window)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		log.Printf("Created project %s", newProject.GameName)
-		projectDialog.Hide()
-
+		config := NFConfig.NewConfig(projectName, authorEntry.Text, "0.0.1", "Created with NovellaForge")
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			log.Println("Error getting home directory")
@@ -295,13 +306,24 @@ func NewProjectDialog(window fyne.Window) {
 			return
 		}
 		novellaForgeDir := homeDir + "/Documents/NovellaForge"
+		projectInfo.Name = projectName
 		projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", novellaForgeDir+"/projects")
-		newProjectInfo := ProjectInfo{
-			Name:     newProject.GameName,
-			Path:     projectsDir + "/" + newProject.GameName + ".NFProject",
-			OpenDate: time.Now(),
+		projectInfo.Path = projectsDir + "/" + projectName + ".NFProject"
+		projectInfo.OpenDate = time.Now()
+		newProject := NFProject{
+			Info:   projectInfo,
+			Config: config,
 		}
-		err = newProject.Load(window, newProjectInfo)
+
+		err = newProject.Create(window)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		log.Printf("Created project %s", newProject.Info.Name)
+		projectDialog.Hide()
+
+		err = newProject.Info.Load(window)
 		if err != nil {
 			return
 		}

@@ -390,7 +390,7 @@ func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
 }
 
 func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
-	projectPath := ActiveGame.ProjectInfo.Path
+	projectPath := ActiveProject.Info.Path
 	//Go to the parent folder of the .NFProject file in the project path
 	projectPath = filepath.Dir(projectPath)
 	scenesFolder := filepath.Join(projectPath, "data/scenes/")

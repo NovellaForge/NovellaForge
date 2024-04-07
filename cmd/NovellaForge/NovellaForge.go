@@ -203,9 +203,10 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 		dialog.ShowError(err, window)
 		return
 	}
-	var project NFEditor.ProjectInfo
+	var project NFEditor.NFInfo
 	if len(projects) == 0 {
 		continueLastButton.Disable()
+		openRecentButton.Disable()
 	} else {
 		//Get the most recently opened project
 		project = projects[0]
@@ -214,6 +215,13 @@ func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
 				project = projects[i]
 			}
 		}
+		//Os stat the project path to see if it still exists
+		_, err = os.Stat(project.Path)
+		if err != nil {
+			//If the project does not exist, disable the continue last button
+			continueLastButton.Disable()
+		}
+
 	}
 	continueLastButton.OnTapped = func() {
 		err = NFEditor.OpenFromInfo(project, window)

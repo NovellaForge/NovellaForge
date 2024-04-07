@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -11,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
@@ -18,22 +18,102 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFSave"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
+	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"time"
+	. "{{.LocalConfig}}"
+	local "{{.LocalFS}}"
 	ExampleFunctions "{{.LocalFunctions}}"
 	ExampleLayouts "{{.LocalLayouts}}"
-	local "{{.LocalPath}}"
 	ExampleWidgets "{{.LocalWidgets}}"
 )
 
-func init() {
-	configFile, ok := local.ConfigFile.(embed.FS)
-	if !ok {
-		log.Fatal("Error getting embedded config file")
+// GetFile is a function that returns a file from the local directory or embedded assets or data
+//
+// The CombinedFS is an empty embed.FS that is only filled on build
+// if the project was built from the editor with the correct settings
+//
+// Please note that any file returned from this function should be closed after use to prevent memory leaks
+func GetFile(path string) (fs.File, error) {
+	//Trim the local/ prefix
+	if !strings.HasPrefix(path, "local/") {
+		return nil, NFError.NewErrFileGet(path, "cannot reference a file outside of the local directory")
+	}
+
+	if Config == nil {
+		return new(os.File), NFError.NewErrFileGet(path, "config is nil")
+	}
+
+	//Check if the path starts with assets or data
+	if strings.HasPrefix(path, "assets") {
+		//Check if the project uses embedded assets
+		if Config.UseEmbeddedAssets {
+			path = strings.TrimPrefix(path, "local/")
+			file, err := local.CombinedFS.Open(path)
+			if err != nil {
+				return nil, NFError.NewErrFileGet(path, err.Error())
+			}
+			return file, nil
+		} else {
+			//Open the file from the assets directory
+			file, err := os.Open(path)
+			if err != nil {
+				return nil, NFError.NewErrFileGet(path, err.Error())
+			}
+			return file, nil
+		}
+	} else if strings.HasPrefix(path, "data") {
+		//Check if the project uses embedded data
+		if Config.UseEmbeddedData {
+			path = strings.TrimPrefix(path, "local/")
+			file, err := local.CombinedFS.Open(path)
+			if err != nil {
+				return nil, NFError.NewErrFileGet(path, err.Error())
+			}
+			return file, nil
+		} else {
+			//Open the file from the data directory
+			file, err := os.Open(path)
+			if err != nil {
+				return nil, NFError.NewErrFileGet(path, err.Error())
+			}
+			return file, nil
+		}
+	} else {
+		//Check the embedded directory first to see if it exists
+		embedPath = strings.TrimPrefix(path, "local/")
+		file, err := local.CombinedFS.Open(embedPath)
+		if err != nil {
+			//If the file is not found in the embedded directory, check the local directory
+			file, err = os.Open(path)
+			if err != nil {
+				return nil, NFError.NewErrFileGet(path, err.Error())
+			}
+			return file, nil
+		}
+		return file, nil
 	}
 }
 
+// init is a function that is called when the program starts it runs in order of the deepest import first
+//
+// init is run BEFORE main in ALL cases and should not be manually called from anywhere in the program
+func init() {
+	//This is the default name for the config, just make sure the file here exists and is in the config format
+	file, err := GetFile("local/" + Config.Name + ".NFConfig")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = Config.Load(file)
+}
+
+// main is the main function for the game, it is where the game is run from
+//
+// main is the entry point for the program and is where the program starts running after init
+//
+// main is run AFTER init in ALL cases and should not be manually called from anywhere in the program
 func main() {
 	//These functions allow specifying which functions, layouts, and widgets are available to the game
 	DefaultFunctions.Import()
@@ -44,25 +124,21 @@ func main() {
 	ExampleWidgets.Import()
 	//gameApp is the main app for the game to run on, when in a desktop environment this is the window manager that allows multiple windows to be open
 	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
-	gameApp := app.NewWithID("com.novellaforge." + local.GetConfig().Name())
+	gameApp := app.NewWithID("com.novellaforge." + Config.Name)
 	//window is the main window for the game, this is where the game is displayed and scenes are rendered
-	window := gameApp.NewWindow(config.GameName + " " + config.Version)
+	window := gameApp.NewWindow(Config.Name + " " + Config.Version)
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
 		//NFInterface is a custom type that stores any data type mapping it to a string key for easy access there are two methods of declaring it,
 		// the first is to use the NewNFInterface function like this before running set like you see below
-		functionArgs := NFData.NewNFInterface()
-		argErr := functionArgs.Set("Error", "Error Getting User Home Directory: "+err.Error())
-		if argErr != nil {
-			//The only time this error should exist is if you try to set or add a key that contains a period, as that is used to reference global or scene variables
-			log.Println(argErr.Error())
-		}
+		functionArgs := NFData.NewNFInterfaceMap()
+		functionArgs.Set("Error", "Error Getting User Home Directory: "+err.Error())
 
 		/*
 			//The second method is to declare the key value in the function call like this. Please note that the first method is safer as it will catch any errors thrown by the Set function,
 			//but this method allows you to declare multiple key value pairs in the function call
-			functionArgs = NFData.NewNFInterface(NFData.NewKeyVal("Error", "Error Getting User Home Directory: "+err.Error()))
+			functionArgs = NFData.NewNFInterfaceMap(NFData.NewKeyVal("Error", "Error Getting User Home Directory: "+err.Error()))
 			//An example of setting multiple values at once (You can use the same format in the NewNFInterface function SetMulti is just a method to do it after the initial declaration)
 			functionArgs.SetMulti(NFData.NewKeyVal("Error", "Error Getting User Home Directory: "+err.Error()), NFData.NewKeyVal("Test", "Test"))
 		*/
@@ -84,8 +160,8 @@ func main() {
 		_ = returnArgs.Get("TestGetMessage", &message)
 	}
 
-	NFSave.Directory = gameApp.Preferences().StringWithFallback("savesDir", userHome+"/MyGames/"+config.GameName+"/Saves")
-	NFLog.Directory = gameApp.Preferences().StringWithFallback("logDir", userHome+"/MyGames/"+config.GameName+"/Logs")
+	NFSave.Directory = gameApp.Preferences().StringWithFallback("savesDir", userHome+"/MyGames/"+Config.Name+"/Saves")
+	NFLog.Directory = gameApp.Preferences().StringWithFallback("logDir", userHome+"/MyGames/"+Config.Name+"/Logs")
 	err = NFLog.SetUp(window, NFLog.Directory)
 	if err != nil {
 		log.Fatal(err)
@@ -104,9 +180,9 @@ func createSplashScreen() fyne.Window {
 	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
 		splash := drv.CreateSplashWindow()
 		splash.SetContent(container.NewVBox(
-			widget.NewLabelWithStyle(config.GameName, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Version: "+config.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Developed By: "+config.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle(Config.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle("Version: "+Config.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Developed By: "+Config.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: NovellaForge and Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		))
 		return splash
@@ -127,7 +203,7 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 	currentApp := fyne.CurrentApp()
 	window.SetFullScreen(currentApp.Preferences().BoolWithFallback("fullscreen", false))
 	window.SetContent(container.NewVBox())
-	window.SetTitle(config.GameName + " " + config.Version)
+	window.SetTitle(Config.Name + " " + Config.Version)
 	window.SetCloseIntercept(func() {
 		dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 			if b {
@@ -144,28 +220,28 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 				dialog.ShowCustomWithoutButtons("Settings", CreateSettings(false, window), window)
 			}),
 			fyne.NewMenuItem("New", func() {
-				functionArgs := NFData.NewNFInterface()
+				functionArgs := NFData.NewNFInterfaceMap()
 				_, _ = DefaultFunctions.NewGame(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Load", func() {
-				functionArgs := NFData.NewNFInterface()
+				functionArgs := NFData.NewNFInterfaceMap()
 				_, _ = DefaultFunctions.LoadGame(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Save", func() {
 				err := NFSave.Active.Save()
 				if err != nil {
-					functionArgs := NFData.NewNFInterface()
-					_ = functionArgs.Set("Error", "Error Saving Game: "+err.Error())
+					functionArgs := NFData.NewNFInterfaceMap()
+					functionArgs.Set("Error", "Error Saving Game: "+err.Error())
 					_, _ = DefaultFunctions.CustomError(window, functionArgs)
 					return
 				}
 			}),
 			fyne.NewMenuItem("Save As", func() {
-				functionArgs := NFData.NewNFInterface()
+				functionArgs := NFData.NewNFInterfaceMap()
 				_, _ = DefaultFunctions.SaveAs(window, functionArgs)
 			}),
 			fyne.NewMenuItem("Quit", func() {
-				functionArgs := NFData.NewNFInterface()
+				functionArgs := NFData.NewNFInterfaceMap()
 				_, _ = DefaultFunctions.Quit(window, functionArgs)
 			}),
 		),
@@ -185,16 +261,16 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 	if len(allScenes) == 0 {
 		//There are actually two ways to call a function, the first is the way we have been doing it so far, the second is to parse it as it happens in the scene parser
 		//This parsing method looks for the function by name in our loaded functions and then calls it with the arguments passed to it
-		functionArgs := NFData.NewNFInterface()
-		_ = functionArgs.Set("Error", "No Scenes Found")
+		functionArgs := NFData.NewNFInterfaceMap()
+		functionArgs.Set("Error", "No Scenes Found")
 		_, _ = NFFunction.ParseAndRun(window, "Error", functionArgs) // This Error function is just DefaultFunctions.CustomError, this is how scenes can store functions in their data files
 	}
 
 	//Check if the startup scene exists
 	if _, ok := allScenes[scene]; !ok {
 		//If it doesn't exist, return an error
-		functionArgs := NFData.NewNFInterface()
-		_ = functionArgs.Set("Error", "Startup Scene Not Found")
+		functionArgs := NFData.NewNFInterfaceMap()
+		functionArgs.Set("Error", "Startup Scene Not Found")
 		_, _ = DefaultFunctions.CustomError(window, functionArgs)
 	}
 
@@ -203,8 +279,8 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 	//SceneParser parses the scene and returns a fyne.CanvasObject that can be added to the window
 	sceneObject, err := startupScene.Parse(window)
 	if err != nil {
-		functionArgs := NFData.NewNFInterface()
-		_ = functionArgs.Set("Error", "Error Parsing Scene: "+err.Error())
+		functionArgs := NFData.NewNFInterfaceMap()
+		functionArgs.Set("Error", "Error Parsing Scene: "+err.Error())
 		_, _ = DefaultFunctions.CustomError(window, functionArgs)
 	}
 	window.SetContent(sceneObject)
@@ -219,7 +295,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]*NFScene.Scene
 	creditsModal = widget.NewModalPopUp(
 		container.NewVBox(
 			widget.NewLabelWithStyle("Credits", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle(config.Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(Config.Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			creditsCloseButton,
 		),
 		window.Canvas(),
@@ -326,9 +402,9 @@ func CreateSettings(isStartup bool, window fyne.Window) fyne.CanvasObject {
 	SettingsScrollBox.SetMinSize(fyne.NewSize(300, 50))
 	settingsBox := container.NewVBox(
 		widget.NewLabelWithStyle("Startup Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle(config.GameName, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Version: "+config.Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Author: "+config.Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle(Config.Name, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Version: "+Config.Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Author: "+Config.Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
 		widget.NewLabelWithStyle("Game Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		SettingsScrollBox,
 		layout.NewSpacer(),

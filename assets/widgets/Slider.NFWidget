@@ -10,8 +10,8 @@
       "OnChangedArgs"
     ],
     "bool": [
-      "Enabled",
-      "Hidden"
+      "Hidden",
+      "Enabled"
     ],
     "float64": [
       "Value",
