@@ -1,0 +1,8 @@
+{
+  "RequiredArgs": {
+    "string": [
+      "NewGameScene"
+    ]
+  },
+  "OptionalArgs": {}
+}

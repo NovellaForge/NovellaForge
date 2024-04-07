@@ -172,7 +172,7 @@ func (scene *Scene) Parse(window fyne.Window, overlay ...NFLayout.Layout) (fyne.
 }
 
 // Export exports the scene to a file
-func (scene *Scene) Export(overwrite bool) error {
+func (scene *Scene) Export() error {
 	//Make sure each of the layouts children have a unique ID by counting the ones of the same type and naming them SceneName.TypeName#Number
 	//Create a map of string to int
 	counts := map[string]int{}
@@ -194,13 +194,6 @@ func (scene *Scene) Export(overwrite bool) error {
 			}
 		}
 	}
-	//check if the file already exists before writing to it
-	if _, err := os.Stat("exports/scenes/" + scene.Name + ".json"); err == nil {
-		if !overwrite {
-			return errors.New("file already exists")
-		}
-	}
-
 	// Marshal the jsonScene
 	jsonBytes, err := json.MarshalIndent(scene, "", "\t")
 	if err != nil {
@@ -209,7 +202,44 @@ func (scene *Scene) Export(overwrite bool) error {
 	//Create the directories if they don't exist
 	err = os.MkdirAll("exports/scenes", 0755)
 	//Write the file
-	err = os.WriteFile("exports/scenes/"+scene.Name+".json", jsonBytes, 0755)
+	err = os.WriteFile("exports/scenes/"+scene.Name+".NFScene", jsonBytes, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (scene *Scene) Save(path string) error {
+	//Make sure each of the layouts children have a unique ID by counting the ones of the same type and naming them SceneName.TypeName#Number
+	//Create a map of string to int
+	counts := map[string]int{}
+	//Iterate over the children
+	for i, child := range scene.Layout.Children {
+		//Check if the child has an ID
+		if child.ID == "" {
+			//If it doesn't, check the count of the type
+			if count, ok := counts[child.Type]; ok {
+				//if it does add one to the count and name it SceneName.TypeName#Number
+				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
+				scene.Layout.Children[i] = child
+				counts[child.Type] = count + 1
+			} else {
+				//Set the count to 1 and name it SceneName.TypeName#1
+				counts[child.Type] = 1
+				child.ID = scene.Name + "." + child.Type + "#1"
+				scene.Layout.Children[i] = child
+			}
+		}
+	}
+	// Marshal the jsonScene
+	jsonBytes, err := json.MarshalIndent(scene, "", "\t")
+	if err != nil {
+		return err
+	}
+	//Create the directories if they don't exist
+	err = os.MkdirAll(filepath.Dir(path), 0755)
+	//Write the file
+	err = os.WriteFile(path, jsonBytes, 0755)
 	if err != nil {
 		return err
 	}

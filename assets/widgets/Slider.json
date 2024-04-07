@@ -1,0 +1,30 @@
+{
+  "RequiredArgs": {
+    "float64": [
+      "Min",
+      "Max"
+    ]
+  },
+  "OptionalArgs": {
+    "*NFData.NFInterfaceMap": [
+      "OnChangedArgs"
+    ],
+    "bool": [
+      "Hidden",
+      "Enabled"
+    ],
+    "float64": [
+      "Value",
+      "Step"
+    ],
+    "fyne.Position": [
+      "Position"
+    ],
+    "fyne.Size": [
+      "Size"
+    ],
+    "string": [
+      "OnChanged"
+    ]
+  }
+}

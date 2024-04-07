@@ -1,0 +1,8 @@
+{
+  "RequiredArgs": {
+    "string": [
+      "Error"
+    ]
+  },
+  "OptionalArgs": {}
+}

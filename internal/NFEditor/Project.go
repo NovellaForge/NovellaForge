@@ -30,10 +30,15 @@ type Project struct {
 	Credits  string `json:"Credits"`
 }
 
+type ProjectData struct {
+	ProjectInfo ProjectInfo
+	Project     Project
+}
+
 var (
 	//go:embed Templates/*/*
 	Templates  embed.FS
-	ActiveGame Project
+	ActiveGame ProjectData
 )
 
 func (p Project) UpdateProjectInfo(info ProjectInfo) error {
@@ -193,12 +198,10 @@ func Deserialize(file []byte) (Project, error) {
 }
 
 // Load takes a deserialized project and loads it into the editor loading the scenes and functions as well
-func (p Project) Load(window fyne.Window, info ...ProjectInfo) error {
-	ActiveGame = p
-	if len(info) == 0 {
-		return nil
-	}
-	err := p.UpdateProjectInfo(info[0])
+func (p Project) Load(window fyne.Window, info ProjectInfo) error {
+	ActiveGame.Project = p
+	ActiveGame.ProjectInfo = info
+	err := p.UpdateProjectInfo(info)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,27 @@
+{
+  "RequiredArgs": {},
+  "OptionalArgs": {
+    "*NFData.NFInterfaceMap": [
+      "OnChangedArgs",
+      "OnSubmittedArgs",
+      "OnCursorChangedArgs"
+    ],
+    "bool": [
+      "Enabled",
+      "Hidden"
+    ],
+    "fyne.Position": [
+      "Position"
+    ],
+    "fyne.Size": [
+      "Size"
+    ],
+    "string": [
+      "PlaceHolder",
+      "Text",
+      "OnChanged",
+      "OnSubmitted",
+      "OnCursorChanged"
+    ]
+  }
+}

@@ -70,7 +70,7 @@ func main() {
 		NFData.NewNFInterfaceMap(),
 	)
 
-	err = testScene.Export(true)
+	err = testScene.Export()
 	if err != nil {
 		log.Println(err)
 	}

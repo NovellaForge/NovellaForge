@@ -119,23 +119,29 @@ func (l *Layout) Register(handler layoutHandler) {
 		return
 	}
 	layouts[l.Type] = newWithHandler(*l, handler)
-	if ShouldExport {
-		err := l.Export()
+}
+
+// ExportPath is the path where the layout will be exported.
+var ExportPath = "exports/layouts"
+
+// ExportRegistered exports all registered layouts to json files.
+func ExportRegistered() {
+	for _, layout := range layouts {
+		err := layout.Info.Export()
 		if err != nil {
-			log.Println("Error exporting layout: " + l.Type)
+			log.Println(err)
 		}
 	}
 }
 
-// ExportPath is the path where the layout will be exported.
-var ExportPath = "export/layouts"
-
-// ShouldExport is a flag that determines if the layout should be exported.
-var ShouldExport = false
-
 // Export exports the layout to a json file.
 // These files are used in the main editor to determine inputs needed to create the layout in a scene.
 func (l *Layout) Export() error {
+	//Check if the export path has a trailing slash and add one if it doesn't
+	if ExportPath[len(ExportPath)-1] != '/' {
+		ExportPath += "/"
+	}
+
 	lBytes := struct {
 		RequiredArgs map[string][]string `json:"RequiredArgs"` // List of required arguments for the layout
 		OptionalArgs map[string][]string `json:"OptionalArgs"` // List of optional arguments for the layout
@@ -157,7 +163,7 @@ func (l *Layout) Export() error {
 		}
 	}
 
-	err = os.WriteFile(ExportPath+"/"+l.Type+".json", jsonBytes, 0644)
+	err = os.WriteFile(ExportPath+l.Type+".NFLayout", jsonBytes, 0644)
 	if err != nil {
 		return err
 	}

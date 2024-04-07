@@ -1,0 +1,23 @@
+{
+  "RequiredArgs": {},
+  "OptionalArgs": {
+    "*NFData.NFInterfaceMap": [
+      "OnTappedArgs"
+    ],
+    "bool": [
+      "Hidden",
+      "Enabled"
+    ],
+    "fyne.Position": [
+      "Position"
+    ],
+    "fyne.Size": [
+      "Size"
+    ],
+    "string": [
+      "OnTapped",
+      "Text",
+      "Icon"
+    ]
+  }
+}

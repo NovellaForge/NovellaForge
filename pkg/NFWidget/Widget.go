@@ -132,21 +132,28 @@ func (w *Widget) Register(handler widgetHandler) {
 		return
 	}
 	Widgets[w.Type] = newWithHandler(*w, handler)
-	if ShouldExport {
-		err := w.Export()
+}
+
+// ExportPath is the path where the widget will be exported
+var ExportPath = "exports/widgets"
+
+// ExportRegistered exports all registered widgets to json files
+func ExportRegistered() {
+	for _, widget := range Widgets {
+		err := widget.Info.Export()
 		if err != nil {
 			log.Println(err)
 		}
 	}
-
 }
-
-var ShouldExport = false
-var ExportPath = "export/widgets"
 
 // Export is a function that is used to export the widget to a json file
 // These files are used in the main editor to determine inputs needed to call a widget in a scene
 func (w *Widget) Export() error {
+	//Check if the export path has a trailing slash and add one if it doesn't
+	if ExportPath[len(ExportPath)-1] != '/' {
+		ExportPath += "/"
+	}
 	//Make the json safe struct
 	wBytes := struct {
 		RequiredArgs map[string][]string `json:"RequiredArgs"`
@@ -172,7 +179,7 @@ func (w *Widget) Export() error {
 	}
 
 	//Write the file to the export path
-	err = os.WriteFile(ExportPath+"/"+w.Type+".json", jsonBytes, 0644)
+	err = os.WriteFile(ExportPath+w.Type+".NFWidget", jsonBytes, 0644)
 	if err != nil {
 		return err
 	}

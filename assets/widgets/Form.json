@@ -1,0 +1,25 @@
+{
+  "RequiredArgs": {},
+  "OptionalArgs": {
+    "*NFData.NFInterfaceMap": [
+      "OnSubmittedArgs",
+      "OnCancelledArgs"
+    ],
+    "bool": [
+      "Enabled",
+      "Hidden"
+    ],
+    "fyne.Position": [
+      "Position"
+    ],
+    "fyne.Size": [
+      "Size"
+    ],
+    "string": [
+      "SubmitText",
+      "OnSubmitted",
+      "OnCancelled",
+      "CancelText"
+    ]
+  }
+}

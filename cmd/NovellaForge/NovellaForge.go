@@ -3,8 +3,11 @@ package main
 import (
 	"go.novellaforge.dev/novellaforge/assets/icons"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
 	"log"
 	"net/http"
 	"os"
@@ -28,13 +31,10 @@ import (
 )
 
 /*
-//TODO Fix up scene loading possibly using a jsonSafe struct
 
 
 TODO:
- [ ] Finish the parsing refactor to use the new interface system. This should also include a new remaster of the export system so that it just lists the types of the required and optional args
- [ ] Scenes should include an argument interface that gets passed to all sub widgets and containers as a reference, thus allowing variables to be shared between widgets and containers
- [ ] Finish the global variable refactor to use the new interface system and allow for better save control
+ [X] Finish the parsing refactor to use the new interface system. This should also include a new remaster of the export system so that it just lists the types of the required and optional args
  [ ] Finish documentation/comments
  [ ] Finish the scene editor
  	[ ] Property manager needs to be able to fully edit all widget and container properties
@@ -69,13 +69,19 @@ const (
 var WindowTitle = "Novella Forge" + " " + Version
 
 func init() {
-	// Set the imported functions to be exported
-	NFFunction.ShouldExport = true
+	DefaultWidgets.Import()
+	DefaultLayouts.Import()
+	DefaultFunctions.Import()
+	// Set the path the imported functions to be exported
 	NFFunction.ExportPath = "assets/functions"
-	NFWidget.ShouldExport = true
 	NFWidget.ExportPath = "assets/widgets"
-	NFLayout.ShouldExport = true
 	NFLayout.ExportPath = "assets/layouts"
+
+	// Export the registered functions, widgets, and layouts
+	NFLayout.ExportRegistered()
+	NFWidget.ExportRegistered()
+	NFFunction.ExportRegistered()
+
 }
 
 func main() {

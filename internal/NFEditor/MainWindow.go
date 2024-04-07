@@ -287,7 +287,21 @@ func NewProjectDialog(window fyne.Window) {
 		}
 		log.Printf("Created project %s", newProject.GameName)
 		projectDialog.Hide()
-		err := newProject.Load(window)
+
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Println("Error getting home directory")
+			dialog.ShowError(err, window)
+			return
+		}
+		novellaForgeDir := homeDir + "/Documents/NovellaForge"
+		projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", novellaForgeDir+"/projects")
+		newProjectInfo := ProjectInfo{
+			Name:     newProject.GameName,
+			Path:     projectsDir + "/" + newProject.GameName + ".NFProject",
+			OpenDate: time.Now(),
+		}
+		err = newProject.Load(window, newProjectInfo)
 		if err != nil {
 			return
 		}

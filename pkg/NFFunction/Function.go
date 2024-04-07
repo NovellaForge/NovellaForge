@@ -92,21 +92,28 @@ func (f *Function) Register(handler functionHandler) {
 		return
 	}
 	functionMap[f.Type] = functionWithHandler{Info: *f, Handler: handler}
-	if ShouldExport {
-		err := f.Export()
+}
+
+// ExportPath is the path where the function will be exported
+var ExportPath = "exports/functions"
+
+// ExportRegistered exports all registered functions to json files
+func ExportRegistered() {
+	for _, function := range functionMap {
+		err := function.Info.Export()
 		if err != nil {
 			log.Println(err)
 		}
 	}
 }
 
-// ShouldExport is a variable that determines if the functions should be exported to json files when registered
-var ShouldExport = false
-var ExportPath = "export/functions"
-
 // Export is a function that is used to export the function to a json file
 // These files are used in the main editor to determine inputs needed to call a function in a scene
 func (f *Function) Export() error {
+	//Check if the export path has a trailing slash and add one if it doesn't
+	if ExportPath[len(ExportPath)-1] != '/' {
+		ExportPath += "/"
+	}
 	fBytes := struct {
 		RequiredArgs map[string][]string `json:"RequiredArgs"`
 		OptionalArgs map[string][]string `json:"OptionalArgs"`
@@ -130,7 +137,7 @@ func (f *Function) Export() error {
 		}
 	}
 
-	err = os.WriteFile(ExportPath+"/"+f.Type+".json", jsonBytes, 0644)
+	err = os.WriteFile(ExportPath+f.Type+".NFFunction", jsonBytes, 0644)
 	if err != nil {
 		return err
 	}

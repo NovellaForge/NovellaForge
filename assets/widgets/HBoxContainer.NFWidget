@@ -1,0 +1,14 @@
+{
+  "RequiredArgs": {},
+  "OptionalArgs": {
+    "bool": [
+      "Hidden"
+    ],
+    "fyne.Position": [
+      "Position"
+    ],
+    "fyne.Size": [
+      "Size"
+    ]
+  }
+}
