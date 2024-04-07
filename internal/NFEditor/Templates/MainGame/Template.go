@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -20,11 +21,18 @@ import (
 	"log"
 	"os"
 	"time"
-	config "{{.LocalConfig}}"
 	ExampleFunctions "{{.LocalFunctions}}"
 	ExampleLayouts "{{.LocalLayouts}}"
+	local "{{.LocalPath}}"
 	ExampleWidgets "{{.LocalWidgets}}"
 )
+
+func init() {
+	configFile, ok := local.ConfigFile.(embed.FS)
+	if !ok {
+		log.Fatal("Error getting embedded config file")
+	}
+}
 
 func main() {
 	//These functions allow specifying which functions, layouts, and widgets are available to the game
@@ -36,7 +44,7 @@ func main() {
 	ExampleWidgets.Import()
 	//gameApp is the main app for the game to run on, when in a desktop environment this is the window manager that allows multiple windows to be open
 	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
-	gameApp := app.NewWithID("com.novellaforge." + config.GameName)
+	gameApp := app.NewWithID("com.novellaforge." + local.GetConfig().Name())
 	//window is the main window for the game, this is where the game is displayed and scenes are rendered
 	window := gameApp.NewWindow(config.GameName + " " + config.Version)
 

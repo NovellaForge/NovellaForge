@@ -23,6 +23,16 @@ import (
 
 /*
 TODO: SceneEditor
+ [] Project Settings
+	[] Project Name
+	[] Move Project
+	[] Project Icon
+	[] Project Description
+	[] Project Version
+	[] Project Author
+	[] Anything else we can think of
+	[] To make this easy move the project info to an embedded .NFConfig file in the project folder
+ [] Scene Editor
  [] Scene Selector
 	[] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
  [] Scene Preview - Parses the scene fully using default values for all objects
@@ -55,6 +65,8 @@ type sceneNode struct {
 	Parent   string
 	Children []string
 	FullPath string
+	Selected bool
+	Opened   bool
 }
 
 var sceneNodes = make(map[string]*sceneNode)
@@ -71,6 +83,8 @@ func scanScenesFolder(rootPath string) error {
 			Name:     info.Name(),
 			Leaf:     !info.IsDir(), // Set Leaf to true if it's a file, false if it's a directory
 			FullPath: path,
+			Selected: false,
+			Opened:   false,
 		}
 
 		// Use the full path from the root folder as the id removing leading and trailing slashes and replacing the rest with underscores
@@ -322,7 +336,7 @@ func CreateNewDeleteButton(path, text string, window fyne.Window) *widget.Button
 	})
 }
 
-func CreateNewCopyButton(path, text string, window fyne.Window) *widget.Button {
+func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
 	return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
 		log.Println("Copy Scene at " + path)
 		//Copy the scene to the same directory with a _copy suffix
@@ -384,7 +398,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	if err != nil {
 		return container.NewVBox(widget.NewLabel("Error scanning scenes folder"))
 	}
-	tree := widget.NewTree(
+	var tree *widget.Tree
+	tree = widget.NewTree(
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
 			if id == "" {
 				branchNodes := make([]widget.TreeNodeID, 0)
@@ -461,19 +476,11 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			if b {
 				hbox := container.NewHBox(
 					widget.NewLabel("Group"),
-					layout.NewSpacer(),
-					widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {}),
-					widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {}),
-					widget.NewButtonWithIcon("", theme.FolderNewIcon(), func() {}),
 				)
 				return hbox
 			} else {
 				hbox := container.NewHBox(
 					widget.NewLabel("Scene"),
-					layout.NewSpacer(),
-					widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {}),
-					widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {}),
-					widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {}),
 				)
 				return hbox
 			}
@@ -481,19 +488,71 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		func(id widget.TreeNodeID, b bool, object fyne.CanvasObject) {
 			if node, ok := sceneNodes[id]; ok {
 				if b {
-					object.(*fyne.Container).Objects[0].(*widget.Label).SetText(node.Name)
-					object.(*fyne.Container).Objects[2] = CreateNewSceneButton(node.FullPath, "", window)
-					object.(*fyne.Container).Objects[3] = CreateNewGroupButton(node.FullPath, "", window)
-					object.(*fyne.Container).Objects[4] = CreateNewGroupDeleteButton(node.FullPath, node.Name, window)
+					open := tree.IsBranchOpen(id)
+					if node.Opened != open {
+						if open {
+							tree.CloseBranch(id)
+						} else {
+							tree.OpenBranch(id)
+						}
+					}
+					if node.Opened || node.Selected {
+						object.(*fyne.Container).Objects = []fyne.CanvasObject{
+							widget.NewLabel(node.Name),
+							layout.NewSpacer(),
+							CreateNewSceneButton(node.FullPath, "", window),
+							CreateNewGroupButton(node.FullPath, "", window),
+							CreateNewGroupDeleteButton(node.FullPath, node.Name, window),
+						}
+					} else {
+						object.(*fyne.Container).Objects = []fyne.CanvasObject{
+							widget.NewLabel(node.Name),
+							layout.NewSpacer(),
+						}
+					}
 				} else {
-					object.(*fyne.Container).Objects[0].(*widget.Label).SetText(node.Name)
-					object.(*fyne.Container).Objects[2] = CreateNewCopyButton(node.FullPath, node.Name, window)
-					object.(*fyne.Container).Objects[3] = CreateNewMoveButton(node.FullPath, node.Name, window)
-					object.(*fyne.Container).Objects[4] = CreateNewDeleteButton(node.FullPath, node.Name, window)
+					if node.Selected {
+						object.(*fyne.Container).Objects = []fyne.CanvasObject{
+							widget.NewLabel(node.Name),
+							layout.NewSpacer(),
+							CreateNewCopyButton(node.FullPath, node.Name, window),
+							CreateNewMoveButton(node.FullPath, node.Name, window),
+							CreateNewDeleteButton(node.FullPath, node.Name, window),
+						}
+					} else {
+						object.(*fyne.Container).Objects = []fyne.CanvasObject{
+							widget.NewLabel(node.Name),
+							layout.NewSpacer(),
+						}
+					}
 				}
 			}
 		},
 	)
+
+	tree.OnSelected = func(id widget.TreeNodeID) {
+		if node, ok := sceneNodes[id]; ok {
+			node.Selected = true
+		}
+	}
+
+	tree.OnUnselected = func(id widget.TreeNodeID) {
+		if node, ok := sceneNodes[id]; ok {
+			node.Selected = false
+		}
+	}
+
+	tree.OnBranchOpened = func(id widget.TreeNodeID) {
+		if node, ok := sceneNodes[id]; ok {
+			node.Opened = true
+		}
+	}
+
+	tree.OnBranchClosed = func(id widget.TreeNodeID) {
+		if node, ok := sceneNodes[id]; ok {
+			node.Opened = false
+		}
+	}
 
 	go func() {
 		for {

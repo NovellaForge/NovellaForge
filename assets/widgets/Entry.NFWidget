@@ -2,9 +2,9 @@
   "RequiredArgs": {},
   "OptionalArgs": {
     "*NFData.NFInterfaceMap": [
-      "OnSubmittedArgs",
       "OnChangedArgs",
-      "OnCursorChangedArgs"
+      "OnCursorChangedArgs",
+      "OnSubmittedArgs"
     ],
     "bool": [
       "Enabled",
@@ -17,11 +17,11 @@
       "Size"
     ],
     "string": [
-      "OnCursorChanged",
+      "PlaceHolder",
       "Text",
       "OnSubmitted",
-      "PlaceHolder",
-      "OnChanged"
+      "OnChanged",
+      "OnCursorChanged"
     ]
   }
 }

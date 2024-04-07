@@ -10,12 +10,12 @@
       "OnChangedArgs"
     ],
     "bool": [
-      "Hidden",
-      "Enabled"
+      "Enabled",
+      "Hidden"
     ],
     "float64": [
-      "Step",
-      "Value"
+      "Value",
+      "Step"
     ],
     "fyne.Position": [
       "Position"

@@ -5,8 +5,8 @@
       "OnTappedArgs"
     ],
     "bool": [
-      "Enabled",
-      "Hidden"
+      "Hidden",
+      "Enabled"
     ],
     "fyne.Position": [
       "Position"
