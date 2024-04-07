@@ -1,0 +1,25 @@
+{
+	"Name": "NewGame",
+	"Layout": {
+		"Type": "ExampleLayout",
+		"Widgets": [
+			{
+				"ID": "NewGame.ExampleWidget#1",
+				"Type": "ExampleWidget",
+				"Children": null,
+				"Args": {
+					"Data": {
+						"action": "CustomFunction.ExampleFunction",
+						"message": "Hello World"
+					}
+				}
+			}
+		],
+		"Args": {
+			"Data": {}
+		}
+	},
+	"Args": {
+		"Data": {}
+	}
+}
