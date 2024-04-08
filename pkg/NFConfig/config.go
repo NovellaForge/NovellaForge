@@ -8,6 +8,10 @@ import (
 	"os"
 )
 
+// Game is the config for the currently running game if any
+var Game = NewBlankConfig()
+
+// NFConfig is the struct that holds all the information about a config
 type NFConfig struct {
 	// Name of the project
 	Name string `json:"Name"`
@@ -21,12 +25,26 @@ type NFConfig struct {
 	Webpage string `json:"Webpage"`
 	// Icon for the project
 	Icon string `json:"Icon"`
-	// UseEmbeddedAssets determines if the project should use embedded assets
-	UseEmbeddedAssets bool `json:"UseEmbeddedAssets"`
-	// UseEmbeddedData determines if the project should use embedded data
-	UseEmbeddedData bool `json:"UseEmbeddedData"`
+	//Encryption key for the project
+	EncryptionKey string `json:"EncryptionKey"`
 }
 
+// NewConfig creates a new config with the given name, author, version and credits
+func NewConfig(name, version, author, credits string) *NFConfig {
+	return &NFConfig{
+		Name:    name,
+		Version: version,
+		Author:  author,
+		Credits: credits,
+	}
+}
+
+// NewBlankConfig creates a new blank config
+func NewBlankConfig() *NFConfig {
+	return &NFConfig{}
+}
+
+// Load loads the config from the given file
 func (c *NFConfig) Load(file fs.File) error {
 	defer file.Close()
 	//Read the file
@@ -44,6 +62,9 @@ func (c *NFConfig) Load(file fs.File) error {
 	return nil
 }
 
+// Save saves the config to the given file
+//
+// This is an editor only function and should not be used in the final game
 func (c *NFConfig) Save(path string) error {
 	//Marshal the data
 	data, err := json.MarshalIndent(c, "", "  ")
@@ -57,18 +78,4 @@ func (c *NFConfig) Save(path string) error {
 		return NFError.NewErrConfigSave(err.Error())
 	}
 	return nil
-}
-
-// NewConfig creates a new config with the given name, author, version, credits, webpage, icon, and use embedded assets and data
-func NewConfig(name, version, author, credits string) *NFConfig {
-	return &NFConfig{
-		Name:              name,
-		Version:           version,
-		Author:            author,
-		Credits:           credits,
-		Webpage:           "",
-		Icon:              "",
-		UseEmbeddedAssets: false,
-		UseEmbeddedData:   false,
-	}
 }

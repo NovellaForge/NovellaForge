@@ -9,8 +9,9 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFFS"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
@@ -18,95 +19,35 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFSave"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
-	"io/fs"
 	"log"
 	"os"
-	"strings"
 	"time"
-	. "{{.LocalConfig}}"
-	local "{{.LocalFS}}"
 	ExampleFunctions "{{.LocalFunctions}}"
 	ExampleLayouts "{{.LocalLayouts}}"
 	ExampleWidgets "{{.LocalWidgets}}"
 )
-
-// GetFile is a function that returns a file from the local directory or embedded assets or data
-//
-// The CombinedFS is an empty embed.FS that is only filled on build
-// if the project was built from the editor with the correct settings
-//
-// Please note that any file returned from this function should be closed after use to prevent memory leaks
-func GetFile(path string) (fs.File, error) {
-	//Trim the local/ prefix
-	if !strings.HasPrefix(path, "local/") {
-		return nil, NFError.NewErrFileGet(path, "cannot reference a file outside of the local directory")
-	}
-
-	if Config == nil {
-		return new(os.File), NFError.NewErrFileGet(path, "config is nil")
-	}
-
-	//Check if the path starts with assets or data
-	if strings.HasPrefix(path, "assets") {
-		//Check if the project uses embedded assets
-		if Config.UseEmbeddedAssets {
-			path = strings.TrimPrefix(path, "local/")
-			file, err := local.CombinedFS.Open(path)
-			if err != nil {
-				return nil, NFError.NewErrFileGet(path, err.Error())
-			}
-			return file, nil
-		} else {
-			//Open the file from the assets directory
-			file, err := os.Open(path)
-			if err != nil {
-				return nil, NFError.NewErrFileGet(path, err.Error())
-			}
-			return file, nil
-		}
-	} else if strings.HasPrefix(path, "data") {
-		//Check if the project uses embedded data
-		if Config.UseEmbeddedData {
-			path = strings.TrimPrefix(path, "local/")
-			file, err := local.CombinedFS.Open(path)
-			if err != nil {
-				return nil, NFError.NewErrFileGet(path, err.Error())
-			}
-			return file, nil
-		} else {
-			//Open the file from the data directory
-			file, err := os.Open(path)
-			if err != nil {
-				return nil, NFError.NewErrFileGet(path, err.Error())
-			}
-			return file, nil
-		}
-	} else {
-		//Check the embedded directory first to see if it exists
-		embedPath := strings.TrimPrefix(path, "local/")
-		file, err := local.CombinedFS.Open(embedPath)
-		if err != nil {
-			//If the file is not found in the embedded directory, check the local directory
-			file, err = os.Open(path)
-			if err != nil {
-				return nil, NFError.NewErrFileGet(path, err.Error())
-			}
-			return file, nil
-		}
-		return file, nil
-	}
-}
 
 // init is a function that is called when the program starts it runs in order of the deepest import first
 //
 // init is run BEFORE main in ALL cases and should not be manually called from anywhere in the program
 func init() {
 	//This is the default name for the config, just make sure the file here exists and is in the config format
-	file, err := local.CombinedFS.Open("Local.NFConfig")
+	file, err := NFFS.Open("Local.NFConfig")
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = Config.Load(file)
+	err = NFConfig.Game.Load(file)
+
+	//These functions allow specifying which functions, layouts, and widgets are available to the game
+	//
+	//Third party packages *should* have their own import functions that are called here to add their functions, layouts, and widgets
+	//But as longs as they have an init that runs registration and the packages are imported in the main.go file they should work
+	DefaultFunctions.Import()
+	DefaultLayouts.Import()
+	DefaultWidgets.Import()
+	ExampleFunctions.Import()
+	ExampleLayouts.Import()
+	ExampleWidgets.Import()
 }
 
 // main is the main function for the game, it is where the game is run from
@@ -115,18 +56,11 @@ func init() {
 //
 // main is run AFTER init in ALL cases and should not be manually called from anywhere in the program
 func main() {
-	//These functions allow specifying which functions, layouts, and widgets are available to the game
-	DefaultFunctions.Import()
-	DefaultLayouts.Import()
-	DefaultWidgets.Import()
-	ExampleFunctions.Import()
-	ExampleLayouts.Import()
-	ExampleWidgets.Import()
 	//gameApp is the main app for the game to run on, when in a desktop environment this is the window manager that allows multiple windows to be open
 	// The ID needs to be unique to the game, it is used to store preferences and other things if you overlap with another game, you may have issues with preferences and other things
-	gameApp := app.NewWithID("com.novellaforge." + Config.Name)
+	gameApp := app.NewWithID("com.novellaforge." + NFConfig.Game.Name)
 	//window is the main window for the game, this is where the game is displayed and scenes are rendered
-	window := gameApp.NewWindow(Config.Name + " " + Config.Version)
+	window := gameApp.NewWindow(NFConfig.Game.Name + " " + NFConfig.Game.Version)
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
@@ -160,8 +94,8 @@ func main() {
 		_ = returnArgs.Get("TestGetMessage", &message)
 	}
 
-	NFSave.Directory = gameApp.Preferences().StringWithFallback("savesDir", userHome+"/MyGames/"+Config.Name+"/Saves")
-	NFLog.Directory = gameApp.Preferences().StringWithFallback("logDir", userHome+"/MyGames/"+Config.Name+"/Logs")
+	NFSave.Directory = gameApp.Preferences().StringWithFallback("savesDir", userHome+"/MyGames/"+NFConfig.Game.Name+"/Saves")
+	NFLog.Directory = gameApp.Preferences().StringWithFallback("logDir", userHome+"/MyGames/"+NFConfig.Game.Name+"/Logs")
 	err = NFLog.SetUp(window, NFLog.Directory)
 	if err != nil {
 		log.Fatal(err)
@@ -169,9 +103,9 @@ func main() {
 	splashScreen := gameApp.Preferences().BoolWithFallback("splashScreen", true)
 	startupSettings := gameApp.Preferences().BoolWithFallback("startupSettings", true)
 	if startupSettings {
-		ShowStartupSettings(window, NFScene.GetAll(), splashScreen)
+		ShowStartupSettings(window, splashScreen)
 	} else {
-		ShowGame(window, NFScene.GetAll(), "MainMenu", splashScreen)
+		ShowGame(window, "MainMenu", splashScreen)
 	}
 	window.ShowAndRun()
 }
@@ -180,9 +114,9 @@ func createSplashScreen() fyne.Window {
 	if drv, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
 		splash := drv.CreateSplashWindow()
 		splash.SetContent(container.NewVBox(
-			widget.NewLabelWithStyle(Config.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Version: "+Config.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			widget.NewLabelWithStyle("Developed By: "+Config.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle(NFConfig.Game.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle("Version: "+NFConfig.Game.Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+			widget.NewLabelWithStyle("Developed By: "+NFConfig.Game.Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewLabelWithStyle("Powered By: NovellaForge and Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		))
 		return splash
@@ -190,7 +124,7 @@ func createSplashScreen() fyne.Window {
 	return nil
 }
 
-func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene string, screen bool) {
+func ShowGame(window fyne.Window, scene string, screen bool) {
 	window.SetMaster()
 	if screen {
 		splash := createSplashScreen()
@@ -203,7 +137,7 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 	currentApp := fyne.CurrentApp()
 	window.SetFullScreen(currentApp.Preferences().BoolWithFallback("fullscreen", false))
 	window.SetContent(container.NewVBox())
-	window.SetTitle(Config.Name + " " + Config.Version)
+	window.SetTitle(NFConfig.Game.Name + " " + NFConfig.Game.Version)
 	window.SetCloseIntercept(func() {
 		dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {
 			if b {
@@ -258,7 +192,7 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 		),
 	))
 
-	if len(allScenes) == 0 {
+	if len(NFScene.SceneMap) == 0 {
 		//There are actually two ways to call a function, the first is the way we have been doing it so far, the second is to parse it as it happens in the scene parser
 		//This parsing method looks for the function by name in our loaded functions and then calls it with the arguments passed to it
 		functionArgs := NFData.NewNFInterfaceMap()
@@ -266,15 +200,12 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 		_, _ = NFFunction.ParseAndRun(window, "Error", functionArgs) // This Error function is just DefaultFunctions.CustomError, this is how scenes can store functions in their data files
 	}
 
-	//Check if the startup scene exists
-	if _, ok := allScenes[scene]; !ok {
-		//If it doesn't exist, return an error
+	startupScene, err := NFScene.GetScene(scene)
+	if err != nil {
 		functionArgs := NFData.NewNFInterfaceMap()
-		functionArgs.Set("Error", "Startup Scene Not Found")
+		functionArgs.Set("Error", "Error Getting Scene: "+err.Error())
 		_, _ = DefaultFunctions.CustomError(window, functionArgs)
 	}
-
-	startupScene := allScenes[scene]
 
 	//SceneParser parses the scene and returns a fyne.CanvasObject that can be added to the window
 	sceneObject, err := startupScene.Parse(window)
@@ -286,7 +217,7 @@ func ShowGame(window fyne.Window, allScenes map[string]*NFScene.Scene, scene str
 	window.SetContent(sceneObject)
 }
 
-func ShowStartupSettings(window fyne.Window, allScenes map[string]*NFScene.Scene, splashScreen bool) {
+func ShowStartupSettings(window fyne.Window, splashScreen bool) {
 	settingsBox := CreateSettings(true, window)
 	var creditsModal *widget.PopUp
 	creditsCloseButton := widget.NewButton("Close", func() {
@@ -295,7 +226,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]*NFScene.Scene
 	creditsModal = widget.NewModalPopUp(
 		container.NewVBox(
 			widget.NewLabelWithStyle("Credits", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle(Config.Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(NFConfig.Game.Credits, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			creditsCloseButton,
 		),
 		window.Canvas(),
@@ -304,11 +235,7 @@ func ShowStartupSettings(window fyne.Window, allScenes map[string]*NFScene.Scene
 		creditsModal.Show()
 	})
 	startButton := widget.NewButton("Start Game", func() {
-		if splashScreen {
-			go ShowGame(window, allScenes, "MainMenu", true)
-		} else {
-			go ShowGame(window, allScenes, "MainMenu", false)
-		}
+		go ShowGame(window, "MainMenu", splashScreen)
 	})
 	settingsBox.(*fyne.Container).Add(container.NewVBox(creditsButton, startButton))
 	window.SetFixedSize(true)
@@ -402,9 +329,9 @@ func CreateSettings(isStartup bool, window fyne.Window) fyne.CanvasObject {
 	SettingsScrollBox.SetMinSize(fyne.NewSize(300, 50))
 	settingsBox := container.NewVBox(
 		widget.NewLabelWithStyle("Startup Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle(Config.Name, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Version: "+Config.Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Author: "+Config.Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle(NFConfig.Game.Name, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Version: "+NFConfig.Game.Version, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
+		widget.NewLabelWithStyle("Author: "+NFConfig.Game.Author, fyne.TextAlignLeading, fyne.TextStyle{Italic: true}),
 		widget.NewLabelWithStyle("Game Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		SettingsScrollBox,
 		layout.NewSpacer(),

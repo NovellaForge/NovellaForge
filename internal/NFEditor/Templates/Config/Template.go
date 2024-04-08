@@ -5,12 +5,10 @@ import (
 )
 
 var Config = &NFConfig.NFConfig{
-	Name:              "",
-	Author:            "",
-	Version:           "",
-	Credits:           "",
-	Webpage:           "",
-	Icon:              "",
-	UseEmbeddedAssets: false,
-	UseEmbeddedData:   false,
+	Name:    "",
+	Author:  "",
+	Version: "",
+	Credits: "",
+	Webpage: "",
+	Icon:    "",
 }

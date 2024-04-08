@@ -6,11 +6,17 @@ import (
 	"log"
 )
 
-// Import is a function that exists to allow importing of this package even if you don't directly use any of its functions,
-// while still running the init function without disabling the unused import warning,
-// You can also import a functions package for side effects by changing its alias to _ but using the import function allows you to still use the package directly
+// Import is an empty function, created to allow the inclusion of this package in other parts of the code,
+// even if none of its functions are directly used.
+// This ensures that the init function is executed without triggering warnings about unused imports.
+//
+// While it's possible to import a package for its side effects by changing its alias to _,
+// using the Import function provides the added benefit of retaining direct access to the package's contents.
 func Import() {}
 
+// This init() registers the default layouts to be used within the game
+// In go the init function is called when the package is imported, but in order
+// to avoid unused import warnings, you can call the empty Import() function, which does nothing
 func init() {
 	Import()
 	log.Println("Registering Default Functions")
