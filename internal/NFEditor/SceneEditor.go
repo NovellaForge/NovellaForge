@@ -393,7 +393,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	projectPath := ActiveProject.Info.Path
 	//Go to the parent folder of the .NFProject file in the project path
 	projectPath = filepath.Dir(projectPath)
-	scenesFolder := filepath.Join(projectPath, "data/scenes/")
+	scenesFolder := filepath.Join(projectPath, "local/data/scenes/")
 	err := scanScenesFolder(scenesFolder)
 	if err != nil {
 		return container.NewVBox(widget.NewLabel("Error scanning scenes folder"))

@@ -105,16 +105,16 @@ func NewGame(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfa
 	}
 	//Set the active save to the new save
 	NFSave.Active = newSave
-	scene := NFScene.GetAll()[newGameScene]
-	if scene == nil {
-		return args, errors.New("scene not found")
-	} else {
-		sceneContent, err := scene.Parse(window)
-		if err != nil {
-			return args, err
-		}
-		window.SetContent(sceneContent)
+	scene, err := NFScene.Get(newGameScene)
+	if err != nil {
+		return args, err
 	}
+	sceneContent, err := scene.Parse(window)
+	if err != nil {
+		return args, err
+	}
+	window.SetContent(sceneContent)
+
 	return args, nil
 }
 

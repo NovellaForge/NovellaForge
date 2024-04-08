@@ -206,7 +206,7 @@ func ShowGame(window fyne.Window, scene string, screen bool) {
 		_, _ = NFFunction.ParseAndRun(window, "Error", functionArgs) // This Error function is just DefaultFunctions.CustomError, this is how scenes can store functions in their data files
 	}
 
-	startupScene, err := NFScene.GetScene(scene)
+	startupScene, err := NFScene.Get(scene)
 	if err != nil {
 		functionArgs := NFData.NewNFInterfaceMap()
 		functionArgs.Set("Error", "Error Getting Scene: "+err.Error())

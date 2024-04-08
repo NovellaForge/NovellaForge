@@ -20,8 +20,8 @@ import (
 // SceneMap is a map of scene names to their paths for easy access
 var SceneMap = map[string]string{}
 
-// GetScene gets a scene from the SceneMap loading it from the filesystem
-func GetScene(name string) (*Scene, error) {
+// Get gets a scene from the SceneMap loading it from the filesystem
+func Get(name string) (*Scene, error) {
 	if path, ok := SceneMap[name]; ok {
 		file, err := NFFS.Open(path)
 		if err != nil {

@@ -12,7 +12,7 @@ import (
 //TODO switch these embedded hard-codings to a variable like if embedData dataToEmbed
 // which contains files or dirs IN THE LOCAL DIRECTORY ONLY to embed seperated by spaces
 
-//go:embed Local.NFConfig {{if .EmbedData}}data{{end}} {{if .EmbedAssets}}assets{{end}}
+//go:embed Local.NFConfig {{if .Embed}}{{.EmbedFiles}}{{end}}
 var localFS embed.FS
 
 func init() {

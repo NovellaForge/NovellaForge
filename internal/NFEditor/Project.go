@@ -13,10 +13,12 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"html/template"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -32,7 +34,7 @@ type NFProject struct {
 }
 
 var (
-	//go:embed Templates/*/*
+	//go:embed Templates/*
 	Templates     embed.FS
 	ActiveProject *NFProject
 )
@@ -239,20 +241,23 @@ func (p NFProject) Create(window fyne.Window) error {
 	deletePath := ""
 	defer func() {
 		if shouldDelete && deletePath != "" {
-			vbox := container.NewVBox(
-				widget.NewLabel("An error occurred while creating the project."),
-				widget.NewLabel("Would you like to delete the broken project?"),
-				widget.NewLabel("Delete will remove: "+deletePath),
-				widget.NewLabel("This action cannot be undone."),
-			)
-			dialog.ShowCustomConfirm("Delete Broken Project?", "Yes", "No", vbox, func(b bool) {
-				if b {
-					err := os.RemoveAll(deletePath)
-					if err != nil {
-						dialog.ShowError(err, window)
+			deletePath = filepath.Clean(deletePath)
+			if fs.ValidPath(deletePath) {
+				vbox := container.NewVBox(
+					widget.NewLabel("An error occurred while creating the project."),
+					widget.NewLabel("Would you like to delete the broken project?"),
+					widget.NewLabel("Delete will remove: "+deletePath),
+					widget.NewLabel("This action cannot be undone."),
+				)
+				dialog.ShowCustomConfirm("Delete Broken Project?", "Yes", "No", vbox, func(b bool) {
+					if b {
+						err := os.RemoveAll(deletePath)
+						if err != nil {
+							dialog.ShowError(err, window)
+						}
 					}
-				}
-			}, window)
+				}, window)
+			}
 		}
 	}()
 	loadingChannel := make(chan struct{})
@@ -272,10 +277,16 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	//First check if the project directory already exists
 
+	projectDir := projectsDir + "/" + p.Config.Name
+	projectDir = filepath.Clean(projectDir)
+	if !fs.ValidPath(projectDir) {
+		return errors.New("invalid path")
+	}
+
 	loading.SetProgress(10, "Checking if project already exists")
-	_, err = os.Stat(projectsDir + "/" + p.Config.Name)
+	_, err = os.Stat(projectDir)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(projectsDir+"/"+p.Config.Name, os.ModePerm)
+		err = os.MkdirAll(projectDir, os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -285,7 +296,6 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	//Create the project directory
 	loading.SetProgress(20, "Creating Project Directory")
-	projectDir := projectsDir + "/" + p.Config.Name
 	err = os.MkdirAll(projectDir, os.ModePerm)
 	deletePath = projectDir
 	if err != nil {
@@ -295,7 +305,13 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	//Create the project file
 	loading.SetProgress(30, "Creating Project File")
-	err = os.WriteFile(projectDir+"/"+p.Config.Name+".NFProject", p.SerializeInfo(), os.ModePerm)
+	projectFilePath := projectDir + "/" + p.Config.Name + ".NFProject"
+	projectFilePath = filepath.Clean(projectFilePath)
+	if !fs.ValidPath(projectFilePath) {
+		shouldDelete = true
+		return errors.New("invalid path")
+	}
+	err = os.WriteFile(projectFilePath, p.SerializeInfo(), os.ModePerm)
 	if err != nil {
 		shouldDelete = true
 		return err
@@ -307,7 +323,7 @@ func (p NFProject) Create(window fyne.Window) error {
 		"local/assets/audio",
 		"local/assets/video",
 		"local/assets/other",
-		"local/scenes",
+		"local/data/scenes",
 		"internal/config",
 		"internal/functions",
 		"internal/layouts",
@@ -316,16 +332,38 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	percentPerDir := 10 / len(neededDirectories)
 	for _, dir := range neededDirectories {
+		dirPath := projectDir + "/" + dir
+		dirPath = filepath.Clean(dirPath)
+		if !fs.ValidPath(dirPath) {
+			shouldDelete = true
+			return errors.New("invalid path")
+		}
 		loading.SetProgress(loading.GetProgress()+float64(percentPerDir), "Creating "+dir)
-		err = os.MkdirAll(projectDir+"/"+dir, os.ModePerm)
+		err = os.MkdirAll(dirPath, os.ModePerm)
 		if err != nil {
 			shouldDelete = true
 			return err
 		}
 	}
 
-	//Write the main.go file
-	loading.SetProgress(50, "Creating main.go file")
+	loading.SetProgress(50, "Saving Local config")
+	err = p.Config.Save(projectDir + "/local/Local.NFConfig")
+	if err != nil {
+		shouldDelete = true
+		return err
+	}
+
+	// templateCombo is a struct that holds the template path, destination path, and data to be used in the template
+	type templateCombo struct {
+		templatePath    string
+		destinationPath string
+		data            interface{}
+	}
+
+	// neededFiles is a slice of templateCombos that holds all the files that need to be created
+	var neededFiles []templateCombo
+
+	//cmd/ProjectName/ProjectName.go
 	mainGameData := struct {
 		LocalConfig    string
 		LocalFS        string
@@ -339,94 +377,75 @@ func (p NFProject) Create(window fyne.Window) error {
 		LocalLayouts:   p.Config.Name + "/internal/layouts",
 		LocalWidgets:   p.Config.Name + "/internal/widgets",
 	}
-	err = MakeFromTemplate(
-		"Templates/MainGame/Template.go",
-		projectDir+"/cmd/"+p.Config.Name+"/"+p.Config.Name+".go",
-		mainGameData)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/MainGame/Template.go",
+		destinationPath: projectDir + "/cmd/" + p.Config.Name + "/" + p.Config.Name + ".go",
+		data:            mainGameData,
+	})
 
-	//Make the FileLoader.go file
+	//local/FileSystem.go
 	fsData := struct {
-		EmbedData   bool
-		EmbedAssets bool
+		Embed bool
 	}{
-		EmbedData:   p.Config.UseEmbeddedData,
-		EmbedAssets: p.Config.UseEmbeddedAssets,
+		Embed: false,
 	}
-	err = MakeFromTemplate(
-		"Templates/FileLoader/Template.go",
-		projectDir+"/local/FileSystem.go",
-		fsData)
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/FileLoader/Template.go",
+		destinationPath: projectDir + "/local/FileSystem.go",
+		data:            fsData,
+	})
 
-	//Write the config file
-	loading.SetProgress(60, "Creating Config files")
-	err = MakeFromTemplate(
-		"Templates/Config/Template.go",
-		projectDir+"/internal/config/Config.go",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//internal/config/Config.go
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/Config/Template.go",
+		destinationPath: projectDir + "/internal/config/Config.go",
+		data:            nil,
+	})
 
-	//Write the .NFConfig file
-	err = p.Config.Save(projectDir + "/local/Local.NFConfig")
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//internal/functions/CustomFunctions.go
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/CustomFunction/Template.go",
+		destinationPath: projectDir + "/internal/functions/CustomFunctions.go",
+		data:            nil,
+	})
 
-	//Write the custom import files
-	loading.SetProgress(70, "Creating Custom Import Files")
-	err = MakeFromTemplate(
-		"Templates/CustomFunction/Template.go",
-		projectDir+"/internal/functions/CustomFunctions.go",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//internal/layouts/CustomLayouts.go
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/CustomLayout/Template.go",
+		destinationPath: projectDir + "/internal/layouts/CustomLayouts.go",
+		data:            nil,
+	})
 
-	err = MakeFromTemplate(
-		"Templates/CustomLayout/Template.go",
-		projectDir+"/internal/layouts/CustomLayouts.go",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//internal/widgets/CustomWidgets.go
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/CustomWidget/Template.go",
+		destinationPath: projectDir + "/internal/widgets/CustomWidgets.go",
+		data:            nil,
+	})
 
-	err = MakeFromTemplate(
-		"Templates/CustomWidget/Template.go",
-		projectDir+"/internal/widgets/CustomWidgets.go",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//local/data/scenes/MainMenu.NFScene
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/Scenes/MainMenu.NFScene",
+		destinationPath: projectDir + "/local/data/scenes/MainMenu.NFScene",
+		data:            nil,
+	})
 
-	//Put the scene templates in the data/scenes directory
-	loading.SetProgress(75, "Creating Scene Templates")
-	err = MakeFromTemplate(
-		"Templates/Scenes/MainMenu.NFScene",
-		projectDir+"/local/scenes/MainMenu.NFScene",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
-	}
+	//local/data/scenes/NewGame.NFScene
+	neededFiles = append(neededFiles, templateCombo{
+		templatePath:    "Templates/Scenes/NewGame.NFScene",
+		destinationPath: projectDir + "/local/data/scenes/NewGame.NFScene",
+		data:            nil,
+	})
 
-	//Parse the Scenes/NewGame.json template
-	err = MakeFromTemplate(
-		"Templates/Scenes/NewGame.NFScene",
-		projectDir+"/local/scenes/NewGame.NFScene",
-		nil)
-	if err != nil {
-		shouldDelete = true
-		return err
+	percentPerFile := 30 / len(neededFiles)
+	for _, file := range neededFiles {
+		pathWithoutProject := strings.TrimPrefix(file.destinationPath, projectDir)
+		loading.SetProgress(loading.GetProgress()+float64(percentPerFile), "Creating "+pathWithoutProject)
+		err = MakeFromTemplate(file.templatePath, file.destinationPath, file.data)
+		if err != nil {
+			shouldDelete = true
+			return err
+		}
 	}
 
 	//Initialize the go mod file by running go mod init with os/exec
@@ -495,6 +514,15 @@ func (p NFProject) SerializeInfo() []byte {
 }
 
 func MakeFromTemplate(templatePath, destinationPath string, data interface{}) error {
+	destinationPath = filepath.Clean(destinationPath)
+	if !fs.ValidPath(destinationPath) {
+		return errors.New("invalid path")
+	}
+	_, err := fs.Stat(Templates, templatePath)
+	if err != nil {
+		return err
+	}
+
 	destinationFile, err := os.Create(destinationPath)
 	defer destinationFile.Close()
 	if err != nil {
