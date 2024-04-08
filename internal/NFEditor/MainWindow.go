@@ -12,6 +12,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFLog"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -308,7 +309,9 @@ func NewProjectDialog(window fyne.Window) {
 		novellaForgeDir := homeDir + "/Documents/NovellaForge"
 		projectInfo.Name = projectName
 		projectsDir := fyne.CurrentApp().Preferences().StringWithFallback("projectDir", novellaForgeDir+"/projects")
-		projectInfo.Path = projectsDir + "/" + projectName + ".NFProject"
+		projectPath := projectsDir + "/" + projectName + "/" + projectName + ".NFProject"
+		projectPath = filepath.Clean(projectPath)
+		projectInfo.Path = projectPath
 		projectInfo.OpenDate = time.Now()
 		newProject := NFProject{
 			Info:   projectInfo,

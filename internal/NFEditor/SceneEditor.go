@@ -13,12 +13,14 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /*
@@ -358,6 +360,7 @@ func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
 
 func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
 	return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
+		log.Println("Move Scene at " + path)
 		openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
 			if err != nil {
 				dialog.ShowError(err, window)
@@ -371,20 +374,34 @@ func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
 			if err != nil {
 				dialog.ShowError(err, window)
 			} else {
-				sceneListUpdate <- struct{}{}
+				//Check if the old file still exists and if it does delete it
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					err := os.Remove(path)
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+				}
 			}
+			sceneListUpdate <- struct{}{}
 		}, window)
-		URI, err := storage.ParseURI(path)
+		// Check if the path is a directory
+		fileInfo, err := os.Stat(filepath.Dir(path))
 		if err != nil {
-			dialog.ShowError(err, window)
+			log.Println("Failed to get file info")
 			return
 		}
-		listURI, ok := URI.(fyne.ListableURI)
-		if !ok {
-			dialog.ShowError(errors.New("invalid URI"), window)
+		if !fileInfo.IsDir() {
+			log.Println("Path is not a directory")
 			return
 		}
-		openDialog.SetLocation(listURI)
+		// Convert the path to a fyne.URI
+		uri := storage.NewFileURI(filepath.Dir(path))
+		URI, err := storage.ListerForURI(uri)
+		if err != nil {
+			log.Println("Failed to get URI")
+			return
+		}
+		openDialog.SetLocation(URI)
 		openDialog.Show()
 	})
 }
@@ -394,8 +411,14 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	//Go to the parent folder of the .NFProject file in the project path
 	projectPath = filepath.Dir(projectPath)
 	scenesFolder := filepath.Join(projectPath, "local/data/scenes/")
+	scenesFolder = filepath.Clean(scenesFolder)
+	if !fs.ValidPath(scenesFolder) {
+		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder Path"))
+	}
+
 	err := scanScenesFolder(scenesFolder)
 	if err != nil {
+		log.Println(err)
 		return container.NewVBox(widget.NewLabel("Error scanning scenes folder"))
 	}
 	var tree *widget.Tree
@@ -555,8 +578,12 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	}
 
 	go func() {
+		timer := time.NewTimer(time.Minute)
 		for {
-			<-sceneListUpdate
+			select {
+			case <-timer.C:
+			case <-sceneListUpdate:
+			}
 			err := scanScenesFolder(scenesFolder)
 			if err != nil {
 				dialog.ShowError(err, window)
@@ -565,7 +592,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			tree.Refresh()
 		}
 	}()
-
 	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), CreateNewSceneButton(scenesFolder, "", window), CreateNewGroupButton(scenesFolder, "", window))
 	border := container.NewBorder(hbox, nil, nil, nil, tree)
 	scroll := container.NewVScroll(border)
