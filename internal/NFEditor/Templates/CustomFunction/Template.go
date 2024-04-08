@@ -17,15 +17,23 @@ func init() {
 	customFunction := NFFunction.Function{
 		Name:         "ExampleFunction",
 		Type:         "CustomFunction.ExampleFunction",
-		RequiredArgs: NFData.NewNFInterface(),
-		OptionalArgs: NFData.NewNFInterface(),
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
 	}
 	customFunction.Register(ExampleFunctionHandler)
 }
 
-func ExampleFunctionHandler(window fyne.Window, args *NFData.NFInterface) (*NFData.NFInterface, error) {
+func ExampleFunctionHandler(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
+
+	//Get the message from the args
+	var message string
+	err := args.Get("message", &message)
+	if err != nil {
+		return nil, err
+	}
+
 	//Do something
 	log.Println("Example button was pressed!")
-	dialog.ShowInformation("Example", "Example button was pressed!", window)
+	dialog.ShowInformation("Example", "Example button was pressed!\n Message: " + message, window)
 	return args, nil
 }

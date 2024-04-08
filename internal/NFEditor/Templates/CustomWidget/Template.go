@@ -17,16 +17,16 @@ func init() {
 	log.Printf("Registering ExampleWidget")
 	customWidget := NFWidget.Widget{
 		Type: "ExampleWidget",
-		RequiredArgs: NFData.NewNFInterface(
+		RequiredArgs: NFData.NewNFInterfaceMap(
 			NFData.NewKeyVal("action", ""),
 			NFData.NewKeyVal("message", ""),
 		),
-		OptionalArgs: NFData.NewNFInterface(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
 	}
 	customWidget.Register(ExampleWidgetHandler)
 }
 
-func ExampleWidgetHandler(window fyne.Window, args *NFData.NFInterface, w *NFWidget.Widget) (fyne.CanvasObject, error) {
+func ExampleWidgetHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
 	//Get the action from the args
 	var action string
 	err := args.Get("action", &action)
@@ -42,7 +42,7 @@ func ExampleWidgetHandler(window fyne.Window, args *NFData.NFInterface, w *NFWid
 
 	button := widget.NewButton("Example Button", func() {
 		//Do something
-		_, _ = NFFunction.ParseAndRun(window, action, NFData.NewNFInterface(NFData.NewKeyVal("message", message)))
+		_, _ = NFFunction.ParseAndRun(window, action, NFData.NewNFInterfaceMap(NFData.NewKeyVal("message", message)))
 	})
 	return button, nil
 }

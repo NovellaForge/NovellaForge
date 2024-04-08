@@ -373,7 +373,7 @@ func (p NFProject) Create(window fyne.Window) error {
 	}
 
 	//Write the .NFConfig file
-	err = p.Config.Save(projectDir + "/local/" + p.Config.Name + ".NFConfig")
+	err = p.Config.Save(projectDir + "/local/Local.NFConfig")
 	if err != nil {
 		shouldDelete = true
 		return err

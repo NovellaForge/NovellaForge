@@ -78,9 +78,11 @@ func init() {
 	NFLayout.ExportPath = "assets/layouts"
 
 	// Export the registered functions, widgets, and layouts
-	NFLayout.ExportRegistered()
-	NFWidget.ExportRegistered()
-	NFFunction.ExportRegistered()
+	/*
+		NFLayout.ExportRegistered()
+		NFWidget.ExportRegistered()
+		NFFunction.ExportRegistered()
+	*/
 
 }
 

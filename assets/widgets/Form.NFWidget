@@ -16,10 +16,10 @@
       "Size"
     ],
     "string": [
-      "OnSubmitted",
-      "CancelText",
       "OnCancelled",
-      "SubmitText"
+      "SubmitText",
+      "CancelText",
+      "OnSubmitted"
     ]
   }
 }

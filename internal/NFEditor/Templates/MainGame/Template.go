@@ -83,7 +83,7 @@ func GetFile(path string) (fs.File, error) {
 		}
 	} else {
 		//Check the embedded directory first to see if it exists
-		embedPath = strings.TrimPrefix(path, "local/")
+		embedPath := strings.TrimPrefix(path, "local/")
 		file, err := local.CombinedFS.Open(embedPath)
 		if err != nil {
 			//If the file is not found in the embedded directory, check the local directory
@@ -102,7 +102,7 @@ func GetFile(path string) (fs.File, error) {
 // init is run BEFORE main in ALL cases and should not be manually called from anywhere in the program
 func init() {
 	//This is the default name for the config, just make sure the file here exists and is in the config format
-	file, err := GetFile("local/" + Config.Name + ".NFConfig")
+	file, err := local.CombinedFS.Open("Local.NFConfig")
 	if err != nil {
 		log.Fatal(err)
 	}

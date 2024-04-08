@@ -5,8 +5,8 @@
       "OnTappedArgs"
     ],
     "bool": [
-      "Enabled",
-      "Hidden"
+      "Hidden",
+      "Enabled"
     ],
     "fyne.Position": [
       "Position"
@@ -15,9 +15,9 @@
       "Size"
     ],
     "string": [
+      "OnTapped",
       "Text",
-      "Icon",
-      "OnTapped"
+      "Icon"
     ]
   }
 }
