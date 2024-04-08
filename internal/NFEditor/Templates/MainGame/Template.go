@@ -48,6 +48,12 @@ func init() {
 	ExampleFunctions.Import()
 	ExampleLayouts.Import()
 	ExampleWidgets.Import()
+
+	//Register all Scenes
+	err = NFScene.RegisterAll()
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // main is the main function for the game, it is where the game is run from

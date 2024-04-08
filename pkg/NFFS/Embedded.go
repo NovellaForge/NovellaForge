@@ -81,17 +81,17 @@ func Walk(dir string, walkFn fs.WalkDirFunc) error {
 		return NFError.NewErrFileGet(cleanedDir, "invalid path")
 	}
 
-	err := fs.WalkDir(embeddedFS, cleanedEmbeddedDir, walkFn)
-	if err != nil {
-		return err
+	var err error
+	embedErr := fs.WalkDir(embeddedFS, cleanedEmbeddedDir, walkFn)
+	if embedErr != nil {
+		errors.Join(err, embedErr)
 	}
 
-	err = filepath.WalkDir(cleanedDir, walkFn)
-	if err != nil {
-		return err
+	localErr := filepath.WalkDir(cleanedDir, walkFn)
+	if localErr != nil {
+		errors.Join(err, localErr)
 	}
-
-	return nil
+	return err
 }
 
 // Open use os.Open for the local fileSystem and
