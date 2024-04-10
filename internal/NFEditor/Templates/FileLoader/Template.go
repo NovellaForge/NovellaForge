@@ -5,12 +5,18 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFFS"
 )
 
-//---***DO NOT TOUCH THIS FILE UNLESS YOU KNOW FOR SURE WHAT YOU ARE DOING***---//
-//---***THIS FILE IS MANAGED BY THE EDITOR AND WILL LIKELY BE OVERWRITTEN IF YOU ARE USING THE EDITOR***---//
-//---***IT IS NOT RECOMMENDED TO MANUALLY EDIT THIS FILE***---//
+//TODO Allow full editing of this file by creating a new file with an init on build that will allow embedding more files
 
-//go:embed Game.NFConfig {{if .Embed}}{{.EmbedFiles}}{{end}}
+//---***You can add any embeded files located within the game directory simply by adding them after the Game.NFConfig file***---//
+//---***You need to separate each file with a space, not a comma or newline***---//
+//---***Example: Game.NFConfig Game.NFScene Game.NFLayout or even directories like Game.NFConfig data assets***---//
+//---***The file will be loaded into the embedded filesystem and can be accessed using the NFFS package***---//
+
+//go:embed Game.NFConfig
 var gameFS embed.FS
+
+// Import This needs to be run for the embedded filesystem to work
+func Import() {}
 
 func init() {
 	// Set the embedded filesystem to use for loading files

@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"time"
+	GameFS "{{.LocalFileSystem}}"
 	ExampleFunctions "{{.LocalFunctions}}"
 	ExampleLayouts "{{.LocalLayouts}}"
 	ExampleWidgets "{{.LocalWidgets}}"
@@ -51,6 +52,7 @@ func init() {
 	ExampleFunctions.Import()
 	ExampleLayouts.Import()
 	ExampleWidgets.Import()
+	GameFS.Import()
 
 	//Register all Scenes
 	//This function uses the NFFS functions, so it is ALSO limited to the game directory and the embedded filesystem

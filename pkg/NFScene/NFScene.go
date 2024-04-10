@@ -42,6 +42,45 @@ func Get(name string) (*Scene, error) {
 	return nil, errors.New("scene not registered")
 }
 
+func Load(path string) (*Scene, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	scene := &Scene{}
+	err = json.Unmarshal(data, scene)
+	if err != nil {
+		return nil, err
+	}
+
+	//Loop through the children of the layout and set the ID to SceneName.TypeName#Number if it doesn't have one
+	counts := map[string]int{}
+	for i, child := range scene.Layout.Children {
+		if child.ID == "" {
+			if count, ok := counts[child.Type]; ok {
+				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
+				scene.Layout.Children[i] = child
+				counts[child.Type] = count + 1
+			} else {
+				counts[child.Type] = 1
+				child.ID = scene.Name + "." + child.Type + "#1"
+				scene.Layout.Children[i] = child
+			}
+		}
+	}
+	//Save the scene back to the file in case the ID's were changed
+	err = scene.Save(path)
+	if err != nil {
+		log.Println("Error saving scene: ", err)
+	}
+	return scene, nil
+}
+
 // Register registers a scene with the SceneMap
 func Register(name, path string) error {
 	path = filepath.Clean(path)
@@ -86,6 +125,7 @@ func RegisterAll(path string) error {
 }
 
 // Scene is the struct that holds all the information about a scene
+// TODO Add startup values to the scene to be populated when the scene is loaded
 type Scene struct {
 	Name   string                 `json:"Name"`
 	Layout *NFLayout.Layout       `json:"Layout"`
@@ -130,9 +170,9 @@ func (scene *Scene) Parse(window fyne.Window, overlay ...NFLayout.Layout) (fyne.
 }
 
 func (scene *Scene) Save(path string) error {
-	//Make sure the path does not end in .NFScene and if it does remove everything after the last /
-	if strings.HasSuffix(path, ".NFScene") {
-		path = path[:strings.LastIndex(path, "/")]
+	//Check if the path is a file
+	if filepath.Ext(path) != "" {
+		path = filepath.Dir(path)
 	}
 
 	//Add the scene name and .NFScene to the path

@@ -4,6 +4,8 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 )
 
+//TODO add a method to the NFScenes so that bindings can be initialized when a scene is parsed so that they don't need to be manually created on load
+
 type NFSceneData struct {
 	sceneName binding.String
 	Layouts   *NFInterfaceMap

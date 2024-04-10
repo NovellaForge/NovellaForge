@@ -364,15 +364,15 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	//cmd/ProjectName/ProjectName.go
 	mainGameData := struct {
-		LocalFS        string
-		LocalFunctions string
-		LocalLayouts   string
-		LocalWidgets   string
+		LocalFileSystem string
+		LocalFunctions  string
+		LocalLayouts    string
+		LocalWidgets    string
 	}{
-		LocalFS:        p.Config.Name + "/game",
-		LocalFunctions: p.Config.Name + "/internal/functions",
-		LocalLayouts:   p.Config.Name + "/internal/layouts",
-		LocalWidgets:   p.Config.Name + "/internal/widgets",
+		LocalFileSystem: p.Config.Name + "/game",
+		LocalFunctions:  p.Config.Name + "/internal/functions",
+		LocalLayouts:    p.Config.Name + "/internal/layouts",
+		LocalWidgets:    p.Config.Name + "/internal/widgets",
 	}
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/MainGame/Template.go",
@@ -381,15 +381,10 @@ func (p NFProject) Create(window fyne.Window) error {
 	})
 
 	//game/FileSystem.go
-	fsData := struct {
-		Embed bool
-	}{
-		Embed: false,
-	}
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/FileLoader/Template.go",
 		destinationPath: projectDir + "/game/FileSystem.go",
-		data:            fsData,
+		data:            nil,
 	})
 
 	//internal/functions/CustomFunctions.go

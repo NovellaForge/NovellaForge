@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 /*
@@ -48,6 +47,30 @@ TODO: SceneEditor
 	[] Allows for selecting objects to edit properties
 */
 
+type sceneNode struct {
+	Name     string
+	Leaf     bool
+	Parent   string
+	Children []string
+	FullPath string
+	Selected bool
+	Data     interface{}
+}
+
+var (
+	emptyData             = struct{}{}
+	sceneNodes            = make(map[string]*sceneNode)
+	sceneObjects          = make(map[string]*sceneNode)
+	sceneListUpdate       = make(chan struct{})
+	loadedScene           *NFScene.Scene
+	scenePreviewUpdate    = make(chan struct{})
+	sceneObjectsUpdate    = make(chan struct{})
+	scenePropertiesUpdate = make(chan struct{})
+	ScenePreview          fyne.CanvasObject
+	SceneProperties       fyne.CanvasObject
+	SceneObjects          fyne.CanvasObject
+)
+
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	MainSplit := container.NewHSplit(
 		CreateSceneSelector(window),
@@ -61,20 +84,8 @@ func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	return MainSplit
 }
 
-type sceneNode struct {
-	Name     string
-	Leaf     bool
-	Parent   string
-	Children []string
-	FullPath string
-	Selected bool
-	Opened   bool
-}
-
-var sceneNodes = make(map[string]*sceneNode)
-var sceneListUpdate = make(chan struct{}, 10) //Buffered to prevent blocking (10 updates can be queued up before blocking
-
 func scanScenesFolder(rootPath string) error {
+	sceneNodes = make(map[string]*sceneNode)
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -86,7 +97,6 @@ func scanScenesFolder(rootPath string) error {
 			Leaf:     !info.IsDir(), // Set Leaf to true if it's a file, false if it's a directory
 			FullPath: path,
 			Selected: false,
-			Opened:   false,
 		}
 
 		// Use the full path from the root folder as the id removing leading and trailing slashes and replacing the rest with underscores
@@ -186,7 +196,7 @@ func CreateNewSceneButton(path, text string, window fyne.Window) *widget.Button 
 				dialog.ShowError(err, window)
 				return
 			}
-			sceneListUpdate <- struct{}{}
+			sceneListUpdate <- emptyData
 			newSceneDialog.Hide()
 		})
 		cancelButton := widget.NewButton("Cancel", func() {
@@ -203,7 +213,7 @@ func CreateNewSceneButton(path, text string, window fyne.Window) *widget.Button 
 
 		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
 		content := container.NewVBox(entry, hbox)
-		newSceneDialog = dialog.NewCustom("Create New Scene", "Create", content, window)
+		newSceneDialog = dialog.NewCustomWithoutButtons("Create New Scene", content, window)
 		newSceneDialog.Show()
 	})
 }
@@ -234,7 +244,7 @@ func CreateNewGroupButton(path, text string, window fyne.Window) *widget.Button 
 			if err != nil {
 				return
 			}
-			sceneListUpdate <- struct{}{}
+			sceneListUpdate <- emptyData
 			newGroupDialog.Hide()
 		})
 		cancelButton := widget.NewButton("Cancel", func() {
@@ -251,7 +261,7 @@ func CreateNewGroupButton(path, text string, window fyne.Window) *widget.Button 
 
 		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
 		content := container.NewVBox(entry, hbox)
-		newGroupDialog = dialog.NewCustom("Create New Group", "Create", content, window)
+		newGroupDialog = dialog.NewCustomWithoutButtons("Create New Group", content, window)
 		newGroupDialog.Show()
 	})
 }
@@ -306,7 +316,7 @@ func CreateNewGroupDeleteButton(path, text string, window fyne.Window) *widget.B
 								dialog.ShowError(err, window)
 							}
 						}
-						sceneListUpdate <- struct{}{}
+						sceneListUpdate <- emptyData
 					}, window)
 				} else {
 					log.Println("Group is empty, deleting group")
@@ -314,7 +324,7 @@ func CreateNewGroupDeleteButton(path, text string, window fyne.Window) *widget.B
 					if err != nil {
 						dialog.ShowError(err, window)
 					} else {
-						sceneListUpdate <- struct{}{}
+						sceneListUpdate <- emptyData
 					}
 				}
 			}
@@ -331,7 +341,7 @@ func CreateNewDeleteButton(path, text string, window fyne.Window) *widget.Button
 				if err != nil {
 					dialog.ShowError(err, window)
 				} else {
-					sceneListUpdate <- struct{}{}
+					sceneListUpdate <- emptyData
 				}
 			}
 		}, window)
@@ -354,22 +364,42 @@ func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
 			dialog.ShowError(err, window)
 			return
 		}
-		sceneListUpdate <- struct{}{}
+		sceneListUpdate <- emptyData
 	})
 }
 
 func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
 	return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
-		log.Println("Move Scene at " + path)
 		openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
 			}
 			newPath := uri.Path()
+			newPath = filepath.Clean(newPath)
 			log.Println("Move Scene at " + path + " to " + newPath)
 			//Move the scene to the new directory
 			newPath = filepath.Join(newPath, filepath.Base(path))
+
+			// Ensure the destination directory exists
+			destDir := filepath.Dir(newPath)
+			if _, err := os.Stat(destDir); os.IsNotExist(err) {
+				err = os.MkdirAll(destDir, os.ModePerm)
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+			}
+
+			// Check if the file already exists in the destination directory
+			if _, err := os.Stat(newPath); !os.IsNotExist(err) {
+				// Handle the case where the file already exists (e.g., rename, overwrite, or skip)
+				// For now, let's skip the move operation
+				dialog.ShowInformation("File Exists", "A file with the same name already exists in the destination directory.", window)
+				return
+			}
+
+			// Move the file
 			err = os.Rename(path, newPath)
 			if err != nil {
 				dialog.ShowError(err, window)
@@ -382,7 +412,7 @@ func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
 					}
 				}
 			}
-			sceneListUpdate <- struct{}{}
+			sceneListUpdate <- emptyData
 		}, window)
 		// Check if the path is a directory
 		fileInfo, err := os.Stat(filepath.Dir(path))
@@ -512,14 +542,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			if node, ok := sceneNodes[id]; ok {
 				if b {
 					open := tree.IsBranchOpen(id)
-					if node.Opened != open {
-						if open {
-							tree.CloseBranch(id)
-						} else {
-							tree.OpenBranch(id)
-						}
-					}
-					if node.Opened || node.Selected {
+					if open || node.Selected {
 						object.(*fyne.Container).Objects = []fyne.CanvasObject{
 							widget.NewLabel(node.Name),
 							layout.NewSpacer(),
@@ -556,6 +579,18 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	tree.OnSelected = func(id widget.TreeNodeID) {
 		if node, ok := sceneNodes[id]; ok {
 			node.Selected = true
+			if node.Leaf {
+				scenePath := node.FullPath
+				log.Println("Selected Scene: " + scenePath)
+				scene, err := NFScene.Load(scenePath)
+				if err != nil {
+					log.Println(err)
+					dialog.ShowError(err, window)
+					return
+				}
+				loadedScene = scene
+				scenePreviewUpdate <- emptyData
+			}
 		}
 	}
 
@@ -565,27 +600,12 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		}
 	}
 
-	tree.OnBranchOpened = func(id widget.TreeNodeID) {
-		if node, ok := sceneNodes[id]; ok {
-			node.Opened = true
-		}
-	}
-
-	tree.OnBranchClosed = func(id widget.TreeNodeID) {
-		if node, ok := sceneNodes[id]; ok {
-			node.Opened = false
-		}
-	}
-
 	go func() {
-		timer := time.NewTimer(time.Minute)
 		for {
-			select {
-			case <-timer.C:
-			case <-sceneListUpdate:
-			}
+			<-sceneListUpdate
 			err := scanScenesFolder(scenesFolder)
 			if err != nil {
+				log.Println(err)
 				dialog.ShowError(err, window)
 				return
 			}
@@ -601,14 +621,287 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	return scroll
 }
 
+func countChildren(n interface{}) int {
+	//Go all the way down the tree and count the children
+	count := 1
+	var l *NFLayout.Layout
+	var w *NFWidget.Widget
+	switch v := n.(type) {
+	case *NFLayout.Layout:
+		l = v
+	case *NFWidget.Widget:
+		w = v
+	}
+
+	if l != nil {
+		for _, child := range l.Children {
+			count++
+			count += countChildren(child)
+		}
+	} else if w != nil {
+		for _, child := range w.Children {
+			count++
+			count += countChildren(child)
+		}
+	}
+	return count
+}
+
 func CreateScenePreview() fyne.CanvasObject {
-	return container.NewVBox(widget.NewLabel("Scene Preview"))
+	ScenePreview = container.NewVBox(widget.NewLabel("Scene Preview"))
+	go func() {
+		for {
+			<-scenePreviewUpdate
+			preview := ScenePreview.(*fyne.Container)
+			if loadedScene == nil {
+				//Remove all but the first label
+				preview.Objects = preview.Objects[:1]
+			} else {
+				log.Println("Updating Scene Preview")
+				preview.Objects = preview.Objects[:1]
+				//Count of layouts with their total children count(Recursively)
+				layoutType := loadedScene.Layout.Type
+				layoutChildrenCount := countChildren(loadedScene.Layout)
+				preview.Add(widget.NewLabel("Layout Type: " + layoutType))
+				preview.Add(widget.NewLabel("Scene Objects: " + strconv.Itoa(layoutChildrenCount)))
+			}
+			ScenePreview.Refresh()
+			sceneObjectsUpdate <- emptyData
+		}
+	}()
+	scenePreviewUpdate <- emptyData
+	return ScenePreview
+}
+
+func CreateSceneObjects() fyne.CanvasObject {
+	SceneObjects = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
+	go func() {
+		for {
+			<-sceneObjectsUpdate
+			//TODO unselect the current loaded object
+			if loadedScene == nil {
+				SceneObjects.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
+			} else {
+				log.Println("Updating Scene Objects")
+				//Iterate over the scene objects and add them to the list
+				sceneObjects = fetchChildren(loadedScene.Layout)
+				var tree *widget.Tree
+				tree = widget.NewTree(
+					func(id widget.TreeNodeID) []widget.TreeNodeID {
+						if id == "" {
+							branchNodes := make([]widget.TreeNodeID, 0)
+							leafNodes := make([]widget.TreeNodeID, 0)
+							for nodeID, node := range sceneObjects {
+								if node.Parent == "" {
+									if node.Leaf {
+										leafNodes = append(leafNodes, nodeID)
+									} else {
+										branchNodes = append(branchNodes, nodeID)
+									}
+								}
+							}
+
+							//Sort both the branch and leaf nodes alphabetically
+							for i := 0; i < len(branchNodes); i++ {
+								for j := i + 1; j < len(branchNodes); j++ {
+									if sceneObjects[branchNodes[i]].Name > sceneObjects[branchNodes[j]].Name {
+										branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
+									}
+								}
+							}
+							for i := 0; i < len(leafNodes); i++ {
+								for j := i + 1; j < len(leafNodes); j++ {
+									if sceneObjects[leafNodes[i]].Name > sceneObjects[leafNodes[j]].Name {
+										leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
+									}
+								}
+							}
+							nodes := make([]widget.TreeNodeID, 0)
+							nodes = append(nodes, branchNodes...)
+							nodes = append(nodes, leafNodes...)
+							return nodes
+						} else {
+							//Get the children of the node
+							if node, ok := sceneObjects[id]; ok {
+								branchNodes := make([]widget.TreeNodeID, 0)
+								leafNodes := make([]widget.TreeNodeID, 0)
+								for _, childID := range node.Children {
+									if sceneObjects[childID].Leaf {
+										leafNodes = append(leafNodes, childID)
+									} else {
+										branchNodes = append(branchNodes, childID)
+									}
+								}
+								//Sort both the branch and leaf nodes alphabetically
+								for i := 0; i < len(branchNodes); i++ {
+									for j := i + 1; j < len(branchNodes); j++ {
+										if sceneObjects[branchNodes[i]].Name > sceneObjects[branchNodes[j]].Name {
+											branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
+										}
+									}
+								}
+								for i := 0; i < len(leafNodes); i++ {
+									for j := i + 1; j < len(leafNodes); j++ {
+										if sceneObjects[leafNodes[i]].Name > sceneObjects[leafNodes[j]].Name {
+											leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
+										}
+									}
+								}
+								nodes := make([]widget.TreeNodeID, 0)
+								nodes = append(nodes, branchNodes...)
+								nodes = append(nodes, leafNodes...)
+								return nodes
+							}
+						}
+						return []string{}
+					},
+					func(id widget.TreeNodeID) bool {
+						if node, ok := sceneObjects[id]; ok {
+							return !node.Leaf
+						}
+						return true
+					},
+					func(b bool) fyne.CanvasObject {
+						if b {
+							hbox := container.NewHBox(
+								widget.NewLabel("Group"),
+							)
+							return hbox
+						} else {
+							hbox := container.NewHBox(
+								widget.NewLabel("Object"),
+							)
+							return hbox
+						}
+					},
+					func(id widget.TreeNodeID, b bool, object fyne.CanvasObject) {
+						if node, ok := sceneObjects[id]; ok {
+							if b {
+								open := tree.IsBranchOpen(id)
+								if open || node.Selected {
+									object.(*fyne.Container).Objects = []fyne.CanvasObject{
+										widget.NewLabel(node.Name),
+										layout.NewSpacer(),
+									}
+								} else {
+									object.(*fyne.Container).Objects = []fyne.CanvasObject{
+										widget.NewLabel(node.Name),
+										layout.NewSpacer(),
+									}
+								}
+							} else {
+								if node.Selected {
+									object.(*fyne.Container).Objects = []fyne.CanvasObject{
+										widget.NewLabel(node.Name),
+										layout.NewSpacer(),
+									}
+								} else {
+									object.(*fyne.Container).Objects = []fyne.CanvasObject{
+										widget.NewLabel(node.Name),
+										layout.NewSpacer(),
+									}
+								}
+							}
+						}
+
+					},
+				)
+
+				tree.OnSelected = func(id widget.TreeNodeID) {
+					if node, ok := sceneObjects[id]; ok {
+						node.Selected = true
+						//TODO add selected object properties to the scene properties
+						scenePropertiesUpdate <- emptyData
+					}
+				}
+
+				tree.OnUnselected = func(id widget.TreeNodeID) {
+					if node, ok := sceneObjects[id]; ok {
+						node.Selected = false
+					}
+				}
+				SceneObjects.(*fyne.Container).Objects[0] = tree
+			}
+			SceneObjects.Refresh()
+		}
+	}()
+	sceneObjectsUpdate <- emptyData
+	return SceneObjects
+}
+
+func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
+	children := make(map[string]*sceneNode)
+	var l *NFLayout.Layout
+	var w *NFWidget.Widget
+	switch v := n.(type) {
+	case *NFLayout.Layout:
+		l = v
+	case *NFWidget.Widget:
+		w = v
+	}
+	if l != nil {
+		children["MainLayout"] = &sceneNode{
+			Name:     "MainLayout",
+			Leaf:     false,
+			Parent:   "",
+			Children: nil,
+			FullPath: "",
+			Selected: false,
+			Data:     l,
+		}
+		for i, child := range l.Children {
+			id := l.Type + "_" + strconv.Itoa(i)
+			children[id] = &sceneNode{
+				Name:     l.Type,
+				Leaf:     false,
+				Parent:   "MainLayout",
+				Children: nil,
+				FullPath: "",
+				Selected: false,
+				Data:     child,
+			}
+			if len(child.Children) > 0 {
+				childChildren := fetchChildren(child, id)
+				for k, v := range childChildren {
+					children[id].Children = append(children[id].Children, k)
+					children[k] = v
+				}
+			} else {
+				children[id].Leaf = true
+			}
+			children["MainLayout"].Children = append(children["MainLayout"].Children, id)
+		}
+	} else if w != nil {
+		for i, child := range w.Children {
+			if len(parent) < 1 {
+				log.Println("Parent ID not found")
+				return nil
+			}
+			id := parent[0] + "_" + strconv.Itoa(i)
+			children[id] = &sceneNode{
+				Name:     w.ID,
+				Leaf:     false,
+				Parent:   parent[0],
+				Children: nil,
+				FullPath: "",
+				Selected: false,
+				Data:     w,
+			}
+			if len(w.Children) > 0 {
+				childChildren := fetchChildren(child)
+				for k, v := range childChildren {
+					children[id].Children = append(children[id].Children, k)
+					children[k] = v
+				}
+			} else {
+				//Set leaf to true
+				children[id].Leaf = true
+			}
+		}
+	}
+	return children
 }
 
 func CreateSceneProperties() fyne.CanvasObject {
 	return container.NewVBox(widget.NewLabel("Scene Properties"))
-}
-
-func CreateSceneObjects() fyne.CanvasObject {
-	return container.NewVBox(widget.NewLabel("Scene Objects"))
 }
