@@ -6,15 +6,15 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFStyling"
 	"image/color"
 )
 
 type MultiImage struct {
 	widget.BaseWidget
 	widget.DisableableWidget
-	sizing     NFWidget.Sizing
-	padding    NFWidget.Padding
+	sizing     NFStyling.NFSizing
+	padding    NFStyling.NFPadding
 	images     []*canvas.Image
 	stack      *fyne.Container
 	background color.Color
@@ -84,8 +84,8 @@ func NewMultiImage(images []*canvas.Image) *MultiImage {
 		images:     images,
 		Index:      0,
 		Loop:       true,
-		sizing:     NFWidget.NewSizing(100, 100, 1000, 1000, true, true),
-		padding:    NFWidget.NewPadding(0, 0, 0, 0),
+		sizing:     NFStyling.NewSizing(100, 100, 1000, 1000, true, true),
+		padding:    NFStyling.NewPadding(0, 0, 0, 0),
 		background: color.Transparent,
 	}
 	multi.ExtendBaseWidget(multi)

@@ -114,7 +114,7 @@ func (nfb *NFBindingMap) GetBinding(key string, bindingRef interface{}) error {
 }
 
 // NewNFBindingMap creates a new NFBindingMap struct
-func NewNFBindingMap(args ...KeyVal) *NFBindingMap {
+func NewNFBindingMap(args ...NFKeyVal) *NFBindingMap {
 	nfb := &NFBindingMap{
 		intBindings:     make(map[string]binding.Int),
 		floatBindings:   make(map[string]binding.Float),

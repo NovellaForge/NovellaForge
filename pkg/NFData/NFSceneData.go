@@ -4,15 +4,15 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 )
 
-type SceneData struct {
+type NFSceneData struct {
 	sceneName binding.String
 	Layouts   *NFInterfaceMap
 	Variables *NFInterfaceMap
 	Bindings  *NFBindingMap
 }
 
-func NewSceneData(sceneName string) *SceneData {
-	data := &SceneData{
+func NewSceneData(sceneName string) *NFSceneData {
+	data := &NFSceneData{
 		sceneName: binding.NewString(),
 		Layouts:   NewNFInterfaceMap(),
 		Variables: NewRemoteNFInterfaceMap(),
@@ -22,14 +22,14 @@ func NewSceneData(sceneName string) *SceneData {
 	return data
 }
 
-func (s *SceneData) SetSceneName(sceneName string) {
+func (s *NFSceneData) SetSceneName(sceneName string) {
 	err := s.sceneName.Set(sceneName)
 	if err != nil {
 		return
 	}
 }
 
-func (s *SceneData) GetSceneName() string {
+func (s *NFSceneData) GetSceneName() string {
 	name, err := s.sceneName.Get()
 	if err != nil {
 		return ""
@@ -38,6 +38,6 @@ func (s *SceneData) GetSceneName() string {
 }
 
 // GetSceneNameBinding returns the binding.String for the scene name
-func (s *SceneData) GetSceneNameBinding() binding.String {
+func (s *NFSceneData) GetSceneNameBinding() binding.String {
 	return s.sceneName
 }

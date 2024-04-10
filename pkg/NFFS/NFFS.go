@@ -68,68 +68,65 @@ func EmbedFS(fs embed.FS) {
 	embeddedFS = append(embeddedFS, fs)
 }
 
-// Walk walks both the embedded and local filesystems
+// Walk walks both the embedded and game filesystems
 func Walk(dir string, walkFn fs.WalkDirFunc) error {
 	dir = strings.TrimSpace(dir)
-	if !strings.HasPrefix(dir, "local/") {
-		dir = "local/" + dir
+	if !strings.HasPrefix(dir, "game/") {
+		dir = "game/" + dir
 	}
-	embeddedDir := strings.TrimPrefix(dir, "local/")
-	cleanedDir := filepath.Clean(dir)
-	cleanedEmbeddedDir := filepath.Clean(embeddedDir)
-	if !fs.ValidPath(cleanedDir) || !strings.HasPrefix(cleanedDir, "local") {
-		return NFError.NewErrFileGet(cleanedDir, "invalid path")
+	embeddedDir := strings.TrimPrefix(dir, "game/")
+	if !fs.ValidPath(dir) {
+		return NFError.NewErrFileGet(dir, "invalid path")
 	}
 
 	var err error
-	embedErr := fs.WalkDir(embeddedFS, cleanedEmbeddedDir, walkFn)
+	embedErr := fs.WalkDir(embeddedFS, embeddedDir, walkFn)
 	if embedErr != nil {
 		errors.Join(err, embedErr)
 	}
 
-	localErr := filepath.WalkDir(cleanedDir, walkFn)
+	localErr := filepath.WalkDir(dir, walkFn)
 	if localErr != nil {
 		errors.Join(err, localErr)
 	}
 	return err
 }
 
-// Open use os.Open for the local fileSystem and
+// Open uses os.Open for the game fileSystem and
 // MultiFS.Open for the embedded filesystem(s) to return a file opened for reading
 func Open(path string) (fs.File, error) {
 	// Trim any leading or trailing white spaces
 	path = strings.TrimSpace(path)
-
-	// Check if the path already starts with "local/"
-	if !strings.HasPrefix(path, "local/") {
-		path = "local/" + path
-	}
-	embeddedPath := strings.TrimPrefix(path, "local/")
-	cleanedPath := filepath.Clean(path)
-	cleanedEmbeddedPath := filepath.Clean(embeddedPath)
-	if !fs.ValidPath(cleanedPath) || !strings.HasPrefix(cleanedPath, "local") {
-		return nil, NFError.NewErrFileGet(cleanedPath, "invalid path")
+	// Check if the path already starts with "game/"
+	if !strings.HasPrefix(path, "game") {
+		path = "game/" + path
+		path = filepath.Clean(path)
 	}
 
-	file, err := embeddedFS.Open(cleanedEmbeddedPath)
+	embeddedPath := strings.TrimPrefix(path, "game")
+	if !fs.ValidPath(path) {
+		return nil, NFError.NewErrFileGet(path, "invalid path")
+	}
+
+	file, err := embeddedFS.Open(embeddedPath)
 	if err != nil {
-		file, err = os.Open(cleanedPath)
+		file, err = os.Open(path)
 		if err != nil {
-			return nil, NFError.NewErrFileGet(cleanedPath, err.Error())
+			return nil, NFError.NewErrFileGet(path, err.Error())
 		}
 	}
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return nil, NFError.NewErrFileGet(cleanedPath, err.Error())
+		return nil, NFError.NewErrFileGet(path, err.Error())
 	}
 
 	if fileInfo.Mode()&os.ModeSymlink != 0 {
-		return nil, NFError.NewErrFileGet(cleanedPath, "is a symlink which is not supported")
+		return nil, NFError.NewErrFileGet(path, "is a symlink which is not supported")
 	}
 
 	if fileInfo.IsDir() {
-		return nil, NFError.NewErrFileGet(cleanedPath, "is a directory")
+		return nil, NFError.NewErrFileGet(path, "is a directory")
 	}
 
 	return file, nil

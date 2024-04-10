@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+//TODO This entire file needs a refactor and possibly, be moved to NFData
+
 const Extension = ".novella" // This is the extension that will be used for save files make sure it has the dot at the beginning
 var Active *Save
 var Directory = ""
@@ -16,8 +18,6 @@ var ErrSaveNameNotSet = errors.New("save name not yet set")
 var SaveEncryption = false
 var SaveHistory = true
 var SaveEncryptionKey = "NovellaForge"
-
-//TODO un-export the save struct and all of its methods
 
 // Save is the struct that will be used to save data
 type Save struct {

@@ -10,16 +10,113 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFLog"
+	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-func CreateMainMenu(window fyne.Window) {
+// CreateMainContent updates the loading variable as the NovellaForge content is created
+func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
+	// Runs "go version" to check if Go is installed
+	loading.SetProgress(10, "Checking Dependencies")
+	CheckAndInstallDependencies(window)
 
+	// Creates a main menu to hold the buttons below
+	loading.SetProgress(30, "Creating Main Menu")
+	CreateMainMenu(window)
+
+	// Create a grid layout for the four main buttons
+	loading.SetProgress(50, "Creating Main Content")
+	grid := CreateMainGrid(window)
+	//Fetch the buttons from the grid to allow for disabling them
+	openRecentButton := grid.(*fyne.Container).Objects[2].(*widget.Button)
+	continueLastButton := grid.(*fyne.Container).Objects[3].(*widget.Button)
+
+	loading.SetProgress(70, "Initializing Buttons")
+	err := InitButtons(window, continueLastButton, openRecentButton)
+	if err != nil {
+		//Show an error dialog
+		dialog.ShowError(err, window)
+		return
+	}
+	loading.SetProgress(100, "Setting Content")
+	window.SetContent(grid)
+	loading.Complete()
+}
+
+func InitButtons(window fyne.Window, continueLastButton *widget.Button, openRecentButton *widget.Button) error {
+	projects, err := ReadProjectInfo()
+	if err != nil {
+		//Show an error dialog
+		dialog.ShowError(err, window)
+		return err
+	}
+	var project NFInfo
+	if len(projects) == 0 {
+		continueLastButton.Disable()
+		openRecentButton.Disable()
+	} else {
+		//Get the most recently opened project
+		project = projects[0]
+		for i := 0; i < len(projects); i++ {
+			if projects[i].OpenDate.After(project.OpenDate) {
+				project = projects[i]
+			}
+		}
+		//Os stat the project path to see if it still exists
+		_, err = os.Stat(project.Path)
+		if err != nil {
+			//If the project does not exist, disable the continue last button
+			continueLastButton.Disable()
+		}
+
+	}
+	continueLastButton.OnTapped = func() {
+		err = OpenFromInfo(project, window)
+		if err != nil {
+			//Show an error dialog
+			dialog.ShowError(err, window)
+		}
+	}
+	return nil
+}
+
+// CreateMainGrid creates the main grid layout for the main window
+func CreateMainGrid(window fyne.Window) fyne.CanvasObject {
+	grid := container.New(layout.NewGridLayout(2))
+
+	// Create a New Project button in the top left
+	newProjectButton := widget.NewButton("New Project", func() {
+		NewProjectDialog(window)
+	})
+	// Create an Open Project button in the top right
+	openProjectButton := widget.NewButton("Open Project", func() {
+		OpenProjectDialog(window)
+	})
+	// Create an Open Recent button in the bottom left
+	var openRecentButton *widget.Button
+	openRecentButton = widget.NewButton("Open Recent", func() {
+		err := OpenRecentDialog(window)
+		if err != nil {
+			//If there are no projects, or another issue occurs, disable the button
+			openRecentButton.Disable()
+		}
+	})
+	// Create a Continue Last button in the bottom right
+	continueLastButton := widget.NewButton("Continue Last", func() {})
+	//Add the buttons to the grid
+	grid.Add(newProjectButton)
+	grid.Add(openProjectButton)
+	grid.Add(openRecentButton)
+	grid.Add(continueLastButton)
+	return grid
+}
+
+func CreateMainMenu(window fyne.Window) {
 	openRecentMenu := fyne.NewMenuItem("Open Recent", func() {
-		OpenRecentDialog(window)
+		_ = OpenRecentDialog(window)
 	})
 	projectMenu := fyne.NewMenu("Project")
 
@@ -63,6 +160,17 @@ func CreateMainMenu(window fyne.Window) {
 	openRecentMenu.ChildMenu = projectMenu
 	mainMenu := fyne.NewMainMenu(
 		fyne.NewMenu("File",
+			fyne.NewMenuItem("Home", func() {
+				grid := CreateMainGrid(window)
+				continueButton := grid.(*fyne.Container).Objects[3].(*widget.Button)
+				openRecentButton := grid.(*fyne.Container).Objects[2].(*widget.Button)
+				err = InitButtons(window, continueButton, openRecentButton)
+				if err != nil {
+					dialog.ShowError(err, window)
+				} else {
+					window.SetContent(grid)
+				}
+			}),
 			fyne.NewMenuItem("New Project", func() {
 				NewProjectDialog(window)
 			}),
@@ -98,19 +206,19 @@ func CreateMainMenu(window fyne.Window) {
 	window.SetMainMenu(mainMenu)
 }
 
-func OpenRecentDialog(window fyne.Window) {
+func OpenRecentDialog(window fyne.Window) error {
 	box := container.NewVBox()
 	newDialog := dialog.NewCustom("Open Recent", "Close", box, window)
 	projects, err := ReadProjectInfo()
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
-		return
+		return err
 	}
 	if len(projects) == 0 {
 		//Show an error dialog
 		dialog.ShowError(NFError.ErrNoProjects, window)
-		return
+		return err
 	}
 
 	//Create a scrollable list of all the projects
@@ -182,6 +290,7 @@ func OpenRecentDialog(window fyne.Window) {
 	box.Add(scrollBox)
 	newDialog.Resize(fyne.NewSize(800, 600))
 	newDialog.Show()
+	return nil
 }
 
 func OpenProjectDialog(window fyne.Window) {

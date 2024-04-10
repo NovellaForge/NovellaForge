@@ -13,6 +13,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFStyling"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 )
@@ -218,10 +219,10 @@ func FormHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widge
 
 // LabelHandler creates a label
 func LabelHandler(_ fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
-	var styling NFWidget.TextStyling
+	var styling NFStyling.NFStyling
 	err := args.Get("Styling", &styling)
 	if err != nil {
-		styling = NFWidget.NewTextStyling()
+		styling = NFStyling.NewTextStyling()
 	}
 	var text string
 	err = args.Get("Text", &text)

@@ -32,7 +32,10 @@ import (
 // init is run BEFORE main in ALL cases and should not be manually called from anywhere in the program
 func init() {
 	//This is the default name for the config, just make sure the file here exists and is in the config format
-	file, err := NFFS.Open("Local.NFConfig")
+	// ALL NFFS Functions act locally to the game directory, so if you want to access a file in the game directory you can just use the file name
+	// You CANNOT access files outside the game directory with NFFS functions, however, it can also access all embedded file systems
+	// If they have been added via the NFFS.EmbedFS function
+	file, err := NFFS.Open("Game.NFConfig")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,7 +53,9 @@ func init() {
 	ExampleWidgets.Import()
 
 	//Register all Scenes
-	err = NFScene.RegisterAll()
+	//This function uses the NFFS functions, so it is ALSO limited to the game directory and the embedded filesystem
+	//(You do not need to add "game" to the path as it functions relative to the game directory)
+	err = NFScene.RegisterAll("data/scenes")
 	if err != nil {
 		log.Println(err)
 	}
@@ -204,6 +209,7 @@ func ShowGame(window fyne.Window, scene string, screen bool) {
 		functionArgs := NFData.NewNFInterfaceMap()
 		functionArgs.Set("Error", "No Scenes Found")
 		_, _ = NFFunction.ParseAndRun(window, "Error", functionArgs) // This Error function is just DefaultFunctions.CustomError, this is how scenes can store functions in their data files
+		return
 	}
 
 	startupScene, err := NFScene.Get(scene)
@@ -211,6 +217,7 @@ func ShowGame(window fyne.Window, scene string, screen bool) {
 		functionArgs := NFData.NewNFInterfaceMap()
 		functionArgs.Set("Error", "Error Getting Scene: "+err.Error())
 		_, _ = DefaultFunctions.CustomError(window, functionArgs)
+		return
 	}
 
 	//SceneParser parses the scene and returns a fyne.CanvasObject that can be added to the window
@@ -219,6 +226,7 @@ func ShowGame(window fyne.Window, scene string, screen bool) {
 		functionArgs := NFData.NewNFInterfaceMap()
 		functionArgs.Set("Error", "Error Parsing Scene: "+err.Error())
 		_, _ = DefaultFunctions.CustomError(window, functionArgs)
+		return
 	}
 	window.SetContent(sceneObject)
 }

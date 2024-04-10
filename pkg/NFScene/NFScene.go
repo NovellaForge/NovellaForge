@@ -48,6 +48,10 @@ func Register(name, path string) error {
 	if !fs.ValidPath(path) {
 		return errors.New("invalid path")
 	}
+	//Check if the name is already in the SceneMap
+	if _, ok := SceneMap[name]; ok {
+		return errors.New("scene already registered")
+	}
 	SceneMap[name] = path
 	return nil
 }
@@ -56,8 +60,10 @@ func Register(name, path string) error {
 //
 // This function is heavy and should only be called once at the start of the program,
 // For adding scenes after the program has started use Register instead
-func RegisterAll() error {
-	err := NFFS.Walk("Scenes", func(path string, d fs.DirEntry, err error) error {
+//
+// Like most NFFS functions this function only functions in the local directory and the embedded filesystems
+func RegisterAll(path string) error {
+	err := NFFS.Walk(path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -65,18 +71,8 @@ func RegisterAll() error {
 		if strings.HasSuffix(path, ".NFScene") {
 			name := strings.TrimSuffix(d.Name(), ".NFScene")
 			if oldPath, ok := SceneMap[name]; ok {
-				//Add the parent directory to the name as newName
-				newName := filepath.Base(filepath.Dir(path)) + "." + name
-				newOldName := filepath.Base(filepath.Dir(oldPath)) + "." + name
-				//If the names are the same return an error saying that duplicate scenes are not allowed
-				if newName == newOldName {
-					return errors.New("duplicate scenes are not allowed, make sure each scene has a unique name")
-				} else {
-					//If the names are different add the scene with the new name and delete the old one before readding it
-					delete(SceneMap, name)
-					SceneMap[newName] = path
-					SceneMap[newOldName] = oldPath
-				}
+				log.Println("Scene already registered: ", name, " at ", oldPath)
+				log.Println("Make sure scenes have unique names for easy management")
 			} else {
 				SceneMap[name] = path
 			}

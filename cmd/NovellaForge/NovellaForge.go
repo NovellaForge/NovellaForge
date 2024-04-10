@@ -16,9 +16,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/internal/NFEditor"
@@ -162,83 +160,10 @@ func main() {
 	if splash != nil {
 		splash.Show()
 		// Create the main NovellaForge content in a thread, which will also update the loading bar
-		go CreateMainContent(window, loading)
+		go NFEditor.CreateMainContent(window, loading)
 		application.Run()
 	} else {
-		go CreateMainContent(window, loading)
+		go NFEditor.CreateMainContent(window, loading)
 		window.ShowAndRun()
 	}
-}
-
-// CreateMainContent updates the loading variable as the NovellaForge content is created
-func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
-	// Runs "go version" to check if Go is installed
-	loading.SetProgress(0, "Checking Dependencies")
-	NFEditor.CheckAndInstallDependencies(window)
-
-	// Creates a main menu to hold the buttons below
-	loading.SetProgress(10, "Creating Main Menu")
-	NFEditor.CreateMainMenu(window)
-
-	// Create a grid layout for the four main buttons
-	loading.SetProgress(20, "Creating Main Content")
-	grid := container.New(layout.NewGridLayout(2))
-
-	// Create a New Project button in the top left
-	newProjectButton := widget.NewButton("New Project", func() {
-		NFEditor.NewProjectDialog(window)
-	})
-	// Create an Open Project button in the top right
-	openProjectButton := widget.NewButton("Open Project", func() {
-		NFEditor.OpenProjectDialog(window)
-	})
-	// Create an Open Recent button in the bottom left
-	openRecentButton := widget.NewButton("Open Recent", func() {
-		NFEditor.OpenRecentDialog(window)
-	})
-	// Create a Continue Last button in the bottom right
-	continueLastButton := widget.NewButton("Continue Last", func() {})
-	loading.SetProgress(50, "Checking for Recent Projects")
-	projects, err := NFEditor.ReadProjectInfo()
-	if err != nil {
-		//Show an error dialog
-		dialog.ShowError(err, window)
-		return
-	}
-	var project NFEditor.NFInfo
-	if len(projects) == 0 {
-		continueLastButton.Disable()
-		openRecentButton.Disable()
-	} else {
-		//Get the most recently opened project
-		project = projects[0]
-		for i := 0; i < len(projects); i++ {
-			if projects[i].OpenDate.After(project.OpenDate) {
-				project = projects[i]
-			}
-		}
-		//Os stat the project path to see if it still exists
-		_, err = os.Stat(project.Path)
-		if err != nil {
-			//If the project does not exist, disable the continue last button
-			continueLastButton.Disable()
-		}
-
-	}
-	continueLastButton.OnTapped = func() {
-		err = NFEditor.OpenFromInfo(project, window)
-		if err != nil {
-			//Show an error dialog
-			dialog.ShowError(err, window)
-		}
-	}
-	loading.SetProgress(95, "Adding Content to Grid")
-	//Add the buttons to the grid
-	grid.Add(newProjectButton)
-	grid.Add(openProjectButton)
-	grid.Add(openRecentButton)
-	grid.Add(continueLastButton)
-	loading.SetProgress(100, "Setting Content")
-	window.SetContent(grid)
-	loading.Complete()
 }

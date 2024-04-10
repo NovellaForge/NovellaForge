@@ -210,11 +210,11 @@ func (p NFInfo) Load(window fyne.Window) error {
 	Project := &NFProject{
 		Info: p,
 	}
-	//Walk the local directory of the project for the .NFConfig file
+	//Walk the game directory of the project for the .NFConfig file
 	//If it doesn't exist, return an error
-	localDir := filepath.Dir(p.Path) + "/local/"
+	gameDir := filepath.Dir(p.Path) + "/game/"
 	//Look for the first file ending in .NFConfig
-	err := filepath.Walk(localDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(gameDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".NFConfig" {
 			file, err := os.Open(path)
 			if err != nil {
@@ -319,12 +319,11 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	neededDirectories := []string{
 		"cmd/" + p.Config.Name,
-		"local/assets/image",
-		"local/assets/audio",
-		"local/assets/video",
-		"local/assets/other",
-		"local/data/scenes",
-		"internal/config",
+		"game/assets/image",
+		"game/assets/audio",
+		"game/assets/video",
+		"game/assets/other",
+		"game/data/scenes",
 		"internal/functions",
 		"internal/layouts",
 		"internal/widgets",
@@ -347,7 +346,7 @@ func (p NFProject) Create(window fyne.Window) error {
 	}
 
 	loading.SetProgress(50, "Saving Local config")
-	err = p.Config.Save(projectDir + "/local/Local.NFConfig")
+	err = p.Config.Save(projectDir + "/game/Game.NFConfig")
 	if err != nil {
 		shouldDelete = true
 		return err
@@ -365,14 +364,12 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	//cmd/ProjectName/ProjectName.go
 	mainGameData := struct {
-		LocalConfig    string
 		LocalFS        string
 		LocalFunctions string
 		LocalLayouts   string
 		LocalWidgets   string
 	}{
-		LocalConfig:    p.Config.Name + "/internal/config",
-		LocalFS:        p.Config.Name + "/local",
+		LocalFS:        p.Config.Name + "/game",
 		LocalFunctions: p.Config.Name + "/internal/functions",
 		LocalLayouts:   p.Config.Name + "/internal/layouts",
 		LocalWidgets:   p.Config.Name + "/internal/widgets",
@@ -383,7 +380,7 @@ func (p NFProject) Create(window fyne.Window) error {
 		data:            mainGameData,
 	})
 
-	//local/FileSystem.go
+	//game/FileSystem.go
 	fsData := struct {
 		Embed bool
 	}{
@@ -391,15 +388,8 @@ func (p NFProject) Create(window fyne.Window) error {
 	}
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/FileLoader/Template.go",
-		destinationPath: projectDir + "/local/FileSystem.go",
+		destinationPath: projectDir + "/game/FileSystem.go",
 		data:            fsData,
-	})
-
-	//internal/config/Config.go
-	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/Config/Template.go",
-		destinationPath: projectDir + "/internal/config/Config.go",
-		data:            nil,
 	})
 
 	//internal/functions/CustomFunctions.go
@@ -423,17 +413,17 @@ func (p NFProject) Create(window fyne.Window) error {
 		data:            nil,
 	})
 
-	//local/data/scenes/MainMenu.NFScene
+	//game/data/scenes/MainMenu.NFScene
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/Scenes/MainMenu.NFScene",
-		destinationPath: projectDir + "/local/data/scenes/MainMenu.NFScene",
+		destinationPath: projectDir + "/game/data/scenes/MainMenu.NFScene",
 		data:            nil,
 	})
 
-	//local/data/scenes/NewGame.NFScene
+	//game/data/scenes/NewGame.NFScene
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/Scenes/NewGame.NFScene",
-		destinationPath: projectDir + "/local/data/scenes/NewGame.NFScene",
+		destinationPath: projectDir + "/game/data/scenes/NewGame.NFScene",
 		data:            nil,
 	})
 

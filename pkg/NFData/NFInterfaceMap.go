@@ -20,7 +20,7 @@ type NFInterfaceMap struct {
 }
 
 // NewNFInterfaceMap creates a new NFInterfaceMap struct
-func NewNFInterfaceMap(args ...KeyVal) *NFInterfaceMap {
+func NewNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 	nfi := &NFInterfaceMap{
 		Data:     make(map[string]interface{}),
 		allowRef: true,
@@ -35,7 +35,7 @@ func NewNFInterfaceMap(args ...KeyVal) *NFInterfaceMap {
 }
 
 // NewRemoteNFInterfaceMap creates a new NFInterfaceMap struct that does not allow references
-func NewRemoteNFInterfaceMap(args ...KeyVal) *NFInterfaceMap {
+func NewRemoteNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 	nfi := &NFInterfaceMap{
 		Data:     make(map[string]interface{}),
 		allowRef: false,
@@ -154,7 +154,7 @@ func (a *NFInterfaceMap) Add(key string, value interface{}) error {
 }
 
 // AddMulti adds multiple values to the interface, errors if a Key already exists
-func (a *NFInterfaceMap) AddMulti(args ...KeyVal) error {
+func (a *NFInterfaceMap) AddMulti(args ...NFKeyVal) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var err error
@@ -214,7 +214,7 @@ func (a *NFInterfaceMap) Update(key string, value interface{}) error {
 }
 
 // UpdateMulti updates multiple values in the interface, errors if the Key does not exist or if the type does not match
-func (a *NFInterfaceMap) UpdateMulti(args ...KeyVal) error {
+func (a *NFInterfaceMap) UpdateMulti(args ...NFKeyVal) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var err error
@@ -243,7 +243,7 @@ func (a *NFInterfaceMap) Set(key string, value interface{}) {
 }
 
 // SetMulti sets multiple values in the interface,
-func (a *NFInterfaceMap) SetMulti(args ...KeyVal) {
+func (a *NFInterfaceMap) SetMulti(args ...NFKeyVal) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, arg := range args {
