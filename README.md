@@ -1,23 +1,49 @@
 # NovellaForge
-An Open Source Visual Novel Creator In GO
+An Open Source Visual Novel Creator In GO, UI built with [Fyne](https://fyne.io/)
 
 ## Mission Statement
-NovellaForge aims to democratize the creation of visual novels by providing a game engine that requires zero programming knowledge for building a functional visual novel. However, the framework and editor are fully extensible and modular, allowing full control over the game's source code. For advanced developers with an understanding of GO this flexibility enables the creation of games that go beyond the traditional visual novel genre.
+NovellaForge aims to democratize the creation of visual novels by providing an open source game engine that requires zero programming knowledge for building a functional visual novel or other 2D games. This is accomplished by building a framework and editor to be fully extensible and modular, allowing full control over the game's source code. For advanced developers with an understanding of GO this flexibility enables the creation of games that go beyond the traditional visual novel genre.
 
-## Roadmap to Initial Release
-Here are the key milestones we're targeting for our initial release:
+## TODO 0.0.1: (These are not final and will be updated as needed)
+- [x] Project creation and detection for open recent and continue last project
+- [x] Basic game templates allowing for instant game creation
+- [x] Dynamic type interface to allow loading scenes from file
+- [x] Global, per scene, and per object properties to allow for dynamic content in a non-linear fashion
+- [x] Simple logging extension and built in terminal for debugging
+- 
+- [ ] Easily Extensible save system to allow for saving and loading game data
+- [ ] Scene editor
+    - [ ] Add in the ability to add and remove scenes
+    - [x] Add in the ability to group scenes
+    - [ ] ~~Add in the ability to change the order of scenes~~ (I sorted them alphabetically for now)
+    - [ ] Add in the ability to add and remove widgets and containers and change all their relevant properties
+    - [ ] Add in the ability to change the name of scenes
+    - [ ] Possibly add in the ability to group widgets and layouts
+    - [ ] Possibly Add in the ability to change the order of widgets and layouts
+- [ ] Refactor Saving to use the new interface system and integrate it with default game templates
+- [ ] Add in the build manager
+    - [ ] Include embedding toggle to embed assets in the binary
+    - [ ] Property manager needs to be able to fully edit all widget and container properties
 
-- [ ] Basic Editor UI built with [Fyne](https://fyne.io/)  **- In Progress 50%**
-- [ ] Basic Project creation and storage system **- In Progress 70%**
-- [ ] Basic Game Framework with support for text, images, and choices, in a scene based system **- In Progress 60%**
-- [ ] Basic Game Exporter that can export to linux and windows with 0 additional steps with guides for other platforms
-- [ ] Game preview that allows for preview versions of widgets for in preview editing and adjustments
-- [ ] Save System with support for multiple save slots
-- [ ] Basic Audio support for music and sound effects
-- [ ] Basic Video/Gif support for cutscenes - No promises for Audio sync
-- [ ] *Optional* Game terminal/console system for game development and debugging
-- [ ] *Optional* Game analytics system for tracking player choices and game progress
-- [ ] *Optional* Full embed support to allow the game exe to contain all assets and be a single file
+## TODO 0.1.0:
+- [ ] Add in a way to run the game from the editor for testing
+- [ ] Scene Editor Preview Mode
+    - [ ] This should add clickable elements to all elements that select them for editing in the properties
+    - [ ] This should override buttons and other interactive elements to not be clickable
+
+## TODO 1.0.0:
+- [ ] Fully Documented in code and on wiki
+- [ ] Add in the debug run mode
+    - [ ] This should run the game with a debug flag enabled, that enables editing in certain widget that support it
+- [ ] Add in the ability to open the project in the default IDE
+- [ ] Add in the ability to open the project in the default file manager
+- [ ] Add in the ability to open the project in the default terminal
+- [ ] Add in the ability to change what IDE is used to open the project
+- [ ] Add in the ability to generate a keystore for android builds
+
+## TODO Future:
+- [ ] Add in drag and drop widget support
+- [ ] Add in IOS and Mac support for game builds and Mac support for editor functionality
 
 ## Feature Breakdown
 - **User-Friendly GUI**: An intuitive interface that makes game creation as simple as possible.

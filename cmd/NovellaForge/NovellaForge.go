@@ -31,32 +31,38 @@ import (
 /*
 
 
-TODO:
- [X] Finish the parsing refactor to use the new interface system. This should also include a new remaster of the export system so that it just lists the types of the required and optional args
+TODO 0.0.1: [ ] = Required, ( ) = Optional, X = Done, - = Alternative implementation
+ [X] Finish the parsing refactor to use the new interface system.
  [ ] Finish documentation/comments
  [ ] Finish the scene editor
+	[X] Add in the ability to add and remove scenes
+	[X] Add in the ability to group scenes
+	(-) Add in the ability to change the order of scenes (I sorted them alphabetically for now and added the ability to group)
  	[ ] Property manager needs to be able to fully edit all widget and container properties
 	[ ] Add in the ability to add and remove widgets and containers and change all their relevant properties
-	[ ] Add in the ability to add and remove scenes
-	[ ] Add in the ability to change the order of scenes
 	[ ] Add in the ability to change the name of scenes
-	[ ] Add in the ability to group widgets and containers in scenes and group scenes in a project
-	[ ] Add in the ability to change the order of widgets and containers
+	( ) Possibly add in the ability to group widgets and layouts
+	( ) Possibly Add in the ability to change the order of widgets and layouts
+ [ ] Refactor NFSave to use the new interface system and integrate it with default game templates
+ [ ] Add in the build manager
+ 	[ ] Include embedding toggle to embed assets in the binary
+TODO 0.1.0:
  [ ] Add in a way to run the game from the editor for testing
- [ ] Add in the preview run mode (with the ability to edit text fields in the preview)
+ [ ] Scene Editor Preview Mode
+	[ ] This should add clickable elements to all elements that select them for editing in the properties
+    [ ] This should override buttons and other interactive elements to not be clickable
+TODO 1.0.0:
+ [ ] Add in the debug run mode
+   [ ] This should run the game with a debug flag enabled, that enables editing in certain widget that support it
  [ ] Add in the ability to open the project in the default IDE
  [ ] Add in the ability to open the project in the default file manager
  [ ] Add in the ability to open the project in the default terminal
  [ ] Add in the ability to change what IDE is used to open the project
- [ ] Add in the build manager (for building the game on all platforms)
  [ ] Add in the ability to generate a keystore for android builds
----- above this line will be version 0.1.0 and will be the stability requirement for 1.0.0
----- this means that if all features exist and can work in a basic fashion we are in 0.1.0
----- if all features exist in a fully fleshed out and stable fashion we are in 1.0.0
----- THIS LIST IS STILL HEAVILY IN FLUX AND WILL CHANGE AS PROJECT GOALS EVOLVE
 TODO Future:
  [ ] Add in drag and drop widget support
  [ ] Add in IOS and Mac support for game builds and Mac support for editor functionality
+
 */
 
 const (
