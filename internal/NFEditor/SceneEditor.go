@@ -3,6 +3,14 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"log"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -16,13 +24,6 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
-	"io/fs"
-	"log"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 /*
@@ -83,8 +84,8 @@ var (
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	MainSplit := container.NewHSplit(
 		CreateSceneSelector(window),
-		container.NewVSplit(CreateScenePreview(),
-			container.NewHSplit(CreateSceneProperties(),
+		container.NewVSplit(CreateScenePreview(window),
+			container.NewHSplit(CreateSceneProperties(window),
 				CreateSceneObjects(),
 			),
 		),
@@ -654,7 +655,7 @@ func countChildren(n interface{}) int {
 	return count
 }
 
-func CreateScenePreview() fyne.CanvasObject {
+func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
 	go func() {
 		for {
@@ -662,26 +663,36 @@ func CreateScenePreview() fyne.CanvasObject {
 			preview := previewCanvas.(*fyne.Container)
 			if selectedScene == nil {
 				//Remove all but the first label
-				preview.Objects = preview.Objects[:1]
+				// preview.Objects = preview.Objects[:1]
+				preview.Objects[0] = container.NewVBox(widget.NewLabel("No Scene Loaded, Select a Scene to Preview"))
 			} else {
 				log.Println("Updating Scene Preview")
-				preview.Objects = preview.Objects[:1]
-				//Count of layouts with their total children count(Recursively)
-				layoutType := selectedScene.Layout.Type
-				layoutChildrenCount := countChildren(selectedScene.Layout)
-				preview.Add(widget.NewLabel("Layout Type: " + layoutType))
-				preview.Add(widget.NewLabel("Scene Objects: " + strconv.Itoa(layoutChildrenCount)))
+				// Put an empty widget in the preview
+				preview.Objects = []fyne.CanvasObject{}
+
+				// Parse the current scene
+				scene, err := selectedScene.Parse(window)
+				if err != nil {
+					log.Println(err)
+					dialog.ShowError(err, window)
+					return
+				}
+				preview.Add(scene)
+
 			}
 			previewCanvas.Refresh()
 			sceneObjectsUpdate <- emptyData
 		}
 	}()
+
 	scenePreviewUpdate <- emptyData
 	return previewCanvas
 }
 
 func CreateSceneObjects() fyne.CanvasObject {
-	objectsCanvas = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
+	// objectsCanvas = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
+	sceneObjectsLabel := container.NewVBox(widget.NewLabel("Scene Objects"))
+	objectsCanvas = container.NewBorder(sceneObjectsLabel, nil, nil, nil, widget.NewLabel("No Scene Loaded"))
 	go func() {
 		for {
 			<-sceneObjectsUpdate
@@ -690,6 +701,15 @@ func CreateSceneObjects() fyne.CanvasObject {
 				objectsCanvas.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
 			} else {
 				log.Println("Updating Scene Objects")
+
+				// Get scene info
+				layoutType := selectedScene.Layout.Type
+				layoutChildrenCount := countChildren(selectedScene.Layout)
+				layoutTypeLabel := widget.NewLabel("Layout Type: " + layoutType)
+				layoutChildrenCountLabel := widget.NewLabel(strconv.Itoa(layoutChildrenCount) + " Scene Objects:")
+
+				sceneObjectsLabel.Objects = []fyne.CanvasObject{layoutTypeLabel, layoutChildrenCountLabel}
+
 				//Iterate over the scene objects and add them to the list
 				sceneObjects = fetchChildren(selectedScene.Layout)
 				var tree *widget.Tree
@@ -915,6 +935,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 	go func() {
 		for {
 			<-scenePropertiesUpdate
+			return
 			properties := propertiesCanvas.(*fyne.Container)
 			if selectedObject == nil {
 				//Remove all but the first label
@@ -927,9 +948,9 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 
 				switch v := selectedObject.(type) {
 				case *NFLayout.Layout:
-					for k, v := range v.Args.Data {
+					for k, _ := range v.Args.Data {
 						//TODO FIX THIS
-						typedParam := EditorWidgets.NewTypedParameter(k, v, EditorWidgets.String, window)
+						typedParam := EditorWidgets.NewTypedParameter(k, "", EditorWidgets.String, window)
 						form.Append(k, typedParam)
 					}
 
@@ -992,7 +1013,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			})
 			if err != nil {
 				log.Println(err)
-				dialog.ShowError(err, nil)
+				dialog.ShowError(err, window)
 				return
 			}
 		}
