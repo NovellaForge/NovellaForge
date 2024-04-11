@@ -2,6 +2,7 @@ package NFEditor
 
 import (
 	"errors"
+	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -9,7 +10,9 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/internal/NFEditor/EditorWidgets"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
@@ -62,13 +65,19 @@ var (
 	sceneNodes            = make(map[string]*sceneNode)
 	sceneObjects          = make(map[string]*sceneNode)
 	sceneListUpdate       = make(chan struct{})
-	loadedScene           *NFScene.Scene
 	scenePreviewUpdate    = make(chan struct{})
 	sceneObjectsUpdate    = make(chan struct{})
 	scenePropertiesUpdate = make(chan struct{})
-	ScenePreview          fyne.CanvasObject
-	SceneProperties       fyne.CanvasObject
-	SceneObjects          fyne.CanvasObject
+	propertyTypesUpdate   = make(chan struct{})
+	functions             = make(map[string]NFData.AssetProperties)
+	layouts               = make(map[string]NFData.AssetProperties)
+	widgets               = make(map[string]NFData.AssetProperties)
+	selectedScene         *NFScene.Scene
+	selectedObject        interface{}
+
+	previewCanvas    fyne.CanvasObject
+	propertiesCanvas fyne.CanvasObject
+	objectsCanvas    fyne.CanvasObject
 )
 
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
@@ -588,7 +597,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					dialog.ShowError(err, window)
 					return
 				}
-				loadedScene = scene
+				selectedScene = scene
 				scenePreviewUpdate <- emptyData
 			}
 		}
@@ -635,12 +644,10 @@ func countChildren(n interface{}) int {
 
 	if l != nil {
 		for _, child := range l.Children {
-			count++
 			count += countChildren(child)
 		}
 	} else if w != nil {
 		for _, child := range w.Children {
-			count++
 			count += countChildren(child)
 		}
 	}
@@ -648,43 +655,43 @@ func countChildren(n interface{}) int {
 }
 
 func CreateScenePreview() fyne.CanvasObject {
-	ScenePreview = container.NewVBox(widget.NewLabel("Scene Preview"))
+	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
 	go func() {
 		for {
 			<-scenePreviewUpdate
-			preview := ScenePreview.(*fyne.Container)
-			if loadedScene == nil {
+			preview := previewCanvas.(*fyne.Container)
+			if selectedScene == nil {
 				//Remove all but the first label
 				preview.Objects = preview.Objects[:1]
 			} else {
 				log.Println("Updating Scene Preview")
 				preview.Objects = preview.Objects[:1]
 				//Count of layouts with their total children count(Recursively)
-				layoutType := loadedScene.Layout.Type
-				layoutChildrenCount := countChildren(loadedScene.Layout)
+				layoutType := selectedScene.Layout.Type
+				layoutChildrenCount := countChildren(selectedScene.Layout)
 				preview.Add(widget.NewLabel("Layout Type: " + layoutType))
 				preview.Add(widget.NewLabel("Scene Objects: " + strconv.Itoa(layoutChildrenCount)))
 			}
-			ScenePreview.Refresh()
+			previewCanvas.Refresh()
 			sceneObjectsUpdate <- emptyData
 		}
 	}()
 	scenePreviewUpdate <- emptyData
-	return ScenePreview
+	return previewCanvas
 }
 
 func CreateSceneObjects() fyne.CanvasObject {
-	SceneObjects = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
+	objectsCanvas = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
 	go func() {
 		for {
 			<-sceneObjectsUpdate
 			//TODO unselect the current loaded object
-			if loadedScene == nil {
-				SceneObjects.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
+			if selectedScene == nil {
+				objectsCanvas.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
 			} else {
 				log.Println("Updating Scene Objects")
 				//Iterate over the scene objects and add them to the list
-				sceneObjects = fetchChildren(loadedScene.Layout)
+				sceneObjects = fetchChildren(selectedScene.Layout)
 				var tree *widget.Tree
 				tree = widget.NewTree(
 					func(id widget.TreeNodeID) []widget.TreeNodeID {
@@ -811,6 +818,7 @@ func CreateSceneObjects() fyne.CanvasObject {
 					if node, ok := sceneObjects[id]; ok {
 						node.Selected = true
 						//TODO add selected object properties to the scene properties
+						selectedObject = node.Data
 						scenePropertiesUpdate <- emptyData
 					}
 				}
@@ -820,13 +828,13 @@ func CreateSceneObjects() fyne.CanvasObject {
 						node.Selected = false
 					}
 				}
-				SceneObjects.(*fyne.Container).Objects[0] = tree
+				objectsCanvas.(*fyne.Container).Objects[0] = tree
 			}
-			SceneObjects.Refresh()
+			objectsCanvas.Refresh()
 		}
 	}()
 	sceneObjectsUpdate <- emptyData
-	return SceneObjects
+	return objectsCanvas
 }
 
 func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
@@ -902,6 +910,95 @@ func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
 	return children
 }
 
-func CreateSceneProperties() fyne.CanvasObject {
+func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
+	propertiesCanvas = container.NewVBox(widget.NewLabel("Scene Properties"))
+	go func() {
+		for {
+			<-scenePropertiesUpdate
+			properties := propertiesCanvas.(*fyne.Container)
+			if selectedObject == nil {
+				//Remove all but the first label
+				properties.Objects = properties.Objects[:1]
+			} else {
+				log.Println("Updating Scene Properties")
+				properties.Objects = properties.Objects[:1]
+				form := widget.NewForm()
+				//TODO add the properties of the selected object to the form
+
+				switch v := selectedObject.(type) {
+				case *NFLayout.Layout:
+					for k, v := range v.Args.Data {
+						//TODO FIX THIS
+						typedParam := EditorWidgets.NewTypedParameter(k, v, EditorWidgets.String, window)
+						form.Append(k, typedParam)
+					}
+
+				case *NFWidget.Widget:
+
+				}
+
+			}
+			propertiesCanvas.Refresh()
+		}
+	}()
+	go func() {
+		for {
+			<-propertyTypesUpdate
+			functions = make(map[string]NFData.AssetProperties)
+			layouts = make(map[string]NFData.AssetProperties)
+			widgets = make(map[string]NFData.AssetProperties)
+			//Walk the assets folder for all .NFLayout files
+			assetsFolder := filepath.Join(ActiveProject.Info.Path, "game/assets/")
+			err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				switch filepath.Ext(path) {
+				case ".NFLayout":
+					l, lErr := NFLayout.Load(path)
+					if lErr != nil {
+						errors.Join(err, errors.New(fmt.Sprintf("Error loading layout at %s", path)))
+					} else {
+						if _, ok := layouts[l.Type]; !ok {
+							errors.Join(err, errors.New(fmt.Sprintf("Layout Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", l.Type)))
+						} else {
+							layouts[l.Type] = l
+						}
+					}
+				case ".NFWidget":
+					w, wErr := NFWidget.Load(path)
+					if wErr != nil {
+						errors.Join(err, errors.New(fmt.Sprintf("Error loading widget at %s", path)))
+					} else {
+						if _, ok := widgets[w.Type]; !ok {
+							errors.Join(err, errors.New(fmt.Sprintf("Widget Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", w.Type)))
+						} else {
+							widgets[w.Type] = w
+						}
+					}
+				case ".NFFunction":
+					f, fErr := NFFunction.Load(path)
+					if fErr != nil {
+						errors.Join(err, errors.New(fmt.Sprintf("Error loading function at %s", path)))
+					} else {
+						if _, ok := functions[f.Type]; !ok {
+							errors.Join(err, errors.New(fmt.Sprintf("Function Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", f.Type)))
+						} else {
+							functions[f.Type] = f
+						}
+					}
+				}
+				return err
+			})
+			if err != nil {
+				log.Println(err)
+				dialog.ShowError(err, nil)
+				return
+			}
+		}
+	}()
+
+	propertyTypesUpdate <- emptyData
+	scenePropertiesUpdate <- emptyData
 	return container.NewVBox(widget.NewLabel("Scene Properties"))
 }
