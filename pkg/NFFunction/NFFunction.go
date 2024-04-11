@@ -8,6 +8,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 type Function struct {
@@ -115,9 +116,11 @@ func (f *Function) Export() error {
 		ExportPath += "/"
 	}
 	fBytes := struct {
+		Type         string              `json:"Type"`
 		RequiredArgs map[string][]string `json:"RequiredArgs"`
 		OptionalArgs map[string][]string `json:"OptionalArgs"`
 	}{
+		Type:         f.Type,
 		RequiredArgs: f.RequiredArgs.Export(),
 		OptionalArgs: f.OptionalArgs.Export(),
 	}
@@ -142,4 +145,13 @@ func (f *Function) Export() error {
 		return err
 	}
 	return nil
+}
+
+// Load is a function that is used to load a function from a .NFFunction file
+func Load(path string) (a NFData.AssetProperties, err error) {
+	if filepath.Ext(path) != ".NFFunction" {
+		return NFData.AssetProperties{}, errors.New("invalid file type")
+	}
+	err = a.Load(path)
+	return a, err
 }

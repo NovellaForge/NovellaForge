@@ -8,6 +8,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 // Widget is the struct that holds all the information about a widget
@@ -156,9 +157,11 @@ func (w *Widget) Export() error {
 	}
 	//Make the json safe struct
 	wBytes := struct {
+		Type         string              `json:"Type"`
 		RequiredArgs map[string][]string `json:"RequiredArgs"`
 		OptionalArgs map[string][]string `json:"OptionalArgs"`
 	}{
+		Type:         w.Type,
 		RequiredArgs: w.RequiredArgs.Export(),
 		OptionalArgs: w.OptionalArgs.Export(),
 	}
@@ -184,4 +187,12 @@ func (w *Widget) Export() error {
 		return err
 	}
 	return nil
+}
+
+func Load(path string) (a NFData.AssetProperties, err error) {
+	if filepath.Ext(path) != ".NFWidget" {
+		return NFData.AssetProperties{}, errors.New("invalid file type")
+	}
+	err = a.Load(path)
+	return a, err
 }

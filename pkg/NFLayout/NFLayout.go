@@ -9,6 +9,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 // layoutHandler is a function type that handles the layout logic.
@@ -142,10 +143,8 @@ func (l *Layout) Export() error {
 		ExportPath += "/"
 	}
 
-	lBytes := struct {
-		RequiredArgs map[string][]string `json:"RequiredArgs"` // List of required arguments for the layout
-		OptionalArgs map[string][]string `json:"OptionalArgs"` // List of optional arguments for the layout
-	}{
+	lBytes := NFData.AssetProperties{
+		Type:         l.Type,
 		RequiredArgs: l.RequiredArgs.Export(),
 		OptionalArgs: l.OptionalArgs.Export(),
 	}
@@ -168,4 +167,12 @@ func (l *Layout) Export() error {
 		return err
 	}
 	return nil
+}
+
+func Load(path string) (a NFData.AssetProperties, err error) {
+	if filepath.Ext(path) != ".NFLayout" {
+		return NFData.AssetProperties{}, errors.New("invalid file type")
+	}
+	err = a.Load(path)
+	return a, err
 }
