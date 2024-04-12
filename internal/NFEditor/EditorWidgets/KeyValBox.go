@@ -57,10 +57,15 @@ func NewKeyValBox(key string, val interface{}) *KeyValBox {
 		isEditing:  false,
 	}
 	box.editButton.OnTapped = func() {
-		box.StartEditing()
+		if box.isEditing {
+			box.Save()
+		} else {
+			box.StartEditing()
+		}
 	}
 	box.keyEntry.SetText(key)
 	box.val = box.valEntry.Text
+	box.Container.Add(box.editButton)
 	box.Container.Add(box.keyLabel)
 	box.Container.Add(box.valLabel)
 	return box
@@ -68,6 +73,7 @@ func NewKeyValBox(key string, val interface{}) *KeyValBox {
 
 func (b *KeyValBox) StartEditing() {
 	if !b.isEditing {
+		b.editButton.SetIcon(theme.DocumentSaveIcon())
 		b.Container.Remove(b.keyLabel)
 		b.Container.Remove(b.valLabel)
 		b.Container.Add(b.keyEntry)
