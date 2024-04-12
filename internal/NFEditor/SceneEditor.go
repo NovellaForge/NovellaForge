@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -476,22 +477,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 						}
 					}
 				}
-
-				//Sort both the branch and leaf nodes alphabetically
-				for i := 0; i < len(branchNodes); i++ {
-					for j := i + 1; j < len(branchNodes); j++ {
-						if sceneNodes[branchNodes[i]].Name > sceneNodes[branchNodes[j]].Name {
-							branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
-						}
-					}
-				}
-				for i := 0; i < len(leafNodes); i++ {
-					for j := i + 1; j < len(leafNodes); j++ {
-						if sceneNodes[leafNodes[i]].Name > sceneNodes[leafNodes[j]].Name {
-							leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
-						}
-					}
-				}
+				sort.Strings(branchNodes)
+				sort.Strings(leafNodes)
 				nodes := make([]widget.TreeNodeID, 0)
 				nodes = append(nodes, branchNodes...)
 				nodes = append(nodes, leafNodes...)
@@ -507,21 +494,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 						branchNodes = append(branchNodes, childID)
 					}
 				}
-				//Sort both the branch and leaf nodes alphabetically
-				for i := 0; i < len(branchNodes); i++ {
-					for j := i + 1; j < len(branchNodes); j++ {
-						if sceneNodes[branchNodes[i]].Name > sceneNodes[branchNodes[j]].Name {
-							branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
-						}
-					}
-				}
-				for i := 0; i < len(leafNodes); i++ {
-					for j := i + 1; j < len(leafNodes); j++ {
-						if sceneNodes[leafNodes[i]].Name > sceneNodes[leafNodes[j]].Name {
-							leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
-						}
-					}
-				}
+				sort.Strings(branchNodes)
+				sort.Strings(leafNodes)
 				nodes := make([]widget.TreeNodeID, 0)
 				nodes = append(nodes, branchNodes...)
 				nodes = append(nodes, leafNodes...)
@@ -675,9 +649,9 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 				if err != nil {
 					log.Println(err)
 					dialog.ShowError(err, window)
-					return
+				} else {
+					preview.Add(scene)
 				}
-				preview.Add(scene)
 
 			}
 			previewCanvas.Refresh()
@@ -727,22 +701,8 @@ func CreateSceneObjects() fyne.CanvasObject {
 									}
 								}
 							}
-
-							//Sort both the branch and leaf nodes alphabetically
-							for i := 0; i < len(branchNodes); i++ {
-								for j := i + 1; j < len(branchNodes); j++ {
-									if sceneObjects[branchNodes[i]].Name > sceneObjects[branchNodes[j]].Name {
-										branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
-									}
-								}
-							}
-							for i := 0; i < len(leafNodes); i++ {
-								for j := i + 1; j < len(leafNodes); j++ {
-									if sceneObjects[leafNodes[i]].Name > sceneObjects[leafNodes[j]].Name {
-										leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
-									}
-								}
-							}
+							sort.Strings(branchNodes)
+							sort.Strings(leafNodes)
 							nodes := make([]widget.TreeNodeID, 0)
 							nodes = append(nodes, branchNodes...)
 							nodes = append(nodes, leafNodes...)
@@ -759,21 +719,8 @@ func CreateSceneObjects() fyne.CanvasObject {
 										branchNodes = append(branchNodes, childID)
 									}
 								}
-								//Sort both the branch and leaf nodes alphabetically
-								for i := 0; i < len(branchNodes); i++ {
-									for j := i + 1; j < len(branchNodes); j++ {
-										if sceneObjects[branchNodes[i]].Name > sceneObjects[branchNodes[j]].Name {
-											branchNodes[i], branchNodes[j] = branchNodes[j], branchNodes[i]
-										}
-									}
-								}
-								for i := 0; i < len(leafNodes); i++ {
-									for j := i + 1; j < len(leafNodes); j++ {
-										if sceneObjects[leafNodes[i]].Name > sceneObjects[leafNodes[j]].Name {
-											leafNodes[i], leafNodes[j] = leafNodes[j], leafNodes[i]
-										}
-									}
-								}
+								sort.Strings(branchNodes)
+								sort.Strings(leafNodes)
 								nodes := make([]widget.TreeNodeID, 0)
 								nodes = append(nodes, branchNodes...)
 								nodes = append(nodes, leafNodes...)
@@ -880,7 +827,7 @@ func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
 		for i, child := range l.Children {
 			id := l.Type + "_" + strconv.Itoa(i)
 			children[id] = &sceneNode{
-				Name:     l.Type,
+				Name:     child.ID,
 				Leaf:     false,
 				Parent:   "MainLayout",
 				Children: nil,
@@ -935,7 +882,6 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 	go func() {
 		for {
 			<-scenePropertiesUpdate
-			return
 			properties := propertiesCanvas.(*fyne.Container)
 			if selectedObject == nil {
 				//Remove all but the first label
@@ -943,21 +889,21 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			} else {
 				log.Println("Updating Scene Properties")
 				properties.Objects = properties.Objects[:1]
+				typeLabel := widget.NewLabel("Type: ")
 				form := widget.NewForm()
-				//TODO add the properties of the selected object to the form
-
 				switch v := selectedObject.(type) {
 				case *NFLayout.Layout:
-					for k, _ := range v.Args.Data {
-						//TODO FIX THIS
-						typedParam := EditorWidgets.NewTypedParameter(k, "", EditorWidgets.String, window)
-						form.Append(k, typedParam)
-					}
-
+					typeLabel.SetText(v.Type)
+					typedParam := EditorWidgets.NewTypedParamList(&v.Args.Data, window)
+					form.Append("Data", typedParam)
 				case *NFWidget.Widget:
-
+					typeLabel.SetText(v.Type)
+					typedParam := EditorWidgets.NewTypedParamList(&v.Args.Data, window)
+					form.Append("Data", typedParam)
 				}
-
+				log.Println("Type: " + typeLabel.Text)
+				properties.Add(typeLabel)
+				properties.Add(form)
 			}
 			propertiesCanvas.Refresh()
 		}
@@ -969,7 +915,8 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			layouts = make(map[string]NFData.AssetProperties)
 			widgets = make(map[string]NFData.AssetProperties)
 			//Walk the assets folder for all .NFLayout files
-			assetsFolder := filepath.Join(ActiveProject.Info.Path, "game/assets/")
+			assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "game/assets/")
+			assetsFolder = filepath.Clean(assetsFolder)
 			err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
 				if err != nil {
 					return err
@@ -1021,5 +968,5 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 
 	propertyTypesUpdate <- emptyData
 	scenePropertiesUpdate <- emptyData
-	return container.NewVBox(widget.NewLabel("Scene Properties"))
+	return propertiesCanvas
 }
