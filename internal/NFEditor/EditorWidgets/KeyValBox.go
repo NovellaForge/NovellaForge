@@ -87,6 +87,9 @@ func (b *KeyValBox) StartEditing() {
 
 func (b *KeyValBox) StopEditing(save bool) {
 	if b.isEditing {
+		if b.OnEditChange != nil {
+			b.OnEditChange(b)
+		}
 		b.Container.Remove(b.keyEntry)
 		b.Container.Remove(b.valEntry)
 		b.Container.Add(b.keyLabel)
@@ -101,9 +104,6 @@ func (b *KeyValBox) StopEditing(save bool) {
 			b.valEntry.SetText(b.val)
 		}
 		b.isEditing = false
-		if b.OnEditChange != nil {
-			b.OnEditChange(b)
-		}
 	}
 }
 
