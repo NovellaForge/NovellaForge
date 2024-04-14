@@ -7,10 +7,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -74,8 +76,10 @@ var (
 	functions             = make(map[string]NFData.AssetProperties)
 	layouts               = make(map[string]NFData.AssetProperties)
 	widgets               = make(map[string]NFData.AssetProperties)
+	selectedScenePath     string
 	selectedScene         *NFScene.Scene
 	selectedObject        interface{}
+	autoSave              = true
 
 	previewCanvas    fyne.CanvasObject
 	propertiesCanvas fyne.CanvasObject
@@ -83,11 +87,14 @@ var (
 )
 
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
+	autoSave = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_AutoSave", true)
+	propertyScroll := container.NewScroll(CreateSceneProperties(window))
+	propertyScroll.SetMinSize(fyne.NewSize(300, 0))
 	MainSplit := container.NewHSplit(
 		CreateSceneSelector(window),
 		container.NewVSplit(CreateScenePreview(window),
-			container.NewHSplit(CreateSceneProperties(window),
-				CreateSceneObjects(),
+			container.NewHSplit(propertyScroll,
+				CreateSceneObjects(window),
 			),
 		),
 	)
@@ -572,8 +579,36 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					dialog.ShowError(err, window)
 					return
 				}
-				selectedScene = scene
-				scenePreviewUpdate <- emptyData
+				if !reflect.DeepEqual(selectedScene, scene) {
+					//Get the param list out of the sceneObjects if it exists
+					shouldChange := true
+					properties := propertiesCanvas.(*fyne.Container)
+					for _, object := range properties.Objects {
+						if propertyList, exists := object.(*EditorWidgets.TypedParamList); exists {
+							propertyList.CheckAll(window, func(b bool) {
+								shouldChange = b
+							})
+						}
+					}
+					if shouldChange && selectedScene != nil && selectedScenePath != "" {
+						dialog.ShowConfirm("Save before switching", "Do you want to save the current scene before switching?", func(b bool) {
+							if b {
+								log.Println("Saving Scene")
+								err := selectedScene.Save(selectedScenePath)
+								if err != nil {
+									dialog.ShowError(err, window)
+								}
+							}
+							selectedScenePath = scenePath
+							selectedScene = scene
+							scenePreviewUpdate <- emptyData
+						}, window)
+					} else {
+						selectedScenePath = scenePath
+						selectedScene = scene
+						scenePreviewUpdate <- emptyData
+					}
+				}
 			}
 		}
 	}
@@ -631,16 +666,33 @@ func countChildren(n interface{}) int {
 
 func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
+	autoSaveTimer := time.NewTimer(30 * time.Second)
+	go func() {
+		for {
+			<-autoSaveTimer.C
+			if autoSave {
+				if selectedScene != nil && selectedScenePath != "" {
+					log.Println("Auto Saving Scene")
+					err := selectedScene.Save(selectedScenePath)
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+				}
+			}
+		}
+	}()
 	go func() {
 		for {
 			<-scenePreviewUpdate
+			//Reset the auto save timer
+			autoSaveTimer.Stop()
+			autoSaveTimer.Reset(30 * time.Second)
 			preview := previewCanvas.(*fyne.Container)
 			if selectedScene == nil {
 				//Remove all but the first label
 				// preview.Objects = preview.Objects[:1]
 				preview.Objects[0] = container.NewVBox(widget.NewLabel("No Scene Loaded, Select a Scene to Preview"))
 			} else {
-				log.Println("Updating Scene Preview")
 				// Put an empty widget in the preview
 				preview.Objects = []fyne.CanvasObject{}
 
@@ -663,7 +715,7 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	return previewCanvas
 }
 
-func CreateSceneObjects() fyne.CanvasObject {
+func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 	// objectsCanvas = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
 	sceneObjectsLabel := container.NewVBox(widget.NewLabel("Scene Objects"))
 	objectsCanvas = container.NewBorder(sceneObjectsLabel, nil, nil, nil, widget.NewLabel("No Scene Loaded"))
@@ -674,8 +726,6 @@ func CreateSceneObjects() fyne.CanvasObject {
 			if selectedScene == nil {
 				objectsCanvas.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
 			} else {
-				log.Println("Updating Scene Objects")
-
 				// Get scene info
 				layoutType := selectedScene.Layout.Type
 				layoutChildrenCount := countChildren(selectedScene.Layout)
@@ -783,10 +833,23 @@ func CreateSceneObjects() fyne.CanvasObject {
 
 				tree.OnSelected = func(id widget.TreeNodeID) {
 					if node, ok := sceneObjects[id]; ok {
-						node.Selected = true
-						//TODO add selected object properties to the scene properties
-						selectedObject = node.Data
-						scenePropertiesUpdate <- emptyData
+						if !node.Selected {
+							//Get the typed param list out of the propertiesCanvas if it exists
+							shouldChange := true
+							properties := propertiesCanvas.(*fyne.Container)
+							for _, object := range properties.Objects {
+								if propertyList, exists := object.(*EditorWidgets.TypedParamList); exists {
+									propertyList.CheckAll(window, func(b bool) {
+										shouldChange = b
+									})
+								}
+							}
+							if shouldChange {
+								node.Selected = true
+								selectedObject = node.Data
+								scenePropertiesUpdate <- emptyData
+							}
+						}
 					}
 				}
 
@@ -798,6 +861,8 @@ func CreateSceneObjects() fyne.CanvasObject {
 				objectsCanvas.(*fyne.Container).Objects[0] = tree
 			}
 			objectsCanvas.Refresh()
+			selectedObject = nil
+			scenePropertiesUpdate <- emptyData
 		}
 	}()
 	sceneObjectsUpdate <- emptyData
@@ -887,23 +952,19 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 				//Remove all but the first label
 				properties.Objects = properties.Objects[:1]
 			} else {
-				log.Println("Updating Scene Properties")
 				properties.Objects = properties.Objects[:1]
 				typeLabel := widget.NewLabel("Type: ")
-				form := widget.NewForm()
+				var paramList *EditorWidgets.TypedParamList
 				switch v := selectedObject.(type) {
 				case *NFLayout.Layout:
 					typeLabel.SetText(v.Type)
-					typedParam := EditorWidgets.NewTypedParamList(&v.Args.Data, window)
-					form.Append("Data", typedParam)
+					paramList = EditorWidgets.NewTypedParamList(&v.Args.Data, window)
 				case *NFWidget.Widget:
 					typeLabel.SetText(v.Type)
-					typedParam := EditorWidgets.NewTypedParamList(&v.Args.Data, window)
-					form.Append("Data", typedParam)
+					paramList = EditorWidgets.NewTypedParamList(&v.Args.Data, window)
 				}
-				log.Println("Type: " + typeLabel.Text)
 				properties.Add(typeLabel)
-				properties.Add(form)
+				properties.Add(paramList)
 			}
 			propertiesCanvas.Refresh()
 		}

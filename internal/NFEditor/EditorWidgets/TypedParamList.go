@@ -3,6 +3,7 @@ package EditorWidgets
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"sort"
 )
@@ -67,4 +68,57 @@ func (l *TypedParamList) SetData(data *map[string]interface{}) {
 		l.container.Add(box)
 	}
 	l.Refresh()
+}
+
+func (l *TypedParamList) CheckAll(window fyne.Window, callBack func(bool)) {
+	editingKeys := make([]string, 0)
+	for _, object := range l.container.Objects {
+		box := object.(*KeyValBox)
+		if box.isEditing {
+			editingKeys = append(editingKeys, box.key)
+		}
+	}
+	if len(editingKeys) > 0 {
+		var saveDialog *dialog.CustomDialog
+		contentBox := container.NewVBox()
+		buttonBox := container.NewHBox()
+		label := widget.NewLabel("You have unsaved changes in the following keys:")
+		keyBox := container.NewVBox()
+		for _, key := range editingKeys {
+			keyBox.Add(widget.NewLabel(key))
+		}
+		scrollBox := container.NewVScroll(keyBox)
+		scrollBox.SetMinSize(fyne.NewSize(200, 100))
+		cancelButton := widget.NewButton("Cancel", func() {
+			saveDialog.Hide()
+			callBack(false)
+		})
+		saveAllButton := widget.NewButton("SaveAll", func() {
+			saveDialog.Hide()
+			for _, object := range l.container.Objects {
+				box := object.(*KeyValBox)
+				if box.isEditing {
+					box.Save()
+				}
+			}
+			callBack(true)
+		})
+		revertAllButton := widget.NewButton("RevertAll", func() {
+			saveDialog.Hide()
+			for _, object := range l.container.Objects {
+				box := object.(*KeyValBox)
+				if box.isEditing {
+					box.Revert()
+				}
+			}
+			callBack(true)
+		})
+		buttonBox.Add(cancelButton)
+		buttonBox.Add(saveAllButton)
+		buttonBox.Add(revertAllButton)
+		contentBox.Add(label)
+		contentBox.Add(scrollBox)
+		contentBox.Add(buttonBox)
+		saveDialog = dialog.NewCustomWithoutButtons("Unsaved Changes", contentBox, window)
+	}
 }

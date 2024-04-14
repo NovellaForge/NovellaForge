@@ -5,6 +5,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"log"
 )
 
 type keyValBoxRenderer struct {
@@ -78,7 +79,7 @@ func NewKeyValBox(key string, data *map[string]interface{}) *KeyValBox {
 		box.Revert()
 	}
 	box.keyEntry.SetText(key)
-	box.val = box.valEntry.Text
+	box.val = box.valEntry.Text()
 	box.buttonBox.Add(box.editButton)
 	box.dataBox.Add(box.keyLabel)
 	box.dataBox.Add(box.valLabel)
@@ -132,16 +133,21 @@ func (b *KeyValBox) StopEditing(save bool) {
 			}
 
 			//Check if the value has changed
-			if b.val != b.valEntry.Text {
+			if b.val != b.valEntry.Text() {
 				val, err := b.valEntry.ParsedValue()
 				if err != nil {
-					//dialog.ShowError(err, l.window)
+					log.Println(err)
 					b.valEntry.SetText(b.val)
 					return
 				}
+				log.Println("Changes made")
+				log.Println("old value: ", b.val)
+				log.Println("new value: ", b.valEntry.Text())
 				(*b.data)[b.key] = val
-				b.val = b.valEntry.Text
+				b.val = b.valEntry.Text()
 				b.valLabel.SetText(b.val)
+			} else {
+				log.Println("No changes made")
 			}
 		} else {
 			b.keyEntry.SetText(b.key)
