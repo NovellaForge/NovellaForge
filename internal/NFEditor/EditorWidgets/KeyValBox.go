@@ -50,6 +50,7 @@ type KeyValBox struct {
 	dataBox      *fyne.Container
 	buttonBox    *fyne.Container
 	window       fyne.Window
+	OnSave       func()
 }
 
 func NewKeyValBox(key string, data *map[string]interface{}, window fyne.Window) *KeyValBox {
@@ -108,14 +109,8 @@ func (b *KeyValBox) StartEditing() {
 		b.editButton.SetIcon(theme.DocumentSaveIcon())
 		b.revertButton.SetIcon(theme.CancelIcon())
 		b.dataBox.Objects = nil
-		b.gridBox.Objects = nil
-		b.buttonBox.Objects = nil
-		b.buttonBox.Add(b.revertButton)
-		b.buttonBox.Add(b.editButton)
 		b.dataBox.Add(b.keyEntry)
 		b.dataBox.Add(b.valEntry)
-		b.gridBox.Add(b.dataBox)
-		b.gridBox.Add(b.buttonBox)
 	}
 }
 
@@ -124,15 +119,9 @@ func (b *KeyValBox) StopEditing(save bool) {
 		b.isEditing = false
 		b.editButton.SetIcon(theme.DocumentCreateIcon())
 		b.revertButton.SetIcon(theme.DeleteIcon())
-		b.buttonBox.Objects = nil
 		b.dataBox.Objects = nil
-		b.gridBox.Objects = nil
-		b.buttonBox.Add(b.editButton)
-		b.buttonBox.Add(b.revertButton)
 		b.dataBox.Add(b.keyLabel)
 		b.dataBox.Add(b.valLabel)
-		b.gridBox.Add(b.dataBox)
-		b.gridBox.Add(b.buttonBox)
 		if save {
 			if b.key != b.keyEntry.Text {
 				//Remove the old key and add the new key
@@ -165,6 +154,9 @@ func (b *KeyValBox) StopEditing(save bool) {
 				b.valLabel.SetText(b.val)
 			} else {
 				log.Println("No changes made")
+			}
+			if b.OnSave != nil {
+				b.OnSave()
 			}
 		} else {
 			b.keyEntry.SetText(b.key)

@@ -93,6 +93,9 @@ func (l *TypedParamList) SetData(data *map[string]interface{}) {
 	// Iterate over sorted keys
 	for _, key := range keys {
 		box := NewKeyValBox(key, data, l.window)
+		box.OnSave = func() {
+			l.SetData(l.data)
+		}
 		l.container.Add(box)
 	}
 	l.Refresh()
