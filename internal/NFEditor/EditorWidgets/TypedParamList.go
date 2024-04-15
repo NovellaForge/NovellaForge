@@ -1,9 +1,12 @@
 package EditorWidgets
 
 import (
+	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"sort"
 )
@@ -32,9 +35,10 @@ func (t TypedParamListRenderer) Refresh() {
 
 type TypedParamList struct {
 	widget.BaseWidget
-	container *fyne.Container
-	data      *map[string]interface{}
-	window    fyne.Window
+	container    *fyne.Container
+	data         *map[string]interface{}
+	topContainer *fyne.Container
+	window       fyne.Window
 }
 
 func (l *TypedParamList) CreateRenderer() fyne.WidgetRenderer {
@@ -47,6 +51,29 @@ func NewTypedParamList(data *map[string]interface{}, window fyne.Window) *TypedP
 		data:      data,
 		window:    window,
 	}
+
+	// Create a new button with a theme.ContentAddIcon
+	addButton := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+		// Add a new key-value pair to the data
+		baseKey := "newKey"
+		uniqueKey := baseKey
+		counter := 1
+		// Check if the key already exists, if so, append a number to it
+		for _, exists := (*data)[uniqueKey]; exists; _, exists = (*data)[uniqueKey] {
+			uniqueKey = fmt.Sprintf("%s%d", baseKey, counter)
+			counter++
+		}
+		(*data)[uniqueKey] = "newValue"
+		// Refresh the list to reflect the new data
+		list.SetData(data)
+	})
+
+	// Create a new container with an HBox layout
+	list.topContainer = container.NewHBox(
+		addButton,          // Add the button to the container
+		layout.NewSpacer(), // Add a spacer to align the button to the left
+	)
+
 	list.SetData(data)
 	list.ExtendBaseWidget(list)
 	return list
@@ -54,6 +81,7 @@ func NewTypedParamList(data *map[string]interface{}, window fyne.Window) *TypedP
 
 func (l *TypedParamList) SetData(data *map[string]interface{}) {
 	l.container.Objects = nil
+	l.container.Add(l.topContainer)
 
 	// Extract the keys and sort them
 	keys := make([]string, 0, len(*data))
@@ -64,7 +92,7 @@ func (l *TypedParamList) SetData(data *map[string]interface{}) {
 
 	// Iterate over sorted keys
 	for _, key := range keys {
-		box := NewKeyValBox(key, data)
+		box := NewKeyValBox(key, data, l.window)
 		l.container.Add(box)
 	}
 	l.Refresh()

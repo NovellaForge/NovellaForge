@@ -3,6 +3,7 @@ package EditorWidgets
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"log"
@@ -48,9 +49,10 @@ type KeyValBox struct {
 	gridBox      *fyne.Container
 	dataBox      *fyne.Container
 	buttonBox    *fyne.Container
+	window       fyne.Window
 }
 
-func NewKeyValBox(key string, data *map[string]interface{}) *KeyValBox {
+func NewKeyValBox(key string, data *map[string]interface{}, window fyne.Window) *KeyValBox {
 	val := (*data)[key]
 	box := &KeyValBox{
 		Container:    container.NewPadded(),
@@ -59,13 +61,14 @@ func NewKeyValBox(key string, data *map[string]interface{}) *KeyValBox {
 		dataBox:      container.NewGridWithColumns(2),
 		key:          key,
 		editButton:   widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {}),
-		revertButton: widget.NewButtonWithIcon("", theme.CancelIcon(), func() {}),
+		revertButton: widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {}),
 		keyLabel:     widget.NewLabel(key),
 		valLabel:     NewTypedLabel(DetectValueType(val)),
 		keyEntry:     widget.NewEntry(),
 		valEntry:     NewTypedEntryWithText(DetectValueType(val)),
 		isEditing:    false,
 		data:         data,
+		window:       window,
 	}
 	box.Container.Add(box.gridBox)
 	box.editButton.OnTapped = func() {
@@ -76,11 +79,22 @@ func NewKeyValBox(key string, data *map[string]interface{}) *KeyValBox {
 		}
 	}
 	box.revertButton.OnTapped = func() {
-		box.Revert()
+		if box.isEditing {
+			box.Revert()
+		} else {
+			confirmDialog := dialog.NewConfirm("Confirm Deletion", "Are you sure you want to delete the key: "+box.key, func(response bool) {
+				if response {
+					delete(*box.data, box.key)
+					box.Container.Hide()
+				}
+			}, box.window)
+			confirmDialog.Show()
+		}
 	}
 	box.keyEntry.SetText(key)
 	box.val = box.valEntry.Text()
 	box.buttonBox.Add(box.editButton)
+	box.buttonBox.Add(box.revertButton)
 	box.dataBox.Add(box.keyLabel)
 	box.dataBox.Add(box.valLabel)
 	box.gridBox.Add(box.dataBox)
@@ -92,6 +106,7 @@ func (b *KeyValBox) StartEditing() {
 	if !b.isEditing {
 		b.isEditing = true
 		b.editButton.SetIcon(theme.DocumentSaveIcon())
+		b.revertButton.SetIcon(theme.CancelIcon())
 		b.dataBox.Objects = nil
 		b.gridBox.Objects = nil
 		b.buttonBox.Objects = nil
@@ -108,10 +123,12 @@ func (b *KeyValBox) StopEditing(save bool) {
 	if b.isEditing {
 		b.isEditing = false
 		b.editButton.SetIcon(theme.DocumentCreateIcon())
+		b.revertButton.SetIcon(theme.DeleteIcon())
 		b.buttonBox.Objects = nil
 		b.dataBox.Objects = nil
 		b.gridBox.Objects = nil
 		b.buttonBox.Add(b.editButton)
+		b.buttonBox.Add(b.revertButton)
 		b.dataBox.Add(b.keyLabel)
 		b.dataBox.Add(b.valLabel)
 		b.gridBox.Add(b.dataBox)
