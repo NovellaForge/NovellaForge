@@ -7,9 +7,9 @@ import (
 
 func main() {
 	a := app.New()
-	w := a.NewWindow("Widget Tester")
-	testingEntry := EditorWidgets.NewTypedEntry(EditorWidgets.StringType)
-	w.SetContent(testingEntry)
-	w.ShowAndRun()
+	w := a.NewWindow("Hello")
 
+	keyEntry := EditorWidgets.NewKeyEntry("Test")
+	w.SetContent(keyEntry)
+	w.ShowAndRun()
 }

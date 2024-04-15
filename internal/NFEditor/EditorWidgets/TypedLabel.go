@@ -41,15 +41,15 @@ func (t *TypedLabel) CreateRenderer() fyne.WidgetRenderer {
 
 }
 
-func NewTypedLabel(t ValueType, text string) *TypedLabel {
+func NewTypedLabel(val interface{}) *TypedLabel {
+	valType, valString := DetectValueType(val)
 	label := &TypedLabel{
-		labelType: t,
-		label:     widget.NewLabel(text),
+		labelType: valType,
+		label:     widget.NewLabel(valString),
 		container: container.NewStack(),
 	}
 	label.ExtendBaseWidget(label)
 	label.container.Add(label.label)
-	label.SetType(t)
 	return label
 }
 
@@ -73,7 +73,7 @@ func (t *TypedLabel) SetType(labelType ValueType) {
 		}
 	case StringType:
 		t.label.Importance = widget.LowImportance
-	default: // ObjectType
+	default: // MapType
 		t.label.Text = "Object..."
 		t.label.Importance = widget.WarningImportance
 	}
@@ -85,4 +85,9 @@ func (t *TypedLabel) Text() string {
 
 func (t *TypedLabel) SetText(val string) {
 	t.label.SetText(val)
+}
+
+func (t *TypedLabel) SetTextAndType(entryType ValueType, val string) {
+	t.SetType(entryType)
+	t.SetText(val)
 }

@@ -1,6 +1,7 @@
 package EditorWidgets
 
 import (
+	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -10,45 +11,72 @@ import (
 )
 
 type keyValBoxRenderer struct {
-	box *KeyValBox
+	box     *KeyValBox
+	objects []fyne.CanvasObject
 }
 
 func (k *keyValBoxRenderer) Destroy() {}
 
 func (k *keyValBoxRenderer) Layout(size fyne.Size) {
-	k.box.Container.Layout.Layout(k.box.Container.Objects, size)
+	box := container.NewWithoutLayout(k.box.editButton, k.box.revertButton, k.box.keyField, k.box.valField)
+	box.Resize(size)
+	availableSize := fyne.NewSize(size.Width, size.Height)
+
+	k.box.editButton.Resize(k.box.editButton.MinSize())
+	k.box.editButton.Move(fyne.NewPos(size.Width-availableSize.Width, 0))
+	availableSize.Width -= k.box.editButton.MinSize().Width
+
+	k.box.revertButton.Resize(k.box.revertButton.MinSize())
+	k.box.revertButton.Move(fyne.NewPos(size.Width-availableSize.Width, 0))
+	availableSize.Width -= k.box.revertButton.MinSize().Width
+
+	k.box.keyField.Resize(k.box.keyField.MinSize())
+	k.box.keyField.Move(fyne.NewPos(size.Width-availableSize.Width, 0))
+	availableSize.Width -= k.box.keyField.MinSize().Width
+
+	k.box.valField.Resize(k.box.valField.MinSize())
+	k.box.valField.Move(fyne.NewPos(size.Width-availableSize.Width, 0))
+	availableSize.Width -= k.box.valField.MinSize().Width
+
+	k.objects = []fyne.CanvasObject{box}
 }
 
 func (k *keyValBoxRenderer) MinSize() fyne.Size {
-	return k.box.Container.MinSize()
+	var minWidth float32 = 0
+	minWidth += k.box.editButton.MinSize().Width
+	minWidth += k.box.revertButton.MinSize().Width
+	minWidth += k.box.keyField.MinSize().Width
+	minWidth += k.box.valField.MinSize().Width
+	var minHeight float32 = 0
+	minHeight = max(minHeight, k.box.editButton.MinSize().Height)
+	minHeight = max(minHeight, k.box.revertButton.MinSize().Height)
+	minHeight = max(minHeight, k.box.keyField.MinSize().Height)
+	minHeight = max(minHeight, k.box.valField.MinSize().Height)
+	return fyne.NewSize(minWidth, minHeight)
 }
 
 func (k *keyValBoxRenderer) Objects() []fyne.CanvasObject {
-	return k.box.Container.Objects
+	return k.objects
 }
 
 func (k *keyValBoxRenderer) Refresh() {
-	k.box.Container.Refresh()
+	k.Layout(k.MinSize())
 }
 
 func (b *KeyValBox) CreateRenderer() fyne.WidgetRenderer {
-	return &keyValBoxRenderer{b}
+	return &keyValBoxRenderer{box: b}
 }
 
 type KeyValBox struct {
-	*fyne.Container
-	key, val     string
+	widget.BaseWidget
+	key          string
+	val          interface{}
 	editButton   *widget.Button
-	keyLabel     *widget.Label
-	valLabel     *TypedLabel
-	keyEntry     *widget.Entry
-	valEntry     *TypedEntry
+	revertButton *widget.Button
+	keyField     *KeyEntry
+	valField     *TypedEntry
 	isEditing    bool
 	data         *map[string]interface{}
-	revertButton *widget.Button
-	gridBox      *fyne.Container
-	dataBox      *fyne.Container
-	buttonBox    *fyne.Container
 	window       fyne.Window
 	OnSave       func()
 }
@@ -56,22 +84,17 @@ type KeyValBox struct {
 func NewKeyValBox(key string, data *map[string]interface{}, window fyne.Window) *KeyValBox {
 	val := (*data)[key]
 	box := &KeyValBox{
-		Container:    container.NewPadded(),
-		gridBox:      container.NewGridWithColumns(2),
-		buttonBox:    container.NewHBox(),
-		dataBox:      container.NewGridWithColumns(2),
 		key:          key,
 		editButton:   widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {}),
 		revertButton: widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {}),
-		keyLabel:     widget.NewLabel(key),
-		valLabel:     NewTypedLabel(DetectValueType(val)),
-		keyEntry:     widget.NewEntry(),
-		valEntry:     NewTypedEntryWithText(DetectValueType(val)),
+		keyField:     NewKeyEntry(key),
+		valField:     NewTypedEntry(val),
+		val:          val,
 		isEditing:    false,
 		data:         data,
 		window:       window,
 	}
-	box.Container.Add(box.gridBox)
+	box.ExtendBaseWidget(box)
 	box.editButton.OnTapped = func() {
 		if box.isEditing {
 			box.Save()
@@ -83,23 +106,13 @@ func NewKeyValBox(key string, data *map[string]interface{}, window fyne.Window) 
 		if box.isEditing {
 			box.Revert()
 		} else {
-			confirmDialog := dialog.NewConfirm("Confirm Deletion", "Are you sure you want to delete the key: "+box.key, func(response bool) {
+			dialog.ShowConfirm("Confirm Deletion", "Are you sure you want to delete the key: "+box.key, func(response bool) {
 				if response {
 					delete(*box.data, box.key)
-					box.Container.Hide()
 				}
 			}, box.window)
-			confirmDialog.Show()
 		}
 	}
-	box.keyEntry.SetText(key)
-	box.val = box.valEntry.Text()
-	box.buttonBox.Add(box.editButton)
-	box.buttonBox.Add(box.revertButton)
-	box.dataBox.Add(box.keyLabel)
-	box.dataBox.Add(box.valLabel)
-	box.gridBox.Add(box.dataBox)
-	box.gridBox.Add(box.buttonBox)
 	return box
 }
 
@@ -108,9 +121,7 @@ func (b *KeyValBox) StartEditing() {
 		b.isEditing = true
 		b.editButton.SetIcon(theme.DocumentSaveIcon())
 		b.revertButton.SetIcon(theme.CancelIcon())
-		b.dataBox.Objects = nil
-		b.dataBox.Add(b.keyEntry)
-		b.dataBox.Add(b.valEntry)
+		b.valField.SetEditing(true)
 	}
 }
 
@@ -119,39 +130,26 @@ func (b *KeyValBox) StopEditing(save bool) {
 		b.isEditing = false
 		b.editButton.SetIcon(theme.DocumentCreateIcon())
 		b.revertButton.SetIcon(theme.DeleteIcon())
-		b.dataBox.Objects = nil
-		b.dataBox.Add(b.keyLabel)
-		b.dataBox.Add(b.valLabel)
+		b.valField.SetEditing(false)
 		if save {
-			if b.key != b.keyEntry.Text {
+			if b.key != b.keyField.Key() {
 				//Remove the old key and add the new key
 				//Check if the new key already exists
-				if _, ok := (*b.data)[b.keyEntry.Text]; ok {
-					//dialog.ShowError(errors.New("key already exists"), l.window)
-					b.keyEntry.SetText(b.key)
+				if _, ok := (*b.data)[b.keyField.Key()]; ok {
+					dialog.ShowError(errors.New("key already exists"), b.window)
+					b.keyField.SetKey(b.key)
 					return
 				} else {
-					(*b.data)[b.keyEntry.Text] = (*b.data)[b.key]
+					(*b.data)[b.keyField.Key()] = (*b.data)[b.key]
 					delete(*b.data, b.key)
-					b.key = b.keyEntry.Text
-					b.keyLabel.SetText(b.key)
+					b.key = b.keyField.Key()
 				}
 			}
 
 			//Check if the value has changed
-			if b.val != b.valEntry.Text() {
-				val, err := b.valEntry.ParsedValue()
-				if err != nil {
-					log.Println(err)
-					b.valEntry.SetText(b.val)
-					return
-				}
-				log.Println("Changes made")
-				log.Println("old value: ", b.val)
-				log.Println("new value: ", b.valEntry.Text())
-				(*b.data)[b.key] = val
-				b.val = b.valEntry.Text()
-				b.valLabel.SetText(b.val)
+			if b.val != b.valField.val {
+				(*b.data)[b.key] = b.valField.val
+				b.val = b.valField.val
 			} else {
 				log.Println("No changes made")
 			}
@@ -159,10 +157,8 @@ func (b *KeyValBox) StopEditing(save bool) {
 				b.OnSave()
 			}
 		} else {
-			b.keyEntry.SetText(b.key)
-			b.keyLabel.SetText(b.key)
-			b.valEntry.SetText(b.val)
-			b.valLabel.SetText(b.val)
+			b.keyField.SetKey(b.key)
+			b.valField.SetVal(b.val)
 		}
 	}
 }
