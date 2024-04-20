@@ -132,6 +132,22 @@ type Scene struct {
 	Args   *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (scene *Scene) GetType() string {
+	return scene.Name
+}
+
+func (scene *Scene) SetType(t string) {
+	scene.Name = t
+}
+
+func (scene *Scene) GetArgs() *NFData.NFInterfaceMap {
+	return scene.Args
+}
+
+func (scene *Scene) SetArgs(args *NFData.NFInterfaceMap) {
+	scene.Args = args
+}
+
 // NewScene creates a new scene with the given name, layout, and arguments
 func NewScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap) *Scene {
 	return &Scene{

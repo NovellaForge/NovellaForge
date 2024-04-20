@@ -28,6 +28,22 @@ type Widget struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (w *Widget) GetType() string {
+	return w.Type
+}
+
+func (w *Widget) SetType(t string) {
+	w.Type = t
+}
+
+func (w *Widget) GetArgs() *NFData.NFInterfaceMap {
+	return w.Args
+}
+
+func (w *Widget) SetArgs(args *NFData.NFInterfaceMap) {
+	w.Args = args
+}
+
 // NewWithID creates a new widget with the given ID and type
 func NewWithID(id, widgetType string, children []*Widget, args *NFData.NFInterfaceMap) *Widget {
 	return &Widget{

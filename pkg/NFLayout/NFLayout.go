@@ -30,6 +30,22 @@ type Layout struct {
 	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
 }
 
+func (l *Layout) GetType() string {
+	return l.Type
+}
+
+func (l *Layout) SetType(t string) {
+	l.Type = t
+}
+
+func (l *Layout) GetArgs() *NFData.NFInterfaceMap {
+	return l.Args
+}
+
+func (l *Layout) SetArgs(args *NFData.NFInterfaceMap) {
+	l.Args = args
+}
+
 // NewLayout creates a new layout with the given type.
 func NewLayout(layoutType string, children []*NFWidget.Widget, args *NFData.NFInterfaceMap) *Layout {
 	return &Layout{

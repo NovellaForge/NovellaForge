@@ -25,6 +25,26 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+//Functions for the NFData.NFObject interface
+
+func (f *Function) GetType() string {
+	return f.Type
+}
+
+func (f *Function) SetType(t string) {
+	f.Type = t
+}
+
+func (f *Function) GetArgs() *NFData.NFInterfaceMap {
+	return f.Args
+}
+
+func (f *Function) SetArgs(args *NFData.NFInterfaceMap) {
+	f.Args = args
+}
+
+//End of Functions for the NFData.NFObject interface
+
 // CheckArgs checks if the function has all the required arguments
 func (f *Function) CheckArgs() error {
 	info, err := GetFunctionInfo(f.Type)

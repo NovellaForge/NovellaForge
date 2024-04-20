@@ -21,7 +21,6 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/internal/NFEditor/EditorWidgets"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
@@ -581,16 +580,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				}
 				if !reflect.DeepEqual(selectedScene, scene) {
 					//Get the param list out of the sceneObjects if it exists
-					shouldChange := true
-					properties := propertiesCanvas.(*fyne.Container)
-					for _, object := range properties.Objects {
-						if propertyList, exists := object.(*EditorWidgets.TypedParamList); exists {
-							propertyList.CheckAll(window, func(b bool) {
-								shouldChange = b
-							})
-						}
-					}
-					if shouldChange && selectedScene != nil && selectedScenePath != "" {
+					if selectedScene != nil && selectedScenePath != "" {
 						dialog.ShowConfirm("Save before switching", "Do you want to save the current scene before switching?", func(b bool) {
 							if b {
 								log.Println("Saving Scene")
@@ -835,20 +825,11 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 					if node, ok := sceneObjects[id]; ok {
 						if !node.Selected {
 							//Get the typed param list out of the propertiesCanvas if it exists
-							shouldChange := true
-							properties := propertiesCanvas.(*fyne.Container)
-							for _, object := range properties.Objects {
-								if propertyList, exists := object.(*EditorWidgets.TypedParamList); exists {
-									propertyList.CheckAll(window, func(b bool) {
-										shouldChange = b
-									})
-								}
-							}
-							if shouldChange {
-								node.Selected = true
-								selectedObject = node.Data
-								scenePropertiesUpdate <- emptyData
-							}
+							//TODO: Pass a validation function down to the lowest levels of the list and check that here
+							node.Selected = true
+							selectedObject = node.Data
+							scenePropertiesUpdate <- emptyData
+
 						}
 					}
 				}
@@ -954,15 +935,19 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			} else {
 				properties.Objects = properties.Objects[:1]
 				typeLabel := widget.NewLabel("Type: ")
-				var paramList *EditorWidgets.TypedParamList
-				switch v := selectedObject.(type) {
-				case *NFLayout.Layout:
-					typeLabel.SetText(v.Type)
-					paramList = EditorWidgets.NewTypedParamList(&v.Args.Data, window)
-				case *NFWidget.Widget:
-					typeLabel.SetText(v.Type)
-					paramList = EditorWidgets.NewTypedParamList(&v.Args.Data, window)
+				object, ok := selectedObject.(NFData.NFObject)
+				if !ok {
+					panic("Selected Object is not an NFObject")
 				}
+				typeLabel.SetText("Type: " + object.GetType())
+				args := object.GetArgs()
+				coupledArgs := NewCoupledInterfaceMap(args)
+				formItems := make([]*widget.FormItem, 0)
+				for key, val := range args.Data {
+					formItems = append(formItems, CreateParamItem(key, val, coupledArgs, window))
+				}
+				paramList := widget.NewForm(formItems...)
+
 				properties.Add(typeLabel)
 				properties.Add(paramList)
 			}
@@ -1030,4 +1015,111 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 	propertyTypesUpdate <- emptyData
 	scenePropertiesUpdate <- emptyData
 	return propertiesCanvas
+}
+
+// CreateParamItem creates a FormItem for a parameter
+//
+// # TODO
+//
+// [ ] Need to fix up key validation for some of the types (Int to string and whatnot)
+//
+// [ ] Also need to add in context menu for changing key/type
+//
+// [ ] Also need to add in add and delete buttons for slices and maps
+//
+// [ ] Last step after all of that is to validate all the types
+func CreateParamItem(key string, val interface{}, parent CoupledObject, window fyne.Window) *widget.FormItem {
+	valType, valString := GetValueTypeAndLabel(val)
+	switch valType {
+	case FloatType, IntType, StringType, BooleanType:
+		entry := widget.NewEntry()
+		entry.SetText(fmt.Sprintf("%v", val))
+		entry.Validator = func(s string) error {
+			switch valType {
+			case FloatType:
+				if _, err := strconv.ParseFloat(s, 64); err != nil {
+					return errors.New("invalid float")
+				}
+			case IntType:
+				if _, err := strconv.ParseInt(s, 10, 64); err != nil {
+					return errors.New("invalid int")
+				}
+			case StringType:
+				return nil
+			case BooleanType:
+				if _, err := strconv.ParseBool(s); err != nil {
+					return errors.New("invalid bool")
+				}
+			}
+			return nil
+		}
+		entry.OnChanged = func(s string) {
+			err := entry.Validate()
+			if err != nil {
+				return
+			}
+			var v interface{}
+			switch valType {
+			case FloatType:
+				v, _ = strconv.ParseFloat(s, 64)
+			case IntType:
+				v, _ = strconv.ParseInt(s, 10, 64)
+			case StringType:
+				v = s
+			case BooleanType:
+				v, _ = strconv.ParseBool(s)
+			}
+			parent.Set(key, v)
+		}
+		return widget.NewFormItem(key, entry)
+	case PropertyType:
+		valMap := val.(map[string]interface{})
+		//Make sure it has a Data key
+		if _, ok := valMap["Data"]; !ok {
+			panic("Property does not have a Data key")
+		}
+		innerArgs := NFData.NewNFInterfaceFromMap(valMap["Data"].(map[string]interface{}))
+		coupledArgs := NewCoupledInterfaceMap(innerArgs)
+		innerFormItems := make([]*widget.FormItem, 0)
+		for innerKey, innerVal := range innerArgs.Data {
+			innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledArgs, window))
+		}
+		editButton := widget.NewButton(valString, func() {
+			dialog.ShowForm("Edit Args", "Save", "Cancel", innerFormItems, func(b bool) {
+				if b {
+					parent.Set(key, coupledArgs.Args)
+				}
+			}, window)
+		})
+		return widget.NewFormItem(key, editButton)
+	case SliceType:
+		coupledSlice := NewCoupledSlice(val.([]interface{}))
+		innerFormItems := make([]*widget.FormItem, 0)
+		for i, innerVal := range coupledSlice.Slice {
+			innerFormItems = append(innerFormItems, CreateParamItem(strconv.Itoa(i), innerVal, coupledSlice, window))
+		}
+		editButton := widget.NewButton(valString, func() {
+			dialog.ShowForm("Edit Slice", "Save", "Cancel", innerFormItems, func(b bool) {
+				if b {
+					parent.Set(key, coupledSlice.Slice)
+				}
+			}, window)
+		})
+		return widget.NewFormItem(key, editButton)
+	case MapType:
+		coupledMap := NewCoupledMap(val.(map[string]interface{}))
+		innerFormItems := make([]*widget.FormItem, 0)
+		for innerKey, innerVal := range coupledMap.Map {
+			innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledMap, window))
+		}
+		editButton := widget.NewButton(valString, func() {
+			dialog.ShowForm("Edit Map", "Save", "Cancel", innerFormItems, func(b bool) {
+				if b {
+					parent.Set(key, coupledMap.Map)
+				}
+			}, window)
+		})
+		return widget.NewFormItem(key, editButton)
+	}
+	return widget.NewFormItem(key, widget.NewLabel(valString))
 }
