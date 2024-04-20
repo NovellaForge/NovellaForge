@@ -942,14 +942,40 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 				typeLabel.SetText("Type: " + object.GetType())
 				args := object.GetArgs()
 				coupledArgs := NewCoupledInterfaceMap(args)
+				addButton := widget.NewButtonWithIcon("Add Property", theme.ContentAddIcon(), func() {})
 				formItems := make([]*widget.FormItem, 0)
-				for key, val := range args.Data {
-					formItems = append(formItems, CreateParamItem(key, val, coupledArgs, window))
+				form := widget.NewForm()
+				for _, key := range coupledArgs.Keys() {
+					val, b := coupledArgs.Get(key)
+					if !b {
+						dialog.ShowError(errors.New("failed to get key"), window)
+					}
+					formItems = append(formItems, CreateParamItem(key, val, coupledArgs, form, window))
 				}
-				paramList := widget.NewForm(formItems...)
+				for _, item := range formItems {
+					form.AppendItem(item)
+				}
+				addButton.OnTapped = func() {
+					newKeyInterface := coupledArgs.Add()
+					newKey := ""
+					switch v := newKeyInterface.(type) {
+					case string:
+						newKey = v
+					case int:
+						newKey = strconv.Itoa(v)
+					default:
+						dialog.ShowError(errors.New("failed to add new key"), window)
+					}
+					newVal, b := coupledArgs.Get(newKey)
+					if !b {
+						dialog.ShowError(errors.New("failed to add new key"), window)
+					}
+					form.AppendItem(CreateParamItem(newKey, newVal, coupledArgs, form, window))
+				}
 
 				properties.Add(typeLabel)
-				properties.Add(paramList)
+				properties.Add(container.NewHBox(addButton, layout.NewSpacer()))
+				properties.Add(form)
 			}
 			propertiesCanvas.Refresh()
 		}
@@ -1017,19 +1043,30 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 	return propertiesCanvas
 }
 
+// TODO fix the delete buttons not updating to use the new keys
+func refreshForm(form *widget.Form, object CoupledObject, window fyne.Window) {
+	formItems := make([]*widget.FormItem, 0)
+	objectKeys := object.Keys()
+	for _, key := range objectKeys {
+		val, b := object.Get(key)
+		if !b {
+			dialog.ShowError(errors.New("failed to get key"), window)
+		}
+		formItems = append(formItems, CreateParamItem(key, val, object, form, window))
+	}
+	form.Items = formItems
+	form.Refresh()
+}
+
 // CreateParamItem creates a FormItem for a parameter
 //
-// # TODO
+// TODO: validate all the types
 //
-// [ ] Need to fix up key validation for some of the types (Int to string and whatnot)
-//
-// [ ] Also need to add in context menu for changing key/type
-//
-// [ ] Also need to add in add and delete buttons for slices and maps
-//
-// [ ] Last step after all of that is to validate all the types
-func CreateParamItem(key string, val interface{}, parent CoupledObject, window fyne.Window) *widget.FormItem {
+// Current Issues, buttons not switching to new keys after delete. And context menu switch type does not refresh the form
+func CreateParamItem(key string, val interface{}, parent CoupledObject, parentForm *widget.Form, window fyne.Window) *widget.FormItem {
 	valType, valString := GetValueTypeAndLabel(val)
+	var coupledObject CoupledObject
+	var formObject fyne.CanvasObject
 	switch valType {
 	case FloatType, IntType, StringType, BooleanType:
 		entry := widget.NewEntry()
@@ -1071,7 +1108,7 @@ func CreateParamItem(key string, val interface{}, parent CoupledObject, window f
 			}
 			parent.Set(key, v)
 		}
-		return widget.NewFormItem(key, entry)
+		formObject = entry
 	case PropertyType:
 		valMap := val.(map[string]interface{})
 		//Make sure it has a Data key
@@ -1079,47 +1116,121 @@ func CreateParamItem(key string, val interface{}, parent CoupledObject, window f
 			panic("Property does not have a Data key")
 		}
 		innerArgs := NFData.NewNFInterfaceFromMap(valMap["Data"].(map[string]interface{}))
-		coupledArgs := NewCoupledInterfaceMap(innerArgs)
-		innerFormItems := make([]*widget.FormItem, 0)
-		for innerKey, innerVal := range innerArgs.Data {
-			innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledArgs, window))
-		}
-		editButton := widget.NewButton(valString, func() {
-			dialog.ShowForm("Edit Args", "Save", "Cancel", innerFormItems, func(b bool) {
-				if b {
-					parent.Set(key, coupledArgs.Args)
-				}
-			}, window)
-		})
-		return widget.NewFormItem(key, editButton)
+		coupledObject = NewCoupledInterfaceMap(innerArgs)
 	case SliceType:
-		coupledSlice := NewCoupledSlice(val.([]interface{}))
-		innerFormItems := make([]*widget.FormItem, 0)
-		for i, innerVal := range coupledSlice.Slice {
-			innerFormItems = append(innerFormItems, CreateParamItem(strconv.Itoa(i), innerVal, coupledSlice, window))
-		}
-		editButton := widget.NewButton(valString, func() {
-			dialog.ShowForm("Edit Slice", "Save", "Cancel", innerFormItems, func(b bool) {
-				if b {
-					parent.Set(key, coupledSlice.Slice)
-				}
-			}, window)
-		})
-		return widget.NewFormItem(key, editButton)
+		coupledObject = NewCoupledSlice(val.([]interface{}))
 	case MapType:
-		coupledMap := NewCoupledMap(val.(map[string]interface{}))
-		innerFormItems := make([]*widget.FormItem, 0)
-		for innerKey, innerVal := range coupledMap.Map {
-			innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledMap, window))
-		}
-		editButton := widget.NewButton(valString, func() {
-			dialog.ShowForm("Edit Map", "Save", "Cancel", innerFormItems, func(b bool) {
-				if b {
-					parent.Set(key, coupledMap.Map)
-				}
-			}, window)
-		})
-		return widget.NewFormItem(key, editButton)
+		coupledObject = NewCoupledMap(val.(map[string]interface{}))
+	default:
+		formObject = widget.NewLabel(valString)
 	}
-	return widget.NewFormItem(key, widget.NewLabel(valString))
+
+	if coupledObject == nil {
+		gridBox := container.NewGridWithColumns(2, formObject)
+		buttonBox := container.NewHBox()
+		gridBox.Add(buttonBox)
+		deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			waitChan := make(chan struct{})
+			log.Println("Checking delete for: " + key)
+			parent.Delete(key, waitChan, window)
+			go func() {
+				<-waitChan
+				refreshForm(parentForm, parent, window)
+			}()
+		})
+		contextButton := widget.NewButton("Context", func() {})
+		buttonBox.Add(deleteButton)
+		buttonBox.Add(contextButton)
+		changeTypeSelect := widget.NewSelect(GetTypesString(), func(s string) {
+			var newType = GetType(s)
+			parent.SetType(key, newType)
+			//Attempt to cast the object to an entry
+			entry, ok := formObject.(*widget.Entry)
+			if ok {
+				err := entry.Validate()
+				if err != nil {
+					entry.SetValidationError(err)
+				}
+			}
+			refreshForm(parentForm, parent, window)
+		})
+		changeKeyEntry := widget.NewEntry()
+		changeKeyEntry.SetText(key)
+		saveKeyButton := widget.NewButton("Save", func() {})
+		keyGrid := container.NewGridWithColumns(2, changeKeyEntry, saveKeyButton)
+		keyFormItem := widget.NewFormItem("Set Key: ", keyGrid)
+		typeFormItem := widget.NewFormItem("Set Type: ", changeTypeSelect)
+		closeButton := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {})
+		form := widget.NewForm(keyFormItem, typeFormItem)
+		contextDialog := dialog.NewCustomWithoutButtons("Context Menu", container.NewVBox(form, closeButton), window)
+		saveKeyButton.OnTapped = func() {
+			newKey := changeKeyEntry.Text
+			b := parent.SetKey(key, newKey)
+			if !b {
+				dialog.ShowError(errors.New("failed to change key"), window)
+			}
+			refreshForm(parentForm, parent, window)
+			contextDialog.Hide()
+		}
+		contextButton.OnTapped = func() {
+			contextDialog.Show()
+		}
+		closeButton.OnTapped = func() {
+			contextDialog.Hide()
+		}
+		return widget.NewFormItem(key, gridBox)
+	}
+
+	form := widget.NewForm()
+	innerFormItems := make([]*widget.FormItem, 0)
+	for _, innerKey := range coupledObject.Keys() {
+		innerVal, _ := coupledObject.Get(innerKey)
+		innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledObject, form, window))
+	}
+	for _, item := range innerFormItems {
+		form.AppendItem(item)
+	}
+	innerButtons := container.NewHBox(
+		widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+			newKeyInterface := coupledObject.Add()
+			newKey := ""
+			switch v := newKeyInterface.(type) {
+			case string:
+				newKey = v
+			case int:
+				newKey = strconv.Itoa(v)
+			default:
+				dialog.ShowError(errors.New("failed to add new key"), window)
+			}
+			newVal, b := coupledObject.Get(newKey)
+			if !b {
+				dialog.ShowError(errors.New("failed to add new key"), window)
+			}
+			form.AppendItem(CreateParamItem(newKey, newVal, coupledObject, form, window))
+		}))
+	outerButtons := container.NewHBox(
+		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			waitChan := make(chan struct{})
+			log.Println("Checking delete for: " + key)
+			parent.Delete(key, waitChan, window)
+			go func() {
+				<-waitChan
+				refreshForm(parentForm, parent, window)
+			}()
+		}))
+	scrollBox := container.NewVScroll(form)
+	scrollBox.SetMinSize(fyne.NewSize(400, 250))
+	border := container.NewBorder(innerButtons, nil, nil, nil, scrollBox)
+	editDialog := dialog.NewCustomConfirm("Edit "+valString, "Save", "Cancel", container.NewCenter(border), func(b bool) {
+		if b {
+			parent.Set(key, coupledObject.Object())
+			refreshForm(parentForm, parent, window)
+		}
+	}, window)
+
+	editButton := widget.NewButton(valString, func() {
+		editDialog.Show()
+	})
+	gridBox := container.NewGridWithColumns(2, editButton, outerButtons)
+	return widget.NewFormItem(key, gridBox)
 }

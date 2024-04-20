@@ -97,6 +97,16 @@ func (a *NFInterfaceMap) Export() map[string][]string {
 	return types
 }
 
+// UnTypedGet gets an element from the interface if it exists
+func (a *NFInterfaceMap) UnTypedGet(key string) (interface{}, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if value, ok := a.Data[key]; ok {
+		return value, true
+	}
+	return nil, false
+}
+
 // Get gets an element from the interface by reference, it will return an error if the Key does not exist or if the type does not match
 func (a *NFInterfaceMap) Get(key string, ref interface{}) error {
 	a.mu.RLock()
