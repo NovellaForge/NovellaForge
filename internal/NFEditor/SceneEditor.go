@@ -84,7 +84,10 @@ var (
 	selectedScene     *NFScene.Scene
 	selectedObject    interface{}
 	autoSave          = true
+	autoSaveTime      = 30 * time.Second
 	changesMade       = false
+
+	autoSaveTimer *time.Timer
 
 	previewCanvas    fyne.CanvasObject
 	propertiesCanvas fyne.CanvasObject
@@ -92,7 +95,7 @@ var (
 )
 
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
-	autoSave = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_AutoSave", true)
+	updateMainMenuBar(window)
 	propertyScroll := container.NewScroll(CreateSceneProperties(window))
 	propertyScroll.SetMinSize(fyne.NewSize(300, 0))
 	MainSplit := container.NewHSplit(
@@ -107,15 +110,98 @@ func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	return MainSplit
 }
 
+func updateMainMenuBar(window fyne.Window) {
+	editMenu := fyne.NewMenu("Editor")
+	preferencesItem := fyne.NewMenuItem("Preferences", func() {
+		prefForm := widget.NewForm()
+		autoSave = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_AutoSave", true)
+		autoSaveCheck := widget.NewCheck("", func(b bool) {
+			autoSave = b
+			fyne.CurrentApp().Preferences().SetBool("SceneEditor_AutoSave", b)
+		})
+		autoSaveCheck.Checked = autoSave
+		prefForm.Append("Auto Save", autoSaveCheck)
+		autoSaveTimeText := fyne.CurrentApp().Preferences().StringWithFallback("SceneEditor_AutoSaveTime", "30s")
+		autoSaveTimeEntry := widget.NewEntry()
+		autoSaveTimeEntry.SetText(autoSaveTimeText)
+		autoSaveTimeEntry.Validator = func(s string) error {
+			_, err := parseTime(s)
+			return err
+		}
+		autoSaveTimeEntry.OnChanged = func(s string) {
+			valErr := autoSaveTimeEntry.Validate()
+			if valErr == nil {
+				parsedTime, err := parseTime(s)
+				if err == nil {
+					autoSaveTime = parsedTime
+					autoSaveTimer.Stop()
+					autoSaveTimer.Reset(autoSaveTime)
+					fyne.CurrentApp().Preferences().SetString("SceneEditor_AutoSaveTime", s)
+				}
+
+			}
+		}
+		prefForm.Append("Auto Save Time", autoSaveTimeEntry)
+		dialog.ShowCustom("Scene Editor Preferences", "Close", prefForm, window)
+	})
+	editMenu.Items = append(editMenu.Items, preferencesItem)
+	saveItem := fyne.NewMenuItem("Save", func() {
+		saveScene(window)
+	})
+	saveItem.Shortcut = NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierControl)
+	editMenu.Items = append(editMenu.Items, saveItem)
+	mainMenu := window.MainMenu()
+	mainMenu.Items = append(mainMenu.Items, editMenu)
+	window.SetMainMenu(mainMenu)
+}
+
+func parseTime(s string) (time.Duration, error) {
+	//Check if splitting off the last element results in a number and a character
+	timeUnit := ""
+	timeVal := 0
+	_, err := fmt.Sscanf(s, "%d%s", &timeVal, &timeUnit)
+	if err != nil {
+		//Check for just a number
+		timeVal, err = strconv.Atoi(s)
+		if err != nil {
+			return 0, err
+		}
+	}
+	switch timeUnit {
+	case "m":
+		timeVal = max(timeVal, 1)
+		return time.Duration(timeVal) * time.Minute, nil
+	case "h":
+		timeVal = max(timeVal, 1)
+		return time.Duration(timeVal) * time.Hour, nil
+	default:
+		timeVal = max(timeVal, 30)
+		return time.Duration(timeVal) * time.Second, nil
+	}
+}
+
 func saveScene(window fyne.Window) {
+	log.Println("Check Save Scene")
 	if selectedScene != nil && selectedScenePath != "" {
-		log.Println("Saving Scene...")
+		label := widget.NewButtonWithIcon("Saving Scene", theme.DocumentSaveIcon(), func() {})
+		hbox := container.NewHBox(layout.NewSpacer(), label)
+		vbox := container.NewVBox(hbox)
+		popup := widget.NewPopUp(vbox, window.Canvas())
+		popup.Show()
 		err := selectedScene.Save(selectedScenePath)
 		if err != nil {
+			label.Text = "Error Saving Scene"
+			label.Icon = theme.ErrorIcon()
+			label.Refresh()
 			dialog.ShowError(err, window)
 		} else {
 			changesMade = false
+			label.Text = "Scene Saved"
+			label.Icon = theme.CheckButtonCheckedIcon()
+			label.Refresh()
 		}
+		time.Sleep(1 * time.Second)
+		popup.Hide()
 	}
 }
 
@@ -672,11 +758,8 @@ func countChildren(n interface{}) int {
 
 func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
-	autoSaveTimer := time.NewTimer(30 * time.Second)
+	autoSaveTimer = time.NewTimer(autoSaveTime)
 	go func() {
-		window.Canvas().AddShortcut(NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierShortcutDefault), func(shortcut fyne.Shortcut) {
-			saveScene(window)
-		})
 		for {
 			<-autoSaveTimer.C
 			if autoSave {
@@ -689,7 +772,7 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 			<-scenePreviewUpdate
 			//Reset the auto save timer
 			autoSaveTimer.Stop()
-			autoSaveTimer.Reset(30 * time.Second)
+			autoSaveTimer.Reset(autoSaveTime)
 			preview := previewCanvas.(*fyne.Container)
 			if selectedScene == nil {
 				//Remove all but the first label
@@ -1205,6 +1288,7 @@ func FormButtons(parentKey string, parentForm *widget.Form, parentObject NFData.
 			dialog.ShowError(errors.New("failed to add new key"), window)
 		}
 		parentForm.AppendItem(CreateParamItem(newKey, newVal, parentObject, parentKey, parentForm, window))
+		changesMade = true
 	})
 	buttonBox := container.NewHBox(button, layout.NewSpacer())
 	buttonGrid := container.NewGridWithColumns(2, buttonBox)

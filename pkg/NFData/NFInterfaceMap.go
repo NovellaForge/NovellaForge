@@ -19,24 +19,6 @@ type NFInterfaceMap struct {
 	allowRef bool
 }
 
-// Lock locks the NFInterfaceMap struct with an optional read lock
-func (a *NFInterfaceMap) Lock(read bool) {
-	if read {
-		a.mu.RLock()
-	} else {
-		a.mu.Lock()
-	}
-}
-
-// Unlock unlocks the NFInterfaceMap struct with an optional read lock
-func (a *NFInterfaceMap) Unlock(read bool) {
-	if read {
-		a.mu.RUnlock()
-	} else {
-		a.mu.Unlock()
-	}
-}
-
 // Copy returns a new NFInterfaceMap with the same data as a Copyable
 func (a *NFInterfaceMap) Copy() Copyable {
 	a.mu.RLock()

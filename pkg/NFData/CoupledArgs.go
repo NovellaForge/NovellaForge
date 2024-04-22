@@ -21,8 +21,6 @@ func NewCoupledInterfaceMap(args *NFInterfaceMap) *CoupledArgs {
 }
 
 func (c *CoupledArgs) Keys() []string {
-	c.NfInterfaceMap.Lock(true)
-	defer c.NfInterfaceMap.Unlock(true)
 	keys := make([]string, 0, len(c.NfInterfaceMap.Data))
 	for key := range c.NfInterfaceMap.Data {
 		keys = append(keys, key)
@@ -32,8 +30,6 @@ func (c *CoupledArgs) Keys() []string {
 }
 
 func (c *CoupledArgs) Add() interface{} {
-	c.NfInterfaceMap.Lock(false)
-	defer c.NfInterfaceMap.Unlock(false)
 	newKey := "newKey"
 	for i := 0; ; i++ {
 		if _, ok := c.NfInterfaceMap.Data[newKey]; !ok {
@@ -42,7 +38,7 @@ func (c *CoupledArgs) Add() interface{} {
 		newKey = "newKey" + strconv.Itoa(i)
 	}
 	c.NfInterfaceMap.Data[newKey] = ""
-	c.types[newKey] = UnknownType
+	c.types[newKey] = StringType
 	return newKey
 }
 
@@ -51,8 +47,6 @@ func (c *CoupledArgs) Object() interface{} {
 }
 
 func (c *CoupledArgs) Get(key interface{}) (interface{}, bool) {
-	c.NfInterfaceMap.Lock(true)
-	defer c.NfInterfaceMap.Unlock(true)
 	if val, ok := c.NfInterfaceMap.Data[key.(string)]; ok {
 		return val, true
 	}
@@ -65,8 +59,6 @@ func (c *CoupledArgs) Set(key interface{}, value interface{}) {
 }
 
 func (c *CoupledArgs) SetType(key interface{}, t ValueType) {
-	c.NfInterfaceMap.Lock(false)
-	defer c.NfInterfaceMap.Unlock(false)
 	c.types[key.(string)] = t
 	switch t {
 	case PropertyType:
@@ -87,8 +79,6 @@ func (c *CoupledArgs) SetType(key interface{}, t ValueType) {
 }
 
 func (c *CoupledArgs) SetKey(key interface{}, newKey interface{}) bool {
-	c.NfInterfaceMap.Lock(false)
-	defer c.NfInterfaceMap.Unlock(false)
 	if _, ok := c.NfInterfaceMap.Data[key.(string)]; ok {
 		if _, ok := c.NfInterfaceMap.Data[newKey.(string)]; ok {
 			c.NfInterfaceMap.Data[key.(string)], c.NfInterfaceMap.Data[newKey.(string)] = c.NfInterfaceMap.Data[newKey.(string)], c.NfInterfaceMap.Data[key.(string)]
@@ -136,8 +126,6 @@ func (c *CoupledArgs) Delete(key interface{}, waitChan chan struct{}, window fyn
 }
 
 func (c *CoupledArgs) Copy(key interface{}) {
-	c.NfInterfaceMap.Lock(false)
-	defer c.NfInterfaceMap.Unlock(false)
 	index := key.(string)
 	newIndex := index + "_copy"
 	for i := 0; ; i++ {

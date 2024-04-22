@@ -114,6 +114,12 @@ func CreateMainGrid(window fyne.Window) fyne.CanvasObject {
 	return grid
 }
 
+type OpenPage int // Enum for the different pages of the editor to allow changing the menu bar based on the page
+const (
+	HomePage OpenPage = iota
+	EditorPage
+)
+
 func CreateMainMenu(window fyne.Window) {
 	openRecentMenu := fyne.NewMenuItem("Open Recent", func() {
 		_ = OpenRecentDialog(window)
@@ -168,6 +174,7 @@ func CreateMainMenu(window fyne.Window) {
 				if err != nil {
 					dialog.ShowError(err, window)
 				} else {
+					CreateMainMenu(window)
 					window.SetContent(grid)
 				}
 			}),
@@ -185,9 +192,6 @@ func CreateMainMenu(window fyne.Window) {
 		fyne.NewMenu("View",
 			fyne.NewMenuItem("Full Screen", func() {
 				window.SetFullScreen(!window.FullScreen())
-			}),
-			fyne.NewMenuItem("Preview Game", func() {
-				//TODO: Open a preview of the game
 			}),
 			fyne.NewMenuItem("Terminal", func() {
 				NFLog.ShowDialog(window)

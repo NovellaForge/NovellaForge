@@ -146,7 +146,7 @@ func (cs *CoupledSlice) SetKey(key interface{}, newKey interface{}) bool {
 
 func (cs *CoupledSlice) Add() interface{} {
 	cs.Slice = append(cs.Slice, "")
-	cs.types = append(cs.types, UnknownType)
+	cs.types = append(cs.types, StringType)
 	lastIndex := len(cs.Slice) - 1
 	return lastIndex
 }

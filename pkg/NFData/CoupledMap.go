@@ -119,7 +119,7 @@ func (cm *CoupledMap) Add() interface{} {
 		newKey = "newKey" + strconv.Itoa(i)
 	}
 	cm.Map[newKey] = ""
-	cm.types[newKey] = UnknownType
+	cm.types[newKey] = StringType
 	return newKey
 }
 
