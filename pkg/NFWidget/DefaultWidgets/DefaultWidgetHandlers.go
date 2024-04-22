@@ -283,7 +283,6 @@ func ButtonHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 		var functionArgs *NFData.NFInterfaceMap
 		err := args.Get("OnTappedArgs", &functionArgs)
 		if err != nil {
-			log.Println(fmt.Sprintf("Error getting OnTappedArgs for button %s: %s", ID, err.Error()))
 			functionArgs = NFData.NewNFInterfaceMap()
 		}
 		functionArgs.Set("WidgetID", ID)

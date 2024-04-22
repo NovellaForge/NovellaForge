@@ -14,15 +14,48 @@ import (
 //
 // Data should not be manipulated directly, but through the GADUS functions, as they handle the mutex locks.
 type NFInterfaceMap struct {
-	Data     map[string]interface{} `json:"Data"`
+	Data     CustomMap `json:"Data"`
 	mu       sync.RWMutex
 	allowRef bool
+}
+
+// Lock locks the NFInterfaceMap struct with an optional read lock
+func (a *NFInterfaceMap) Lock(read bool) {
+	if read {
+		a.mu.RLock()
+	} else {
+		a.mu.Lock()
+	}
+}
+
+// Unlock unlocks the NFInterfaceMap struct with an optional read lock
+func (a *NFInterfaceMap) Unlock(read bool) {
+	if read {
+		a.mu.RUnlock()
+	} else {
+		a.mu.Unlock()
+	}
+}
+
+// Copy returns a new NFInterfaceMap with the same data as a Copyable
+func (a *NFInterfaceMap) Copy() Copyable {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	newMap := make(CustomMap, len(a.Data))
+	for key, value := range a.Data {
+		if copyable, ok := value.(Copyable); ok {
+			newMap[key] = copyable.Copy()
+		} else {
+			newMap[key] = value
+		}
+	}
+	return NewNFInterfaceFromMap(newMap)
 }
 
 // NewNFInterfaceMap creates a new NFInterfaceMap struct
 func NewNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 	nfi := &NFInterfaceMap{
-		Data:     make(map[string]interface{}),
+		Data:     make(CustomMap),
 		allowRef: true,
 	}
 	for _, arg := range args {
@@ -37,7 +70,7 @@ func NewNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 // NewRemoteNFInterfaceMap creates a new NFInterfaceMap struct that does not allow references
 func NewRemoteNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 	nfi := &NFInterfaceMap{
-		Data:     make(map[string]interface{}),
+		Data:     make(CustomMap),
 		allowRef: false,
 	}
 	for _, arg := range args {
@@ -50,10 +83,19 @@ func NewRemoteNFInterfaceMap(args ...NFKeyVal) *NFInterfaceMap {
 }
 
 // NewNFInterfaceFromMap creates a new NFInterfaceMap struct from a map
-func NewNFInterfaceFromMap(args map[string]interface{}) *NFInterfaceMap {
+func NewNFInterfaceFromMap(args CustomMap) *NFInterfaceMap {
 	nfi := &NFInterfaceMap{
-		Data: make(map[string]interface{}),
+		Data: make(CustomMap),
 	}
+
+	if len(args) == 1 {
+		if dataMap, ok := args["Data"].(map[string]interface{}); ok {
+			return NewNFInterfaceFromMap(dataMap)
+		} else if dataMap, ok = args["Data"].(CustomMap); ok {
+			return NewNFInterfaceFromMap(dataMap)
+		}
+	}
+
 	for key, value := range args {
 		err := nfi.Add(key, value)
 		if err != nil {
@@ -80,7 +122,7 @@ func (a *NFInterfaceMap) HasAllKeys(b *NFInterfaceMap) (bool, []string) {
 }
 
 // ToMap returns the Data field of the NFInterfaceMap struct
-func (a *NFInterfaceMap) ToMap() map[string]interface{} {
+func (a *NFInterfaceMap) ToMap() CustomMap {
 	return a.Data
 }
 
@@ -112,39 +154,39 @@ func (a *NFInterfaceMap) Get(key string, ref interface{}) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if value, ok := a.Data[key]; ok {
-		refVal := reflect.ValueOf(ref)
-		valVal := reflect.ValueOf(value)
-		if refVal.Kind() != reflect.Ptr {
-			return errors.New("ref is not a pointer")
+		//Make sure the ref is a pointer
+		refType := reflect.TypeOf(ref)
+		if refType.Kind() != reflect.Ptr {
+			return errors.New("ref must be a pointer")
 		}
-		refVal = refVal.Elem()
-		if !refVal.CanSet() {
-			return errors.New("ref cannot be set")
-		}
-		if refVal.Type() != valVal.Type() {
-			//If the expected type is a reference then get the value of the reference
-			if valVal.Type() == reflect.TypeOf(NFReference{}) {
-				if !a.allowRef {
-					return NFError.NewErrInvalidArgument("reference", "references are not allowed in this context")
+
+		//Check if the types match
+		expectedType := reflect.TypeOf(value)
+		actualType := reflect.TypeOf(ref).Elem()
+		if expectedType != actualType {
+			//Check if the expected type is an NFInterfaceMap
+			if expectedType == reflect.TypeOf(&NFInterfaceMap{}) {
+				//Check if the actual type is a map with only the Data field
+				var customMap CustomMap
+				simpleMap, ok := value.(map[string]interface{})
+				if !ok {
+					customMap, ok = value.(CustomMap)
+					if !ok {
+						return NFError.NewErrTypeMismatch(expectedType.String(), actualType.String())
+					}
 				}
-				nfr := value.(NFReference)
-				return nfr.Get(ref)
+				customMap = simpleMap
+				//Create a new NFInterfaceMap from the map
+				newMap := NewNFInterfaceFromMap(customMap)
+				//Set the ref to the new NFInterfaceMap
+				reflect.ValueOf(ref).Elem().Set(reflect.ValueOf(newMap))
+			} else {
+				return NFError.NewErrTypeMismatch(expectedType.String(), actualType.String())
 			}
-			//If the expected type is this Interface then create a new one from the values' Data
-			if refVal.Type() == reflect.TypeOf(&NFInterfaceMap{}) {
-				//Check if the type of the value is a map that contains a Data field
-				if valVal.Kind() != reflect.Map {
-					return NFError.NewErrTypeMismatch(reflect.TypeOf(value).String(), refVal.Type().String())
-				} else if _, ok := valVal.Interface().(map[string]interface{})["Data"]; !ok {
-					return NFError.NewErrTypeMismatch(reflect.TypeOf(value).String(), refVal.Type().String())
-				}
-				nfi := NewNFInterfaceFromMap(value.(map[string]interface{})["Data"].(map[string]interface{}))
-				refVal.Set(reflect.ValueOf(nfi))
-				return nil
-			}
-			return NFError.NewErrTypeMismatch(reflect.TypeOf(value).String(), refVal.Type().String())
+
 		}
-		refVal.Set(reflect.ValueOf(value))
+		//Set the ref to the value
+		reflect.ValueOf(ref).Elem().Set(reflect.ValueOf(value))
 		return nil
 	} else {
 		return NFError.NewErrKeyNotFound(key)

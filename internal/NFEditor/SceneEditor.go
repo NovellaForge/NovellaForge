@@ -40,17 +40,18 @@ TODO: SceneEditor
 	[] Anything else we can think of
 	[] To make this easy move the project info to an embedded .NFConfig file in the project folder
  [] Scene Editor
- [] Scene Selector
-	[] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
- [] Scene Preview - Parses the scene fully using default values for all objects
- [] Scene Properties
-	[] Lists the scene name and object id of the selected object at the top
-	[] Lists all properties of the selected object
-	[] Allows for editing of the properties limiting to allowed types/values
- [] Scene Objects
-	[] Lists all objects in the scene
-	[] Allows for adding/removing objects
-	[] Allows for selecting objects to edit properties
+ 	[] Scene Saving on Key Press and via Button and Auto Save
+ 	[X] Scene Selector
+		[X] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
+		[] Scene Preview - Parses the scene fully using default values for all objects
+	[] Scene Properties
+		[] Lists the scene name and object id of the selected object at the top
+		[X] Lists all properties of the selected object
+		[X] Allows for editing of the properties limiting to allowed types/values
+	[X] Scene Objects
+		[X] Lists all objects in the scene
+		[X] Allows for adding/removing objects
+		[X] Allows for selecting objects to edit properties
 */
 
 type sceneNode struct {
@@ -64,21 +65,26 @@ type sceneNode struct {
 }
 
 var (
-	emptyData             = struct{}{}
-	sceneNodes            = make(map[string]*sceneNode)
-	sceneObjects          = make(map[string]*sceneNode)
+	emptyData = struct{}{}
+
+	sceneNodes   = make(map[string]*sceneNode)
+	sceneObjects = make(map[string]*sceneNode)
+
 	sceneListUpdate       = make(chan struct{})
 	scenePreviewUpdate    = make(chan struct{})
 	sceneObjectsUpdate    = make(chan struct{})
 	scenePropertiesUpdate = make(chan struct{})
 	propertyTypesUpdate   = make(chan struct{})
-	functions             = make(map[string]NFData.AssetProperties)
-	layouts               = make(map[string]NFData.AssetProperties)
-	widgets               = make(map[string]NFData.AssetProperties)
-	selectedScenePath     string
-	selectedScene         *NFScene.Scene
-	selectedObject        interface{}
-	autoSave              = true
+
+	functions = make(map[string]NFData.AssetProperties)
+	layouts   = make(map[string]NFData.AssetProperties)
+	widgets   = make(map[string]NFData.AssetProperties)
+
+	selectedScenePath string
+	selectedScene     *NFScene.Scene
+	selectedObject    interface{}
+	autoSave          = true
+	changesMade       = false
 
 	previewCanvas    fyne.CanvasObject
 	propertiesCanvas fyne.CanvasObject
@@ -99,6 +105,18 @@ func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
 	)
 	MainSplit.Offset = 0.25
 	return MainSplit
+}
+
+func saveScene(window fyne.Window) {
+	if selectedScene != nil && selectedScenePath != "" {
+		log.Println("Saving Scene...")
+		err := selectedScene.Save(selectedScenePath)
+		if err != nil {
+			dialog.ShowError(err, window)
+		} else {
+			changesMade = false
+		}
+	}
 }
 
 func scanScenesFolder(rootPath string) error {
@@ -580,20 +598,18 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				}
 				if !reflect.DeepEqual(selectedScene, scene) {
 					//Get the param list out of the sceneObjects if it exists
-					if selectedScene != nil && selectedScenePath != "" {
+					if selectedScene != nil && selectedScenePath != "" && changesMade {
 						dialog.ShowConfirm("Save before switching", "Do you want to save the current scene before switching?", func(b bool) {
 							if b {
-								log.Println("Saving Scene")
-								err := selectedScene.Save(selectedScenePath)
-								if err != nil {
-									dialog.ShowError(err, window)
-								}
+								saveScene(window)
 							}
+							changesMade = false
 							selectedScenePath = scenePath
 							selectedScene = scene
 							scenePreviewUpdate <- emptyData
 						}, window)
 					} else {
+						changesMade = false
 						selectedScenePath = scenePath
 						selectedScene = scene
 						scenePreviewUpdate <- emptyData
@@ -658,16 +674,13 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
 	autoSaveTimer := time.NewTimer(30 * time.Second)
 	go func() {
+		window.Canvas().AddShortcut(NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierShortcutDefault), func(shortcut fyne.Shortcut) {
+			saveScene(window)
+		})
 		for {
 			<-autoSaveTimer.C
 			if autoSave {
-				if selectedScene != nil && selectedScenePath != "" {
-					log.Println("Auto Saving Scene")
-					err := selectedScene.Save(selectedScenePath)
-					if err != nil {
-						dialog.ShowError(err, window)
-					}
-				}
+				saveScene(window)
 			}
 		}
 	}()
@@ -712,7 +725,6 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 	go func() {
 		for {
 			<-sceneObjectsUpdate
-			//TODO unselect the current loaded object
 			if selectedScene == nil {
 				objectsCanvas.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
 			} else {
@@ -824,12 +836,9 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 				tree.OnSelected = func(id widget.TreeNodeID) {
 					if node, ok := sceneObjects[id]; ok {
 						if !node.Selected {
-							//Get the typed param list out of the propertiesCanvas if it exists
-							//TODO: Pass a validation function down to the lowest levels of the list and check that here
 							node.Selected = true
 							selectedObject = node.Data
 							scenePropertiesUpdate <- emptyData
-
 						}
 					}
 				}
@@ -940,41 +949,10 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 					panic("Selected Object is not an NFObject")
 				}
 				typeLabel.SetText("Type: " + object.GetType())
-				args := object.GetArgs()
-				coupledArgs := NewCoupledInterfaceMap(args)
-				addButton := widget.NewButtonWithIcon("Add Property", theme.ContentAddIcon(), func() {})
-				formItems := make([]*widget.FormItem, 0)
+				coupledArgs := NFData.NewCoupledInterfaceMap(object.GetArgs())
 				form := widget.NewForm()
-				for _, key := range coupledArgs.Keys() {
-					val, b := coupledArgs.Get(key)
-					if !b {
-						dialog.ShowError(errors.New("failed to get key"), window)
-					}
-					formItems = append(formItems, CreateParamItem(key, val, coupledArgs, form, window))
-				}
-				for _, item := range formItems {
-					form.AppendItem(item)
-				}
-				addButton.OnTapped = func() {
-					newKeyInterface := coupledArgs.Add()
-					newKey := ""
-					switch v := newKeyInterface.(type) {
-					case string:
-						newKey = v
-					case int:
-						newKey = strconv.Itoa(v)
-					default:
-						dialog.ShowError(errors.New("failed to add new key"), window)
-					}
-					newVal, b := coupledArgs.Get(newKey)
-					if !b {
-						dialog.ShowError(errors.New("failed to add new key"), window)
-					}
-					form.AppendItem(CreateParamItem(newKey, newVal, coupledArgs, form, window))
-				}
-
+				RefreshForm("Properties", form, coupledArgs, window)
 				properties.Add(typeLabel)
-				properties.Add(container.NewHBox(addButton, layout.NewSpacer()))
 				properties.Add(form)
 			}
 			propertiesCanvas.Refresh()
@@ -1043,16 +1021,18 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 	return propertiesCanvas
 }
 
-// TODO fix the delete buttons not updating to use the new keys
-func refreshForm(form *widget.Form, object CoupledObject, window fyne.Window) {
+func RefreshForm(objectKey string, form *widget.Form, object NFData.CoupledObject, window fyne.Window) {
+	form.Items = nil
+	form.Refresh()
 	formItems := make([]*widget.FormItem, 0)
+	formItems = append(formItems, FormButtons(objectKey, form, object, window))
 	objectKeys := object.Keys()
 	for _, key := range objectKeys {
 		val, b := object.Get(key)
 		if !b {
 			dialog.ShowError(errors.New("failed to get key"), window)
 		}
-		formItems = append(formItems, CreateParamItem(key, val, object, form, window))
+		formItems = append(formItems, CreateParamItem(key, val, object, objectKey, form, window))
 	}
 	form.Items = formItems
 	form.Refresh()
@@ -1060,177 +1040,173 @@ func refreshForm(form *widget.Form, object CoupledObject, window fyne.Window) {
 
 // CreateParamItem creates a FormItem for a parameter
 //
-// TODO: validate all the types
-//
-// Current Issues, buttons not switching to new keys after delete. And context menu switch type does not refresh the form
-func CreateParamItem(key string, val interface{}, parent CoupledObject, parentForm *widget.Form, window fyne.Window) *widget.FormItem {
-	valType, valString := GetValueTypeAndLabel(val)
-	var coupledObject CoupledObject
+// Current Issues: The entries do not properly display validation issues or disable save buttons, but nothing will be saved if the entry is invalid, so it's not a critical issue
+func CreateParamItem(key string, val interface{}, parentObject NFData.CoupledObject, parentObjectKey string, parentForm *widget.Form, window fyne.Window) *widget.FormItem {
+	valType := NFData.GetValueType(val)
+	var coupledObject NFData.CoupledObject
 	var formObject fyne.CanvasObject
 	switch valType {
-	case FloatType, IntType, StringType, BooleanType:
+	case NFData.FloatType, NFData.IntType, NFData.StringType, NFData.BooleanType:
 		entry := widget.NewEntry()
 		entry.SetText(fmt.Sprintf("%v", val))
-		entry.Validator = func(s string) error {
-			switch valType {
-			case FloatType:
-				if _, err := strconv.ParseFloat(s, 64); err != nil {
-					return errors.New("invalid float")
-				}
-			case IntType:
-				if _, err := strconv.ParseInt(s, 10, 64); err != nil {
-					return errors.New("invalid int")
-				}
-			case StringType:
-				return nil
-			case BooleanType:
-				if _, err := strconv.ParseBool(s); err != nil {
-					return errors.New("invalid bool")
-				}
-			}
-			return nil
-		}
 		entry.OnChanged = func(s string) {
 			err := entry.Validate()
 			if err != nil {
 				return
 			}
-			var v interface{}
-			switch valType {
-			case FloatType:
-				v, _ = strconv.ParseFloat(s, 64)
-			case IntType:
-				v, _ = strconv.ParseInt(s, 10, 64)
-			case StringType:
-				v = s
-			case BooleanType:
-				v, _ = strconv.ParseBool(s)
+			v, err := parentObject.ParseValue(key, s)
+			if err != nil {
+				return
 			}
-			parent.Set(key, v)
+			parentObject.Set(key, v)
+			changesMade = true
 		}
 		formObject = entry
-	case PropertyType:
-		valMap := val.(map[string]interface{})
-		//Make sure it has a Data key
-		if _, ok := valMap["Data"]; !ok {
-			panic("Property does not have a Data key")
+	case NFData.PropertyType:
+		innerArgs, ok := val.(*NFData.NFInterfaceMap)
+		if !ok {
+			valMap, ok := val.(map[string]interface{})
+			if !ok {
+				valMap, ok = val.(NFData.CustomMap)
+				if !ok {
+					panic("Failed to convert property")
+				}
+			}
+			//Check if it has a Data key
+			if _, ok = valMap["Data"]; !ok {
+				panic("Property does not have a Data key")
+			}
+			innerArgs = NFData.NewNFInterfaceFromMap(valMap)
 		}
-		innerArgs := NFData.NewNFInterfaceFromMap(valMap["Data"].(map[string]interface{}))
-		coupledObject = NewCoupledInterfaceMap(innerArgs)
-	case SliceType:
-		coupledObject = NewCoupledSlice(val.([]interface{}))
-	case MapType:
-		coupledObject = NewCoupledMap(val.(map[string]interface{}))
+		coupledObject = NFData.NewCoupledInterfaceMap(innerArgs)
+	case NFData.SliceType:
+		convertedObject, ok := val.([]interface{})
+		if !ok {
+			convertedObject, ok = val.(NFData.CustomSlice)
+			if !ok {
+				panic("Failed to convert slice")
+			}
+		}
+		coupledObject = NFData.NewCoupledSlice(convertedObject)
+	case NFData.MapType:
+		convertedObject, ok := val.(map[string]interface{})
+		if !ok {
+			convertedObject, ok = val.(NFData.CustomMap)
+			if !ok {
+				panic("Failed to convert map")
+			}
+		}
+		coupledObject = NFData.NewCoupledMap(convertedObject)
 	default:
-		formObject = widget.NewLabel(valString)
+		formObject = widget.NewLabel(valType.String())
+	}
+
+	//All objects need a delete button and a context menu button
+	deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+		waitChan := make(chan struct{})
+		parentObject.Delete(key, waitChan, window)
+		go func() {
+			<-waitChan
+			changesMade = true
+			RefreshForm(parentObjectKey, parentForm, parentObject, window)
+		}()
+	})
+	copyButton := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
+		parentObject.Copy(key)
+		changesMade = true
+		RefreshForm(parentObjectKey, parentForm, parentObject, window)
+	})
+	contextButton := widget.NewButtonWithIcon("", theme.MenuIcon(), func() {})
+	buttonBox := container.NewHBox(deleteButton, copyButton, contextButton)
+	changeTypeSelect := widget.NewSelect(NFData.GetTypesString(), func(s string) {})
+	changeTypeSelect.Selected = valType.String()
+	changeKeyEntry := widget.NewEntry()
+	changeKeyEntry.SetText(key)
+	saveKeyButton := widget.NewButton("Apply", func() {})
+	saveTypeButton := widget.NewButton("Apply", func() {})
+	keyGrid := container.NewGridWithColumns(2, changeKeyEntry, saveKeyButton)
+	typeGrid := container.NewGridWithColumns(2, changeTypeSelect, saveTypeButton)
+	keyFormItem := widget.NewFormItem("Set Key: ", keyGrid)
+	typeFormItem := widget.NewFormItem("Set Type: ", typeGrid)
+	closeButton := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {})
+	contextForm := widget.NewForm(keyFormItem, typeFormItem)
+	contextDialog := dialog.NewCustomWithoutButtons("Context Menu", container.NewVBox(contextForm, layout.NewSpacer(), closeButton), window)
+	saveKeyButton.OnTapped = func() {
+		newKey := changeKeyEntry.Text
+		b := parentObject.SetKey(key, newKey)
+		if !b {
+			dialog.ShowError(errors.New("failed to change key"), window)
+		}
+		changesMade = true
+		RefreshForm(parentObjectKey, parentForm, parentObject, window)
+		contextDialog.Hide()
+	}
+	saveTypeButton.OnTapped = func() {
+		newType := NFData.GetType(changeTypeSelect.Selected)
+		if newType == valType {
+			return
+		}
+		dialog.ShowConfirm("Change Type", "Are you sure you want to change the type of this item? This **WILL** delete any data it currently has", func(b bool) {
+			if b {
+				parentObject.SetType(key, newType)
+				changesMade = true
+				RefreshForm(parentObjectKey, parentForm, parentObject, window)
+			}
+			contextDialog.Hide()
+		}, window)
+	}
+	contextButton.OnTapped = func() {
+		contextDialog.Resize(fyne.NewSize(400, 400))
+		contextDialog.Show()
+	}
+	closeButton.OnTapped = func() {
+		contextDialog.Hide()
 	}
 
 	if coupledObject == nil {
+		//If the object is not a map or slice we can just add it to the form with an entry
 		gridBox := container.NewGridWithColumns(2, formObject)
-		buttonBox := container.NewHBox()
 		gridBox.Add(buttonBox)
-		deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-			waitChan := make(chan struct{})
-			log.Println("Checking delete for: " + key)
-			parent.Delete(key, waitChan, window)
-			go func() {
-				<-waitChan
-				refreshForm(parentForm, parent, window)
-			}()
-		})
-		contextButton := widget.NewButton("Context", func() {})
-		buttonBox.Add(deleteButton)
-		buttonBox.Add(contextButton)
-		changeTypeSelect := widget.NewSelect(GetTypesString(), func(s string) {
-			var newType = GetType(s)
-			parent.SetType(key, newType)
-			//Attempt to cast the object to an entry
-			entry, ok := formObject.(*widget.Entry)
-			if ok {
-				err := entry.Validate()
-				if err != nil {
-					entry.SetValidationError(err)
-				}
+		return widget.NewFormItem(key, gridBox)
+	} else {
+		//If the object is a map or slice we need to create a new form for it
+		innerForm := widget.NewForm()
+		RefreshForm(key, innerForm, coupledObject, window)
+		scrollBox := container.NewVScroll(innerForm)
+		scrollBox.SetMinSize(fyne.NewSize(400, 250))
+		editDialog := dialog.NewCustomConfirm("Editing "+valType.String(), "Save", "Cancel", container.NewCenter(scrollBox), func(b bool) {
+			if b {
+				parentObject.Set(key, coupledObject.Object())
+				RefreshForm(parentObjectKey, parentForm, parentObject, window)
 			}
-			refreshForm(parentForm, parent, window)
+		}, window)
+		editButton := widget.NewButton(valType.String(), func() {
+			editDialog.Show()
 		})
-		changeKeyEntry := widget.NewEntry()
-		changeKeyEntry.SetText(key)
-		saveKeyButton := widget.NewButton("Save", func() {})
-		keyGrid := container.NewGridWithColumns(2, changeKeyEntry, saveKeyButton)
-		keyFormItem := widget.NewFormItem("Set Key: ", keyGrid)
-		typeFormItem := widget.NewFormItem("Set Type: ", changeTypeSelect)
-		closeButton := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {})
-		form := widget.NewForm(keyFormItem, typeFormItem)
-		contextDialog := dialog.NewCustomWithoutButtons("Context Menu", container.NewVBox(form, closeButton), window)
-		saveKeyButton.OnTapped = func() {
-			newKey := changeKeyEntry.Text
-			b := parent.SetKey(key, newKey)
-			if !b {
-				dialog.ShowError(errors.New("failed to change key"), window)
-			}
-			refreshForm(parentForm, parent, window)
-			contextDialog.Hide()
-		}
-		contextButton.OnTapped = func() {
-			contextDialog.Show()
-		}
-		closeButton.OnTapped = func() {
-			contextDialog.Hide()
-		}
+		gridBox := container.NewGridWithColumns(2, editButton, buttonBox)
 		return widget.NewFormItem(key, gridBox)
 	}
+}
 
-	form := widget.NewForm()
-	innerFormItems := make([]*widget.FormItem, 0)
-	for _, innerKey := range coupledObject.Keys() {
-		innerVal, _ := coupledObject.Get(innerKey)
-		innerFormItems = append(innerFormItems, CreateParamItem(innerKey, innerVal, coupledObject, form, window))
-	}
-	for _, item := range innerFormItems {
-		form.AppendItem(item)
-	}
-	innerButtons := container.NewHBox(
-		widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-			newKeyInterface := coupledObject.Add()
-			newKey := ""
-			switch v := newKeyInterface.(type) {
-			case string:
-				newKey = v
-			case int:
-				newKey = strconv.Itoa(v)
-			default:
-				dialog.ShowError(errors.New("failed to add new key"), window)
-			}
-			newVal, b := coupledObject.Get(newKey)
-			if !b {
-				dialog.ShowError(errors.New("failed to add new key"), window)
-			}
-			form.AppendItem(CreateParamItem(newKey, newVal, coupledObject, form, window))
-		}))
-	outerButtons := container.NewHBox(
-		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-			waitChan := make(chan struct{})
-			log.Println("Checking delete for: " + key)
-			parent.Delete(key, waitChan, window)
-			go func() {
-				<-waitChan
-				refreshForm(parentForm, parent, window)
-			}()
-		}))
-	scrollBox := container.NewVScroll(form)
-	scrollBox.SetMinSize(fyne.NewSize(400, 250))
-	border := container.NewBorder(innerButtons, nil, nil, nil, scrollBox)
-	editDialog := dialog.NewCustomConfirm("Edit "+valString, "Save", "Cancel", container.NewCenter(border), func(b bool) {
-		if b {
-			parent.Set(key, coupledObject.Object())
-			refreshForm(parentForm, parent, window)
+func FormButtons(parentKey string, parentForm *widget.Form, parentObject NFData.CoupledObject, window fyne.Window) *widget.FormItem {
+	button := widget.NewButtonWithIcon("Add Item...", theme.ContentAddIcon(), func() {
+		newKeyInterface := parentObject.Add()
+		newKey := ""
+		switch v := newKeyInterface.(type) {
+		case string:
+			newKey = v
+		case int:
+			newKey = strconv.Itoa(v)
+		default:
+			dialog.ShowError(errors.New("failed to add new key"), window)
 		}
-	}, window)
-
-	editButton := widget.NewButton(valString, func() {
-		editDialog.Show()
+		newVal, b := parentObject.Get(newKey)
+		if !b {
+			dialog.ShowError(errors.New("failed to add new key"), window)
+		}
+		parentForm.AppendItem(CreateParamItem(newKey, newVal, parentObject, parentKey, parentForm, window))
 	})
-	gridBox := container.NewGridWithColumns(2, editButton, outerButtons)
-	return widget.NewFormItem(key, gridBox)
+	buttonBox := container.NewHBox(button, layout.NewSpacer())
+	buttonGrid := container.NewGridWithColumns(2, buttonBox)
+	return widget.NewFormItem(parentKey, buttonGrid)
 }
