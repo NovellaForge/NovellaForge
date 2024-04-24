@@ -1,7 +1,7 @@
 package main
 
 import (
-	"go.novellaforge.dev/novellaforge/assets/icons"
+	"go.novellaforge.dev/novellaforge/assets"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
@@ -100,7 +100,7 @@ func main() {
 	application := app.NewWithID("com.novellaforge.editor")
 
 	//Load the embedded icons/EditorPng as bytes
-	iconBytes, err := icons.EditorPng.ReadFile("editor.png")
+	iconBytes, err := assets.EditorPng.ReadFile("editor.png")
 	if err != nil {
 		//If the icon fails to load, log the error and set the icon to the default application icon
 		log.Printf("Failed to load icon: %v", err)

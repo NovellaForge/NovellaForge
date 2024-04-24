@@ -106,9 +106,8 @@ type StreamTags struct {
 	VendorId     string    `json:"vendor_id"`
 }
 
-func ProbeMP4(file string, args ...string) (FFProbeOutput, error) {
-	log.Println(ffprobePath)
-	cmd := exec.Command(ffprobePath, file)
+func ProbeVideo(file string, args ...string) (FFProbeOutput, error) {
+	cmd := exec.Command(probePath, file)
 	for _, arg := range args {
 		if arg != "" {
 			cmd.Args = append(cmd.Args, arg)

@@ -1,26 +1,23 @@
 package NFVideo
 
 import (
-	"embed"
 	"errors"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/assets"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
+	"time"
 )
 
-// TODO These embedded Binaries need to be copied to the game folder instead of being unpacked by the editor,
-//
-//	since it will be the game unpacking them for normal runtime
-//
-//go:embed binaries
-var embeddedBinaries embed.FS
 var ffmpegPath string
-var ffprobePath string
+var probePath string
 
 func UnpackBinaries(location string) error {
 	//Check for the binaries folder inside the location
@@ -45,14 +42,14 @@ func UnpackBinaries(location string) error {
 	if len(binaryDir) == 0 {
 		switch runtime.GOOS {
 		case "windows":
-			err := fs.WalkDir(embeddedBinaries, "binaries/win", func(path string, d fs.DirEntry, err error) error {
+			err := fs.WalkDir(assets.BinaryFS, "binaries/win", func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
 				if d.IsDir() {
 					return nil
 				}
-				data, err := embeddedBinaries.ReadFile(path)
+				data, err := assets.BinaryFS.ReadFile(path)
 				if err != nil {
 					return err
 				}
@@ -90,7 +87,7 @@ func CheckBinaries() error {
 	switch runtime.GOOS {
 	case "windows":
 		ffmpegPath = filepath.Join(binaryLocation, "binaries", "ffmpeg.exe")
-		ffprobePath = filepath.Join(binaryLocation, "binaries", "ffprobe.exe")
+		probePath = filepath.Join(binaryLocation, "binaries", "ffprobe.exe")
 	default:
 		log.Println("Unsupported OS")
 		return errors.New("unsupported OS")
@@ -99,69 +96,160 @@ func CheckBinaries() error {
 	//Check if the ffmpeg and ffprobe binaries are present
 	_, err = os.Stat(ffmpegPath)
 	if err != nil {
-		return err
+		return errors.New("ffmpeg binary not found in the specified location")
 	}
-	_, err = os.Stat(ffprobePath)
+	_, err = os.Stat(probePath)
 	if err != nil {
-		return err
+		return errors.New("ffprobe binary not found in the specified location")
 	}
 
 	//Check ffmpeg version
 	cmd := exec.Command(ffmpegPath, "-version")
 	_, err = cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return errors.New("ffmpeg binary is invalid")
 	}
 
 	//Check ffprobe version
-	cmd = exec.Command(ffprobePath, "-version")
+	cmd = exec.Command(probePath, "-version")
 	_, err = cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return errors.New("ffprobe binary is invalid")
 	}
 	return nil
 }
 
-// ParseVideo parses a video file and returns the metadata
-func ParseVideo(file string) (*Video, error) {
+type VideoRenderer struct {
+	vw *VideoWidget
+}
+
+func (v VideoRenderer) Destroy() {}
+
+func (v VideoRenderer) Layout(size fyne.Size) {
+	//Resize the player
+	v.vw.player.Resize(size)
+}
+
+func (v VideoRenderer) MinSize() fyne.Size {
+	return v.vw.player.MinSize()
+}
+
+func (v VideoRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{v.vw.player}
+}
+
+func (v VideoRenderer) Refresh() {
+	v.vw.player.Refresh()
+}
+
+type VideoWidget struct {
+	widget.BaseWidget
+	video  *Video
+	player *canvas.Image
+}
+
+func (v *VideoWidget) CreateRenderer() fyne.WidgetRenderer {
+	return &VideoRenderer{v}
+}
+
+func NewVideoWidget(file string, frameBuffer, bufferWhenRemaining int) (*VideoWidget, error) {
 	//Check if the file exists
 	_, err := os.Stat(file)
 	if err != nil {
-		return &Video{}, nil
+		return &VideoWidget{}, err
 	}
 
+	absFile, err := filepath.Abs(file)
+	if err != nil {
+		return &VideoWidget{}, err
+	}
+
+	//Check if the binaries are present
 	err = CheckBinaries()
 	if err != nil {
-		return &Video{}, nil
+		return &VideoWidget{}, err
 	}
 
-	absLocation, err := filepath.Abs(file)
-	if err != nil {
-		return &Video{}, nil
-	}
 	probeArgs := []string{"-show_format", "-show_streams", "-print_format", "json", "-v", "quiet"}
-
-	probeInfo, err := ProbeMP4(absLocation, probeArgs...)
+	probe, err := ProbeVideo(absFile, probeArgs...)
 	if err != nil {
-		return &Video{}, nil
+		return &VideoWidget{}, err
 	}
 
-	i, err := strconv.Atoi(probeInfo.Streams[0].NbFrames)
+	video, err := NewVideo(probe, frameBuffer, min(bufferWhenRemaining, frameBuffer))
 	if err != nil {
-		log.Println("Could not convert the number of frames to an integer")
-		return &Video{}, nil
+		return &VideoWidget{}, err
 	}
 
-	log.Println("Duration: ", probeInfo.Format.Duration)
-	log.Println("Bitrate: ", probeInfo.Format.BitRate)
-	log.Println("Number of frames: ", i)
-	log.Println("Real Frame Rate: ", probeInfo.Streams[0].RFrameRate)
-
-	video, err := NewVideo(probeInfo, 10)
-	if err != nil {
-		log.Println("Could not create a new video object")
-		return &Video{}, nil
+	firstFrame, _ := video.NextFrame()
+	videoPlayer := &VideoWidget{
+		video:  video,
+		player: canvas.NewImageFromImage(firstFrame),
 	}
+	videoPlayer.player.FillMode = canvas.ImageFillContain
+	videoPlayer.player.Refresh()
+	videoPlayer.ExtendBaseWidget(videoPlayer)
+	return videoPlayer, nil
+}
 
-	return video, nil
+func (v *VideoWidget) Play() {
+	totalFrames := v.video.TotalFrames
+	currentFrame := v.video.CurrentFrame
+	v.video.LastFrame = time.Now()
+	v.video.Paused = false
+	frameRenderedChan := make(chan struct{}, 100)
+	go func() {
+		FPSTimer := time.NewTicker(5 * time.Second)
+		TimeStart := time.Now()
+		frameCount := 0
+		for {
+			select {
+			case <-frameRenderedChan:
+				frameCount++
+			case <-FPSTimer.C:
+				elapsed := time.Since(TimeStart)
+				fps := float64(frameCount) / elapsed.Seconds()
+				log.Println("FPS: ", fps)
+				if fps < v.video.TargetFPS {
+					//Subtract the fps from the target fps
+					skippedFrames := math.Floor(v.video.TargetFPS - fps)
+					if skippedFrames > 0 {
+						v.video.SkipFrames(int(skippedFrames))
+					}
+				}
+				frameCount = 0
+				TimeStart = time.Now()
+			}
+		}
+	}()
+
+	go func() {
+		for i := 0; i < totalFrames-currentFrame; i++ {
+			if v.video.Paused {
+				break
+			}
+			img, skipped := v.video.NextFrame()
+			if skipped {
+				frameRenderedChan <- struct{}{}
+			}
+			if img != nil {
+				v.player.Image = img
+				v.Refresh()
+			}
+			frameRenderedChan <- struct{}{}
+		}
+	}()
+}
+
+func (v *VideoWidget) CurrentFrame() int {
+	return v.video.CurrentFrame
+}
+
+// GetProbe returns the probe output of the video
+func (v *VideoWidget) GetProbe() FFProbeOutput {
+	return v.video.Probe
+}
+
+func (v *VideoWidget) Pause() {
+	v.video.Paused = true
 }
