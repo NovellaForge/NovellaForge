@@ -1,10 +1,11 @@
 package DefaultWidgets
 
 import (
+	"log"
+
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
-	"log"
 )
 
 // Import is an empty function, created to allow the inclusion of this package in other parts of the code,
@@ -89,6 +90,18 @@ func init() {
 		),
 	}
 	button.Register(ButtonHandler)
+
+	// ImageHandler
+	image := NFWidget.Widget{
+		Type:         "Image",
+		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("Path", "")),
+		OptionalArgs: NFData.NewNFInterfaceMap(
+			NFData.NewKeyVal("Hidden", false),
+			NFData.NewKeyVal("Position", fyne.NewPos(0, 0)),
+			NFData.NewKeyVal("MinSize", fyne.NewSize(1080, 720)),
+		),
+	}
+	image.Register(ImageHandler)
 
 	// ToolBarHandler
 	toolbar := NFWidget.Widget{
