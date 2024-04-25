@@ -17,6 +17,11 @@ import (
 	"time"
 )
 
+//TODO: remove game dependency on ffmpeg, by generating png frames and parsing them at a set framerate
+// For game build this will first create folders for each video, before splitting them into all their frames.
+// It then needs to move the videos out of the video folder into a temp directory before checking embed and build/archiving the build
+// It will then move the videos back before deleting the frame folders.
+
 var ffmpegPath string
 var probePath string
 
