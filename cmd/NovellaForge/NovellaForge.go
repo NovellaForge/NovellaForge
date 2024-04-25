@@ -1,16 +1,18 @@
 package main
 
 import (
-	"go.novellaforge.dev/novellaforge/assets/icons"
+	"go.novellaforge.dev/novellaforge/assets"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
+	"golang.org/x/sys/windows"
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -34,13 +36,16 @@ import (
 TODO 0.0.1: [ ] = Required, ( ) = Optional, X = Done, - = Alternative implementation
  [X] Finish the parsing refactor to use the new interface system.
  [ ] Finish documentation/comments
+ [ ] Video And Audio players need to be added to the game templates
+ 	[ ] Make sure ffmpeg binaries are added to the game folder and are unpacked into the config folder or wherever the game creator specifies
+ 	[ ] This includes allowing embedding of the binaries in the game via a build option and making sure the path to the binaries is set properly
  [ ] Finish the scene editor
 	[X] Add in the ability to add and remove scenes
 	[X] Add in the ability to group scenes
 	(-) Add in the ability to change the order of scenes (I sorted them alphabetically for now and added the ability to group)
- 	[ ] Property manager needs to be able to fully edit all widget and container properties
+ 	[X] Property manager needs to be able to fully edit all widget and container properties
 	[ ] Add in the ability to add and remove widgets and containers and change all their relevant properties
-	[ ] Add in the ability to change the name of scenes
+	[X] Add in the ability to change the name of scenes
 	( ) Possibly add in the ability to group widgets and layouts
 	( ) Possibly Add in the ability to change the order of widgets and layouts
  [ ] Refactor NFSave to use the new interface system and integrate it with default game templates
@@ -100,7 +105,7 @@ func main() {
 	application := app.NewWithID("com.novellaforge.editor")
 
 	//Load the embedded icons/EditorPng as bytes
-	iconBytes, err := icons.EditorPng.ReadFile("editor.png")
+	iconBytes, err := assets.EditorPng.ReadFile("editor.png")
 	if err != nil {
 		//If the icon fails to load, log the error and set the icon to the default application icon
 		log.Printf("Failed to load icon: %v", err)
@@ -171,5 +176,15 @@ func main() {
 	} else {
 		go NFEditor.CreateMainContent(window, loading)
 		window.ShowAndRun()
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		//Make sure to reset the TimePeriod for the system timer
+		err = windows.TimeEndPeriod(1)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 	}
 }

@@ -1,41 +1,47 @@
 package main
 
 import (
-	"fmt"
-
-	"go.novellaforge.dev/novellaforge/pkg/NFAudio"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFVideo"
+	"log"
 )
 
 func main() {
+	a := app.NewWithID("dev.novellaforge.testing")
+	w := a.NewWindow("Hello")
+	mainMenu := fyne.NewMainMenu(
+		fyne.NewMenu("File",
+			fyne.NewMenuItem("Reset", func() {
+				initContent(w)
+			}),
+		),
+	)
+	w.SetMainMenu(mainMenu)
+	initContent(w)
+	w.Resize(fyne.NewSize(400, 200))
+	w.ShowAndRun()
+}
 
-	// // Call the audio driver NFAudio
-	// go NFAudio.PlayAudioFromFile("audio.mp3", 2, 1.0, false)
+func initContent(w fyne.Window) {
+	video, err := NFVideo.NewVideoWidget("assets/videos/testVid.mp4", 90, 30)
+	if err != nil {
+		log.Println(err)
+	}
 
-	// // wait for user input
-	// fmt.Scanln()
+	probe := video.GetProbe()
+	log.Println(probe.Streams[0].Width, probe.Streams[0].Height)
 
-	// // Change the volume of the audio
-	// NFAudio.ChangeVolume(1)
-	// fmt.Scanln()
+	playButton := widget.NewButton("Play Video", func() {
+		video.Play()
+	})
+	pauseButton := widget.NewButton("Pause Video", func() {
+		video.Pause()
+	})
 
-	// // Pause the audio
-	// NFAudio.PauseAudio()
-	// fmt.Scanln()
-
-	// // Resume the audio
-	// NFAudio.ResumeAudio()
-	// fmt.Scanln()
-
-	// // Stop the audio
-	// NFAudio.StopAudio()
-	// fmt.Scanln()
-
-	go NFAudio.PlayAudioFromFile("audio2.mp3", 3, 1, false)
-
-	fmt.Scanln()
-
-	go NFAudio.PlayAudioFromFile("audio.mp3", 2, 1, false)
-
-	fmt.Scanln()
-
+	vbox := container.NewVBox(playButton, pauseButton)
+	border := container.NewBorder(nil, nil, vbox, nil, video)
+	w.SetContent(border)
 }
