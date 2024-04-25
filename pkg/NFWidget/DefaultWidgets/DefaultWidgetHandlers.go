@@ -3,6 +3,9 @@ package DefaultWidgets
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -15,7 +18,6 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFStyling"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
-	"log"
 )
 
 // VBoxContainerHandler creates a vertical box container
@@ -331,6 +333,57 @@ func ButtonHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 	}
 
 	return button, nil
+}
+
+// ImageHandler creates an image
+func ImageHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
+	var path string
+	err := args.Get("Path", &path)
+	if err != nil {
+		log.Printf("No Path found for image %s", w.ID)
+		return nil, err
+	}
+
+	// Check if there is an image at the the path, or at assets/image/path
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		path = "assets/image/" + path
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			log.Printf("No image found at path %s for image %s", path, w.ID)
+			return nil, err
+		}
+	}
+
+	image := canvas.NewImageFromFile(path)
+	var hidden = false
+	err = w.Args.Get("Hidden", &hidden)
+	if err == nil {
+		if hidden {
+			image.Hide()
+		} else {
+			image.Show() //The default state is actually shown, this is just for clarity
+		}
+	}
+
+	var position = image.Position()
+	err = w.Args.Get("Position", &position)
+	if err == nil {
+		image.Move(position)
+	}
+
+	// Set the size of the image if it is provided
+	var size = image.Size()
+	err = w.Args.Get("MinSize", &size)
+	if err == nil {
+		image.Resize(size)
+	}
+
+	scroll := container.NewVScroll(image)
+	scroll.SetMinSize(image.MinSize())
+	image.FillMode = canvas.ImageFillContain
+	image.Refresh()
+
+	return scroll, nil
+
 }
 
 // ToolBarHandler creates a toolbar with the given widget
