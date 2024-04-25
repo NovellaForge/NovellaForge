@@ -9,6 +9,8 @@ import (
 	"log"
 	"math"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -197,4 +199,76 @@ func NewVideo(probe FFProbeOutput, bufferCount int, bufferWhenRemaining int) (*V
 		return nil, err
 	}
 	return video, nil
+}
+
+func _(file string, splitLength string) error {
+	err := CheckBinaries()
+	if err != nil {
+		return err
+	}
+
+	absPath, err := filepath.Abs(file)
+	if err != nil {
+		return err
+	}
+
+	fileName := filepath.Base(file)
+	//Remove the extension from the file name
+	fileName = strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	extension := filepath.Ext(absPath)
+
+	timeCode, err := getTimeCode(splitLength)
+	outPutPath := filepath.Join(filepath.Dir(absPath), "NFSplit", fileName)
+	outPutPath += "_NFSplit_%03d" + extension
+
+	cmd := exec.Command(ffmpegPath, "-i", file, "-c", "copy", "-map", "0", "-segment_time", timeCode, "-reset_timestamps", "1", "-f", "segment", outPutPath)
+	err = cmd.Run()
+	if err != nil {
+		log.Println("Could not split video: ", err)
+		return err
+	}
+	return nil
+}
+
+func getTimeCode(code string) (string, error) {
+	// Check if the string contains at most one of each h, m, and s
+	match, _ := regexp.MatchString(`^([0-9]*h)?([0-9]*m)?([0-9]*s)?$`, strings.ToLower(code))
+	if !match {
+		return "", errors.New("malformed string")
+	}
+
+	hours := 0
+	minutes := 0
+	seconds := 0
+
+	// Split on h or H
+	code = strings.ToLower(code)
+	if strings.Contains(code, "h") {
+		hoursSplit := strings.Split(code, "h")
+		hours, _ = strconv.Atoi(hoursSplit[0])
+		code = hoursSplit[1]
+	}
+
+	// Split on m
+	if strings.Contains(code, "m") {
+		minutesSplit := strings.Split(code, "m")
+		minutes, _ = strconv.Atoi(minutesSplit[0])
+		code = minutesSplit[1]
+	}
+
+	// Split on s
+	if strings.Contains(code, "s") {
+		secondsSplit := strings.Split(code, "s")
+		seconds, _ = strconv.Atoi(secondsSplit[0])
+	}
+
+	// Carry over values that are too high
+	minutes += seconds / 60
+	seconds = seconds % 60
+	hours += minutes / 60
+	minutes = minutes % 60
+
+	// Format the timecode
+	timecode := fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+	return timecode, nil
 }
