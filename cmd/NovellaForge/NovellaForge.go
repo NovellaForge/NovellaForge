@@ -101,6 +101,18 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
+	defer func() {
+		switch runtime.GOOS {
+		case "windows":
+			//Make sure to reset the TimePeriod for the system timer
+			err := windows.TimeEndPeriod(1)
+			if err != nil {
+				log.Println(err)
+				os.Exit(1)
+			}
+		}
+	}()
+
 	// Create a new application and window with the title based on the version
 	application := app.NewWithID("com.novellaforge.editor")
 
@@ -176,15 +188,5 @@ func main() {
 	} else {
 		go NFEditor.CreateMainContent(window, loading)
 		window.ShowAndRun()
-	}
-
-	switch runtime.GOOS {
-	case "windows":
-		//Make sure to reset the TimePeriod for the system timer
-		err = windows.TimeEndPeriod(1)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
 	}
 }
