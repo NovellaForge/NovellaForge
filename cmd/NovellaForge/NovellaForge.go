@@ -8,9 +8,11 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
+	"golang.org/x/sys/windows"
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -174,5 +176,15 @@ func main() {
 	} else {
 		go NFEditor.CreateMainContent(window, loading)
 		window.ShowAndRun()
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		//Make sure to reset the TimePeriod for the system timer
+		err = windows.TimeEndPeriod(1)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 	}
 }

@@ -113,7 +113,6 @@ func (v *Video) NextFrame() (image.Image, bool) {
 		}
 	}
 	if len(v.BufferedImages) == 0 {
-		log.Println("Buffer is empty")
 		frames := v.RealFrames
 		//Wait for 5 frame to elapse to see if new frames are added to the buffer
 		for i := 0; i < 5; i++ {
@@ -127,15 +126,6 @@ func (v *Video) NextFrame() (image.Image, bool) {
 	}
 
 	v.mu.RLock()
-	//Sleep for the duration of the frame
-	frames := float64(v.RealFrames)
-	seconds := time.Duration(v.RealSeconds)
-	//Calculate the target frame duration and adjust it based on the time since the last frame
-	targetDuration := seconds * time.Second / time.Duration(frames)
-	timeSinceLastFrame := time.Since(v.LastFrame)
-	if timeSinceLastFrame < targetDuration {
-		time.Sleep(targetDuration - timeSinceLastFrame)
-	}
 	frameToRender := 0
 	if v.framesToSkip > 0 && !v.skippedLastFrame {
 		frameToRender++

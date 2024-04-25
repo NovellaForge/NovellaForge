@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/assets"
+	"golang.org/x/sys/windows"
 	"io/fs"
 	"log"
 	"math"
@@ -195,6 +196,8 @@ func NewVideoWidget(file string, frameBuffer, bufferWhenRemaining int) (*VideoWi
 func (v *VideoWidget) Play() {
 	totalFrames := v.video.TotalFrames
 	currentFrame := v.video.CurrentFrame
+	frames := float64(v.video.RealFrames)
+	seconds := time.Duration(v.video.RealSeconds)
 	v.video.LastFrame = time.Now()
 	v.video.Paused = false
 	frameRenderedChan := make(chan struct{}, 100)
@@ -214,6 +217,7 @@ func (v *VideoWidget) Play() {
 					//Subtract the fps from the target fps
 					skippedFrames := math.Floor(v.video.TargetFPS - fps)
 					if skippedFrames > 0 {
+						log.Println("Video is lagging, skipping frames: ", skippedFrames)
 						v.video.SkipFrames(int(skippedFrames))
 					}
 				}
@@ -222,8 +226,23 @@ func (v *VideoWidget) Play() {
 			}
 		}
 	}()
-
+	targetDuration := seconds * time.Second / time.Duration(frames)
+	log.Println("Target FPS: ", v.video.TargetFPS)
 	go func() {
+		runtimeOS := runtime.GOOS
+		switch runtimeOS {
+		case "windows":
+			err := windows.TimeBeginPeriod(1)
+			if err != nil {
+				panic(err)
+			}
+			defer func() {
+				err = windows.TimeEndPeriod(1)
+				if err != nil {
+					panic(err)
+				}
+			}()
+		}
 		for i := 0; i < totalFrames-currentFrame; i++ {
 			if v.video.Paused {
 				break
@@ -237,6 +256,7 @@ func (v *VideoWidget) Play() {
 				v.Refresh()
 			}
 			frameRenderedChan <- struct{}{}
+			<-time.After(targetDuration)
 		}
 	}()
 }

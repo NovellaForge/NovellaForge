@@ -26,7 +26,7 @@ func main() {
 }
 
 func initContent(w fyne.Window) {
-	video, err := NFVideo.NewVideoWidget("assets/videos/testVid.mp4", 60, 30)
+	video, err := NFVideo.NewVideoWidget("assets/videos/testVid.mp4", 90, 30)
 	if err != nil {
 		log.Println(err)
 	}
