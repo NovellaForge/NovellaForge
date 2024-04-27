@@ -319,11 +319,11 @@ func (p NFProject) Create(window fyne.Window) error {
 
 	neededDirectories := []string{
 		"cmd/" + p.Config.Name,
-		"game/assets/image",
-		"game/assets/audio",
-		"game/assets/video",
-		"game/assets/other",
-		"game/data/scenes",
+		"data/assets/image",
+		"data/assets/audio",
+		"data/assets/video",
+		"data/assets/other",
+		"data/scenes",
 		"internal/functions",
 		"internal/layouts",
 		"internal/widgets",
@@ -369,7 +369,7 @@ func (p NFProject) Create(window fyne.Window) error {
 		LocalLayouts    string
 		LocalWidgets    string
 	}{
-		LocalFileSystem: p.Config.Name + "/game",
+		LocalFileSystem: p.Config.Name + "/data",
 		LocalFunctions:  p.Config.Name + "/internal/functions",
 		LocalLayouts:    p.Config.Name + "/internal/layouts",
 		LocalWidgets:    p.Config.Name + "/internal/widgets",

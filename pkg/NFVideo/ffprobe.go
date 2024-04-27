@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var ProbePath string
+
 type FFProbeOutput struct {
 	Format  FormatDetails   `json:"format"`
 	Streams []StreamDetails `json:"streams"`
@@ -106,8 +108,10 @@ type StreamTags struct {
 	VendorId     string    `json:"vendor_id"`
 }
 
-func ProbeVideo(file string, args ...string) (FFProbeOutput, error) {
-	cmd := exec.Command(probePath, file)
+func ProbeVideo(file string) (FFProbeOutput, error) {
+	log.Println("Probing video file: ", file)
+	args := []string{"-show_format", "-show_streams", "-print_format", "json", "-v", "quiet"}
+	cmd := exec.Command(ProbePath, file)
 	for _, arg := range args {
 		if arg != "" {
 			cmd.Args = append(cmd.Args, arg)

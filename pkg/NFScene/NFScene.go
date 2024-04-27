@@ -21,9 +21,9 @@ import (
 var SceneMap = map[string]string{}
 
 // Get gets a scene from the SceneMap loading it from the filesystem
-func Get(name string) (*Scene, error) {
+func Get(name string, config NFFS.Configuration) (*Scene, error) {
 	if path, ok := SceneMap[name]; ok {
-		file, err := NFFS.Open(path)
+		file, err := NFFS.Open(path, config)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,7 @@ func Register(name, path string) error {
 //
 // Like most NFFS functions this function only functions in the local directory and the embedded filesystems
 func RegisterAll(path string) error {
-	err := NFFS.Walk(path, func(path string, d fs.DirEntry, err error) error {
+	err := NFFS.Walk(path, NFFS.NewConfiguration(true), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

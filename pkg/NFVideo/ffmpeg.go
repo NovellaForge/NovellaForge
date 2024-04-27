@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var FfmpegPath string
+
 type Video struct {
 	Probe          FFProbeOutput
 	BufferedImages []image.Image
@@ -43,7 +45,7 @@ func (v *Video) ParseFramesToBuffer() error {
 	fileName := v.Probe.Format.Filename
 
 	// FFmpeg command to capture BufferCount frames starting from BufferedTo
-	cmd := exec.Command(ffmpegPath, "-i", fileName,
+	cmd := exec.Command(FfmpegPath, "-i", fileName,
 		"-vf", fmt.Sprintf("select='gte(n\\,%d)*lte(n\\,%d)'", startFrame, endFrame), "-vsync", "0", "-f", "image2pipe", "-c:v", "png", "-")
 
 	stdout, err := cmd.StdoutPipe()
@@ -221,7 +223,7 @@ func _(file string, splitLength string) error {
 	outPutPath := filepath.Join(filepath.Dir(absPath), "NFSplit", fileName)
 	outPutPath += "_NFSplit_%03d" + extension
 
-	cmd := exec.Command(ffmpegPath, "-i", file, "-c", "copy", "-map", "0", "-segment_time", timeCode, "-reset_timestamps", "1", "-f", "segment", outPutPath)
+	cmd := exec.Command(FfmpegPath, "-i", file, "-c", "copy", "-map", "0", "-segment_time", timeCode, "-reset_timestamps", "1", "-f", "segment", outPutPath)
 	err = cmd.Run()
 	if err != nil {
 		log.Println("Could not split video: ", err)
@@ -271,4 +273,14 @@ func getTimeCode(code string) (string, error) {
 	// Format the timecode
 	timecode := fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 	return timecode, nil
+}
+
+func ExtractFrames(absPath string, folder string) error {
+	cmd := exec.Command(FfmpegPath, "-i", absPath, "-vf", "fps=1", folder+"/%d.png")
+	err := cmd.Run()
+	if err != nil {
+		log.Println("Could not extract frames: ", err)
+		return err
+	}
+	return nil
 }
