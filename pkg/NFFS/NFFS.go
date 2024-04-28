@@ -7,10 +7,10 @@ import (
 	"embed"
 	"errors"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 //TODO add in some more security features to prevent directory traversal attacks and other security vulnerabilities
@@ -20,21 +20,32 @@ import (
 var localFS fs.FS
 var localIsValid bool
 
+// IsRunningDebug TODO Make sure this is removed before any production builds
+func IsRunningDebug() bool {
+	return os.Getenv("DEBUG_RUN") == "true"
+}
+
 func init() {
+
 	ex, err := os.Executable()
 	if err != nil {
 		localIsValid = false
 		return
 	}
-	log.Println("Executable: ", ex)
 	//Check if there is a game directory at the root of the executable
 	dataDir := filepath.Join(filepath.Dir(ex), "data")
+	if IsRunningDebug() {
+		dataDir, err = filepath.Abs("data")
+		if err != nil {
+			localIsValid = false
+			return
+		}
+	}
 	info, err := os.Stat(dataDir)
 	if err != nil {
 		localIsValid = false
 		return
 	}
-	log.Println("Data Directory: ", dataDir)
 	//Check if it is a directory
 	if !info.IsDir() {
 		localIsValid = false
@@ -71,6 +82,8 @@ type multiFS map[string]fs.FS
 
 // Open opens the first matching file in the filesystems for reading
 func (m multiFS) Open(path string, config Configuration) (fs.File, error) {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	if (config.LocalFS || config.OnlyLocal) && localIsValid {
 		file, err := localFS.Open(path)
 		if err == nil {
@@ -106,6 +119,8 @@ func (m multiFS) Open(path string, config Configuration) (fs.File, error) {
 
 // Stat returns the fileInfo for the first matching file info in the filesystems
 func (m multiFS) Stat(path string, config Configuration) (fs.FileInfo, error) {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	if (config.LocalFS || config.OnlyLocal) && localIsValid {
 		fileInfo, err := fs.Stat(localFS, path)
 		if err == nil {
@@ -147,6 +162,8 @@ func (m multiFS) Stat(path string, config Configuration) (fs.FileInfo, error) {
 
 // ReadFile reads the first matching file in the filesystems and returns the contents as a byte slice
 func (m multiFS) ReadFile(path string, config Configuration) ([]byte, error) {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	if (config.LocalFS || config.OnlyLocal) && localIsValid {
 		data, err := fs.ReadFile(localFS, path)
 		if err == nil {
@@ -182,6 +199,8 @@ func (m multiFS) ReadFile(path string, config Configuration) ([]byte, error) {
 
 // ReadDir reads the first matching directory in the filesystems and returns a list of directory entries
 func (m multiFS) ReadDir(path string, config Configuration) ([]fs.DirEntry, error) {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	if (config.LocalFS || config.OnlyLocal) && localIsValid {
 		data, err := fs.ReadDir(localFS, path)
 		if err == nil {
@@ -216,10 +235,12 @@ func (m multiFS) ReadDir(path string, config Configuration) ([]fs.DirEntry, erro
 }
 
 // Walk walks each filesystem in the multiFS performing the walkFn on each file or directory
-func (m multiFS) Walk(dir string, walkFn fs.WalkDirFunc, config Configuration) error {
+func (m multiFS) Walk(path string, walkFn fs.WalkDirFunc, config Configuration) error {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "\\", "/")
 	var err error
 	if (config.LocalFS || config.OnlyLocal) && localIsValid {
-		walkErr := fs.WalkDir(localFS, dir, walkFn)
+		walkErr := fs.WalkDir(localFS, path, walkFn)
 		if walkErr != nil {
 			errors.Join(err, walkErr)
 		}
@@ -234,14 +255,14 @@ func (m multiFS) Walk(dir string, walkFn fs.WalkDirFunc, config Configuration) e
 				if !ok {
 					continue
 				}
-				walkErr := fs.WalkDir(fsys, dir, walkFn)
+				walkErr := fs.WalkDir(fsys, path, walkFn)
 				if walkErr != nil {
 					errors.Join(err, walkErr)
 				}
 			}
 		} else {
 			for _, fsys := range m {
-				walkErr := fs.WalkDir(fsys, dir, walkFn)
+				walkErr := fs.WalkDir(fsys, path, walkFn)
 				if walkErr != nil {
 					errors.Join(err, walkErr)
 				}

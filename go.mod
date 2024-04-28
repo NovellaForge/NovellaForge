@@ -2,7 +2,12 @@ module go.novellaforge.dev/novellaforge
 
 go 1.22.1
 
-require fyne.io/fyne/v2 v2.4.4
+//Exclude templates directory
+
+require (
+	fyne.io/fyne/v2 v2.4.5
+	golang.org/x/sys v0.19.0
+)
 
 require (
 	github.com/faiface/beep v1.1.0
@@ -20,8 +25,8 @@ require (
 	github.com/fyne-io/glfw-js v0.0.0-20231117203605-bc7c6f97d52f // indirect
 	github.com/fyne-io/image v0.0.0-20230811065323-ed435dc8bca6 // indirect
 	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71 // indirect
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231223183121-56fa3ac82ce7 // indirect
-	github.com/go-text/render v0.0.0-20230619120952-35bccb6164b8 // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240306074159-ea2d69986ecb // indirect
+	github.com/go-text/render v0.1.0 // indirect
 	github.com/go-text/typesetting v0.1.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
@@ -36,7 +41,6 @@ require (
 	golang.org/x/image v0.14.0 // indirect
 	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
 	golang.org/x/net v0.18.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/js/dom v0.0.0-20231030024858-cb489e859d05 // indirect

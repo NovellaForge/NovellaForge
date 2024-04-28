@@ -5,6 +5,8 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"go.novellaforge.dev/novellaforge/pkg/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFLog"
 	"go.novellaforge.dev/novellaforge/pkg/NFVideo"
 	"log"
 )
@@ -12,6 +14,11 @@ import (
 func main() {
 	a := app.NewWithID("dev.novellaforge.testing")
 	w := a.NewWindow("Hello")
+	err := NFLog.SetUp(w)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	mainMenu := fyne.NewMainMenu(
 		fyne.NewMenu("File",
 			fyne.NewMenuItem("Reset", func() {
@@ -19,6 +26,7 @@ func main() {
 			}),
 		),
 	)
+
 	w.SetMainMenu(mainMenu)
 	initContent(w)
 	w.Resize(fyne.NewSize(400, 200))
@@ -26,13 +34,21 @@ func main() {
 }
 
 func initContent(w fyne.Window) {
-	video, err := NFVideo.NewVideoWidget("assets/videos/testVid.mp4", 90, 30)
+	config := NFFS.NewConfiguration(true)
+	config.OnlyLocal = true
+	log.Println("Loading video")
+
+	/*video, err := Expirmental.NewFileVideo("data/assets/videos/jpg.mp4", 60, 30)
 	if err != nil {
 		log.Println(err)
-	}
+		return
+	}*/
 
-	probe := video.GetProbe()
-	log.Println(probe.Streams[0].Width, probe.Streams[0].Height)
+	video, err := NFVideo.NewFrameVideo("assets/videos/jpg.mp4", config)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	playButton := widget.NewButton("Play Video", func() {
 		video.Play()

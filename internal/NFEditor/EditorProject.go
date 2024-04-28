@@ -375,35 +375,35 @@ func (p NFProject) Create(window fyne.Window) error {
 		LocalWidgets:    p.Config.Name + "/internal/widgets",
 	}
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/MainGame/Template.go",
+		templatePath:    "Templates/MainGame/MainGame.got",
 		destinationPath: projectDir + "/cmd/" + p.Config.Name + "/" + p.Config.Name + ".go",
 		data:            mainGameData,
 	})
 
 	//game/FileSystem.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/FileLoader/Template.go",
+		templatePath:    "Templates/FileLoader/FileLoader.got",
 		destinationPath: projectDir + "/game/FileSystem.go",
 		data:            nil,
 	})
 
 	//internal/functions/CustomFunctions.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomFunction/Template.go",
+		templatePath:    "Templates/CustomFunction/CustomFunctions.got",
 		destinationPath: projectDir + "/internal/functions/CustomFunctions.go",
 		data:            nil,
 	})
 
 	//internal/layouts/CustomLayouts.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomLayout/Template.go",
+		templatePath:    "Templates/CustomLayout/CustomLayouts.got",
 		destinationPath: projectDir + "/internal/layouts/CustomLayouts.go",
 		data:            nil,
 	})
 
 	//internal/widgets/CustomWidgets.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomWidget/Template.go",
+		templatePath:    "Templates/CustomWidget/CustomWidgets.got",
 		destinationPath: projectDir + "/internal/widgets/CustomWidgets.go",
 		data:            nil,
 	})

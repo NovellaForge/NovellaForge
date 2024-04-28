@@ -1,7 +1,7 @@
 package main
 
 import (
-	"go.novellaforge.dev/novellaforge/assets"
+	"go.novellaforge.dev/novellaforge/data/assets"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"

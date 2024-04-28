@@ -109,17 +109,11 @@ type StreamTags struct {
 }
 
 func ProbeVideo(file string) (FFProbeOutput, error) {
-	log.Println("Probing video file: ", file)
-	args := []string{"-show_format", "-show_streams", "-print_format", "json", "-v", "quiet"}
-	cmd := exec.Command(ProbePath, file)
-	for _, arg := range args {
-		if arg != "" {
-			cmd.Args = append(cmd.Args, arg)
-		}
-	}
+	args := []string{"-show_format", "-show_streams", "-show_error", "-print_format", "json", "-v", "quiet", file}
+	cmd := exec.Command(ProbePath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Could not run ffprobe")
+		log.Println("Could not run ffprobe: ", string(output))
 		return FFProbeOutput{}, err
 	}
 

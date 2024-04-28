@@ -275,8 +275,8 @@ func getTimeCode(code string) (string, error) {
 	return timecode, nil
 }
 
-func ExtractFrames(absPath string, folder string) error {
-	cmd := exec.Command(FfmpegPath, "-i", absPath, "-vf", "fps=1", folder+"/%d.png")
+func ExtractFrames(absPath string, folder string, fps float64) error {
+	cmd := exec.Command(FfmpegPath, "-i", absPath, "-vf", "fps="+fmt.Sprintf("%.2f", fps), folder+"/%d.jpg")
 	err := cmd.Run()
 	if err != nil {
 		log.Println("Could not extract frames: ", err)

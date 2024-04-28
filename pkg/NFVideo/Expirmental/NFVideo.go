@@ -14,51 +14,68 @@ import (
 	"time"
 )
 
-//TODO: remove game dependency on ffmpeg, by generating png frames and parsing them at a set framerate
-// For game build this will first create folders for each video, before splitting them into all their frames.
-// It then needs to move the videos out of the video folder into a temp directory before checking embed and build/archiving the build
-// It will then move the videos back before deleting the frame folders.
+type FileVideoRenderer struct {
+	vp *FileVideo
+}
 
-type VideoWidget struct {
+func (v FileVideoRenderer) Destroy() {}
+
+func (v FileVideoRenderer) Layout(size fyne.Size) {
+	v.vp.player.Resize(size)
+}
+
+func (v FileVideoRenderer) MinSize() fyne.Size {
+	return v.vp.player.MinSize()
+}
+
+func (v FileVideoRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{v.vp.player}
+}
+
+func (v FileVideoRenderer) Refresh() {
+	v.vp.Refresh()
+}
+
+type FileVideo struct {
 	widget.BaseWidget
 	video  *NFVideo.Video
 	player *canvas.Image
 }
 
-func (v *VideoWidget) CreateRenderer() fyne.WidgetRenderer {
-	return &NFVideo.VideoRenderer{}
+func (v *FileVideo) CreateRenderer() fyne.WidgetRenderer {
+	return &FileVideoRenderer{vp: v}
 }
 
-func NewVideoWidget(file string, frameBuffer, bufferWhenRemaining int) (*VideoWidget, error) {
+func NewFileVideo(file string, frameBuffer, bufferWhenRemaining int) (*FileVideo, error) {
 	//Check if the file exists
 	_, err := os.Stat(file)
 	if err != nil {
-		return &VideoWidget{}, err
+		return &FileVideo{}, err
 	}
 
 	absFile, err := filepath.Abs(file)
 	if err != nil {
-		return &VideoWidget{}, err
+		return &FileVideo{}, err
 	}
 
 	//Check if the binaries are present
 	err = NFVideo.CheckBinaries()
 	if err != nil {
-		return &VideoWidget{}, err
+		return &FileVideo{}, err
 	}
 
 	probe, err := NFVideo.ProbeVideo(absFile)
 	if err != nil {
-		return &VideoWidget{}, err
+		return &FileVideo{}, err
 	}
 
 	video, err := NFVideo.NewVideo(probe, frameBuffer, min(bufferWhenRemaining, frameBuffer))
 	if err != nil {
-		return &VideoWidget{}, err
+		return &FileVideo{}, err
 	}
 
 	firstFrame, _ := video.NextFrame()
-	videoPlayer := &VideoWidget{
+	videoPlayer := &FileVideo{
 		video:  video,
 		player: canvas.NewImageFromImage(firstFrame),
 	}
@@ -68,11 +85,11 @@ func NewVideoWidget(file string, frameBuffer, bufferWhenRemaining int) (*VideoWi
 	return videoPlayer, nil
 }
 
-func (v *VideoWidget) GetPlayer() *canvas.Image {
+func (v *FileVideo) GetPlayer() *canvas.Image {
 	return v.player
 }
 
-func (v *VideoWidget) Play() {
+func (v *FileVideo) Play() {
 	totalFrames := v.video.TotalFrames
 	currentFrame := v.video.CurrentFrame
 	frames := float64(v.video.RealFrames)
@@ -139,19 +156,19 @@ func (v *VideoWidget) Play() {
 	}()
 }
 
-func (v *VideoWidget) CurrentFrame() int {
+func (v *FileVideo) CurrentFrame() int {
 	return v.video.CurrentFrame
 }
 
 // GetProbe returns the probe output of the video
-func (v *VideoWidget) GetProbe() NFVideo.FFProbeOutput {
+func (v *FileVideo) GetProbe() NFVideo.FFProbeOutput {
 	return v.video.Probe
 }
 
-func (v *VideoWidget) Pause() {
+func (v *FileVideo) Pause() {
 	v.video.Paused = true
 }
 
-func (v *VideoWidget) GetTargetFPS() float64 {
+func (v *FileVideo) GetTargetFPS() float64 {
 	return v.video.TargetFPS
 }
