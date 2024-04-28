@@ -28,8 +28,8 @@ configs/
 # Go workspace file
 go.work
 
-# Build File
 /export/
 /defaults/
 /assets/debug/
-
+/logs/
+/data/assets/videos/
