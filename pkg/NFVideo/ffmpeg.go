@@ -284,3 +284,13 @@ func ExtractFrames(absPath string, folder string, fps float64) error {
 	}
 	return nil
 }
+
+func CreateGifFromVideo(absPath string, outPath string, fps float64) error {
+	cmd := exec.Command(FfmpegPath, "-i", absPath, "-vf", "fps="+fmt.Sprintf("%.2f", fps)+",scale=720:-1:flags=lanczos", "-c:v", "gif", outPath)
+	err := cmd.Run()
+	if err != nil {
+		log.Println("Could not create gif from video: ", err)
+		return err
+	}
+	return nil
+}

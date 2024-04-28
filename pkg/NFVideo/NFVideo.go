@@ -7,6 +7,7 @@ import (
 	"go.novellaforge.dev/novellaforge/data/assets"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,7 +116,7 @@ func CheckBinaries() error {
 	return nil
 }
 
-func ParseVideo(path string, maxFPS float64) error {
+func ParseVideoIntoFrames(path string, maxFPS float64) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		log.Println("Could not get absolute path: ", err)
@@ -160,8 +161,8 @@ func ParseVideo(path string, maxFPS float64) error {
 	}
 	nfvideo.RealSeconds = realSeconds
 
-	targetFPS := min(float64(realFrames)/float64(realSeconds), maxFPS)
-	nfvideo.TargetFPS = targetFPS
+	targetFPS := math.Ceil(min(float64(realFrames)/float64(realSeconds), maxFPS))
+	nfvideo.TargetFPS = int(targetFPS)
 
 	//Create the folder for the frames
 	noExtPath := strings.TrimSuffix(absPath, filepath.Ext(absPath))
@@ -198,4 +199,74 @@ func ParseVideo(path string, maxFPS float64) error {
 		return err
 	}
 	return nil
+}
+
+func ParseVideoIntoGif(path string, maxFPS float64) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		log.Println("Could not get absolute path: ", err)
+		return err
+	}
+
+	err = CheckBinaries()
+	if err != nil {
+		log.Println("Could not check binaries: ", err)
+		return err
+	}
+
+	//Probe the video
+	probe, err := ProbeVideo(absPath)
+	if err != nil {
+		log.Println("Could not probe video: ", err)
+		return err
+	}
+
+	//Get the frame rate from the real seconds and real frames
+	rFrameRate := probe.Streams[0].RFrameRate
+	rFrameSplit := strings.Split(rFrameRate, "/")
+	rFrameNum := rFrameSplit[0]
+	realFrames, err := strconv.Atoi(rFrameNum)
+	if err != nil {
+		log.Println("Could not convert real frames: ", err)
+		return err
+	}
+	rFrameSeconds := rFrameSplit[1]
+	realSeconds, err := strconv.Atoi(rFrameSeconds)
+	if err != nil {
+		log.Println("Could not convert real seconds: ", err)
+		return err
+	}
+
+	//Calculate the target fps
+	targetFPS := min(float64(realFrames)/float64(realSeconds), maxFPS)
+
+	//Check if a file with the same name but .gif extension already exists if it does loop adding a number to the end of the file name
+	gifPath := strings.TrimSuffix(absPath, filepath.Ext(absPath)) + ".gif"
+	for i := 0; ; i++ {
+		_, err := os.Stat(gifPath)
+		if os.IsNotExist(err) {
+			break
+		}
+		gifPath = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + strconv.Itoa(i) + ".gif"
+	}
+
+	err = CreateGifFromVideo(absPath, gifPath, targetFPS)
+	if err != nil {
+		log.Println("Could not create gif from video: ", err)
+		return err
+	}
+	return nil
+}
+
+type NFVideo struct {
+	TotalFrames int    `json:"totalFrames"`
+	TargetFPS   int    `json:"targetFPS"`
+	RealFrames  int    `json:"realFrames"`
+	RealSeconds int    `json:"realSeconds"`
+	Path        string `json:"path"`
+}
+
+func (v *NFVideo) Parse(file []byte) error {
+	//Presume the file is json and unmarshal it
+	return json.Unmarshal(file, v)
 }

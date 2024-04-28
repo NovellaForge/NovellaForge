@@ -19,6 +19,18 @@ func main() {
 		log.Println(err)
 		return
 	}
+
+	/*err = NFVideo.ParseVideoIntoGif("data/assets/videos/jpg.mp4", 30)
+	if err != nil {
+		log.Println(err)
+		return
+	}*/
+
+	/*err = NFVideo.ParseVideoIntoFrames("data/assets/videos/jpg.mp4", 30)
+	if err != nil {
+		log.Println(err)
+	}*/
+
 	mainMenu := fyne.NewMainMenu(
 		fyne.NewMenu("File",
 			fyne.NewMenuItem("Reset", func() {
@@ -38,23 +50,29 @@ func initContent(w fyne.Window) {
 	config.OnlyLocal = true
 	log.Println("Loading video")
 
-	/*video, err := Expirmental.NewFileVideo("data/assets/videos/jpg.mp4", 60, 30)
+	/*video, err := NFVideo.NewGifPlayer("assets/videos/jpg.gif", config)
 	if err != nil {
 		log.Println(err)
 		return
 	}*/
 
-	video, err := NFVideo.NewFrameVideo("assets/videos/jpg.mp4", config)
+	/*video, err := Experimental.NewFileVideo("data/assets/videos/jpg.mp4", 60, 30)
+	if err != nil {
+		log.Println(err)
+		return
+	}*/
+
+	video, err := NFVideo.NewFramePlayer("assets/videos/jpg", config)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	playButton := widget.NewButton("Play Video", func() {
-		video.Play()
+		video.Start()
 	})
 	pauseButton := widget.NewButton("Pause Video", func() {
-		video.Pause()
+		video.Stop()
 	})
 
 	vbox := container.NewVBox(playButton, pauseButton)

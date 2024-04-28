@@ -113,6 +113,7 @@ func ProbeVideo(file string) (FFProbeOutput, error) {
 	cmd := exec.Command(ProbePath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Println(file)
 		log.Println("Could not run ffprobe: ", string(output))
 		return FFProbeOutput{}, err
 	}

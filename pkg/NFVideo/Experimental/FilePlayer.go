@@ -1,4 +1,4 @@
-package Expirmental
+package Experimental
 
 import (
 	"fyne.io/fyne/v2"
