@@ -7,7 +7,6 @@ import (
 	"embed"
 	"errors"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -56,7 +55,7 @@ func init() {
 	localFS = os.DirFS(dataDir)
 
 	//Walk the directory to check if it is valid by printing out the files
-	err = fs.WalkDir(localFS, ".", func(path string, d fs.DirEntry, err error) error {
+	/*err = fs.WalkDir(localFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -70,7 +69,7 @@ func init() {
 	if err != nil {
 		localIsValid = false
 		return
-	}
+	}*/
 	localIsValid = true
 }
 

@@ -20,17 +20,6 @@ func main() {
 		return
 	}
 
-	/*err = NFVideo.ParseVideoIntoGif("data/assets/videos/jpg.mp4", 30)
-	if err != nil {
-		log.Println(err)
-		return
-	}*/
-
-	/*err = NFVideo.ParseVideoIntoFrames("data/assets/videos/jpg.mp4", 30)
-	if err != nil {
-		log.Println(err)
-	}*/
-
 	mainMenu := fyne.NewMainMenu(
 		fyne.NewMenu("File",
 			fyne.NewMenuItem("Reset", func() {
@@ -38,6 +27,15 @@ func main() {
 			}),
 		),
 	)
+
+	if _, e := NFFS.Stat("assets/videos/test3.gif", NFFS.NewConfiguration(true)); e != nil {
+		log.Println("Creating video")
+		err = NFVideo.FormatVideo("data/assets/videos/test3.mp4", 20, -1, "1080")
+		if err != nil {
+			log.Println("Failed to format video: ", err)
+			return
+		}
+	}
 
 	w.SetMainMenu(mainMenu)
 	initContent(w)
@@ -49,20 +47,7 @@ func initContent(w fyne.Window) {
 	config := NFFS.NewConfiguration(true)
 	config.OnlyLocal = true
 	log.Println("Loading video")
-
-	/*video, err := NFVideo.NewGifPlayer("assets/videos/jpg.gif", config)
-	if err != nil {
-		log.Println(err)
-		return
-	}*/
-
-	/*video, err := Experimental.NewFileVideo("data/assets/videos/jpg.mp4", 60, 30)
-	if err != nil {
-		log.Println(err)
-		return
-	}*/
-
-	video, err := NFVideo.NewFramePlayer("assets/videos/jpg", config)
+	video, err := NFVideo.NewGifPlayer("assets/videos/test3.gif", config)
 	if err != nil {
 		log.Println(err)
 		return
@@ -76,6 +61,6 @@ func initContent(w fyne.Window) {
 	})
 
 	vbox := container.NewVBox(playButton, pauseButton)
-	border := container.NewBorder(nil, nil, vbox, nil, video)
+	border := container.NewBorder(nil, nil, vbox, nil, video.Player())
 	w.SetContent(border)
 }

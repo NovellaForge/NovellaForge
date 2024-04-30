@@ -1,13 +1,12 @@
 package NFVideo
 
 import (
-	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/data/assets"
+	"go.novellaforge.dev/novellaforge/pkg/NFAudio"
 	"io/fs"
 	"log"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +14,16 @@ import (
 	"strconv"
 	"strings"
 )
+
+var AudioTrack *NFAudio.SpeakerTrack
+
+func init() {
+	var err error
+	AudioTrack, err = NFAudio.NewSpeakerTrack("video")
+	if err != nil {
+		return
+	}
+}
 
 func UnpackBinaries(location string) error {
 	//Check for the binaries folder inside the location
@@ -116,92 +125,11 @@ func CheckBinaries() error {
 	return nil
 }
 
-func ParseVideoIntoFrames(path string, maxFPS float64) error {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		log.Println("Could not get absolute path: ", err)
-		return err
-	}
-
-	err = CheckBinaries()
-	if err != nil {
-		log.Println("Could not check binaries: ", err)
-		return err
-	}
-
-	//Get the number of frames
-	probe, err := ProbeVideo(absPath)
-	if err != nil {
-		log.Println("Could not probe video: ", err)
-		return err
-	}
-
-	nfvideo := &NFVideo{}
-	nbFrames, err := strconv.Atoi(probe.Streams[0].NbFrames)
-	if err != nil {
-		log.Println("Could not convert number of frames: ", err)
-		return err
-	}
-	nfvideo.TotalFrames = nbFrames
-
-	rFrameRate := probe.Streams[0].RFrameRate
-	rFrameSplit := strings.Split(rFrameRate, "/")
-	rFrameNum := rFrameSplit[0]
-	realFrames, err := strconv.Atoi(rFrameNum)
-	if err != nil {
-		log.Println("Could not convert real frames: ", err)
-		return err
-	}
-	nfvideo.RealFrames = realFrames
-	rFrameSeconds := rFrameSplit[1]
-	realSeconds, err := strconv.Atoi(rFrameSeconds)
-	if err != nil {
-		log.Println("Could not convert real seconds: ", err)
-		return err
-	}
-	nfvideo.RealSeconds = realSeconds
-
-	targetFPS := math.Ceil(min(float64(realFrames)/float64(realSeconds), maxFPS))
-	nfvideo.TargetFPS = int(targetFPS)
-
-	//Create the folder for the frames
-	noExtPath := strings.TrimSuffix(absPath, filepath.Ext(absPath))
-	fileName := filepath.Base(noExtPath)
-
-	frameFolder := filepath.Join(noExtPath, fileName+"_frames")
-	err = os.MkdirAll(frameFolder, os.ModePerm)
-	if err != nil {
-		log.Println("Could not create frame folder: ", err)
-		return err
-	}
-	//Write the NFVideo file
-	nfVideoPath := filepath.Join(noExtPath, fileName+".NFVideo")
-	nfVideoFile, err := os.Create(nfVideoPath)
-	defer nfVideoFile.Close()
-	if err != nil {
-		log.Println("Could not create NFVideo file: ", err)
-		return err
-	}
-	nfVideoData, err := json.Marshal(nfvideo)
-	if err != nil {
-		log.Println("Could not marshal NFVideo data: ", err)
-		return err
-	}
-	_, err = nfVideoFile.Write(nfVideoData)
-	if err != nil {
-		log.Println("Could not write NFVideo data: ", err)
-		return err
-	}
-	//Extract the frames
-	err = ExtractFrames(absPath, frameFolder, targetFPS)
-	if err != nil {
-		log.Println("Could not extract frames: ", err)
-		return err
-	}
-	return nil
-}
-
-func ParseVideoIntoGif(path string, maxFPS float64) error {
+// FormatVideo formats the video into a gif and mp3
+//
+// TODO: Set up an editor integration to allow doing this automatically a build time(No loops)
+// or manually at any time allowing the user to set the loop count
+func FormatVideo(path string, maxFPS float64, loopCount int, scale scale) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		log.Println("Could not get absolute path: ", err)
@@ -242,31 +170,39 @@ func ParseVideoIntoGif(path string, maxFPS float64) error {
 
 	//Check if a file with the same name but .gif extension already exists if it does loop adding a number to the end of the file name
 	gifPath := strings.TrimSuffix(absPath, filepath.Ext(absPath)) + ".gif"
-	for i := 0; ; i++ {
+	for i := 1; ; i++ {
 		_, err := os.Stat(gifPath)
 		if os.IsNotExist(err) {
 			break
 		}
-		gifPath = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + strconv.Itoa(i) + ".gif"
+		gifPath = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + "_" + strconv.Itoa(i) + ".gif"
 	}
 
-	err = CreateGifFromVideo(absPath, gifPath, targetFPS)
+	newGif, err := CreateGifFromVideo(absPath, targetFPS, scale)
 	if err != nil {
 		log.Println("Could not create gif from video: ", err)
 		return err
 	}
+
+	err = SaveGifWithLoopCount(newGif, loopCount, gifPath)
+	if err != nil {
+		log.Println("Could not save gif: ", err)
+		return err
+	}
+
+	mp3Path := strings.TrimSuffix(absPath, filepath.Ext(absPath)) + ".mp3"
+	for i := 1; ; i++ {
+		_, err := os.Stat(mp3Path)
+		if os.IsNotExist(err) {
+			break
+		}
+		mp3Path = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + "_" + strconv.Itoa(i) + ".mp3"
+	}
+	err = ExtractAudioToMP3(absPath, mp3Path)
+	if err != nil {
+		log.Println("Could not extract audio: ", err)
+		return err
+	}
+
 	return nil
-}
-
-type NFVideo struct {
-	TotalFrames int    `json:"totalFrames"`
-	TargetFPS   int    `json:"targetFPS"`
-	RealFrames  int    `json:"realFrames"`
-	RealSeconds int    `json:"realSeconds"`
-	Path        string `json:"path"`
-}
-
-func (v *NFVideo) Parse(file []byte) error {
-	//Presume the file is json and unmarshal it
-	return json.Unmarshal(file, v)
 }
