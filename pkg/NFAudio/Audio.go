@@ -104,13 +104,10 @@ func (s *SpeakerTrack) playAudio(rc io.ReadCloser, volume float64, speed float64
 	}
 	// Allow for looping of the audio track
 	numLoops := loops
-	// if loops == -1 {
-	// 	numLoops = -1
-	// } else if loops == 0 {
-	// 	numLoops = 0
-	// } else {
-	// 	numLoops = loops
-	// }
+	if numLoops != -1 {
+		numLoops++
+		numLoops = max(numLoops, -1)
+	}
 
 	loopStreamer := beep.Loop(numLoops, streamer)
 
