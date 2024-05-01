@@ -149,6 +149,13 @@ func FormatVideo(path string, maxFPS float64, loopCount int, scale scale) error 
 		return err
 	}
 
+	totalFrames, err := strconv.Atoi(probe.Streams[0].NbFrames)
+	if err != nil {
+		log.Println("Could not convert total frames: ", err)
+		return err
+	}
+	log.Println("Total frames: ", totalFrames)
+
 	//Get the frame rate from the real seconds and real frames
 	rFrameRate := probe.Streams[0].RFrameRate
 	rFrameSplit := strings.Split(rFrameRate, "/")
@@ -178,11 +185,21 @@ func FormatVideo(path string, maxFPS float64, loopCount int, scale scale) error 
 		gifPath = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + "_" + strconv.Itoa(i) + ".gif"
 	}
 
+	/*
+		err = CreateGifFromExtractedFrames(absPath, targetFPS, loopCount, gifPath)
+		if err != nil {
+			log.Println("Could not create gif from video: ", err)
+			return err
+		}
+	*/
+
 	newGif, err := CreateGifFromVideo(absPath, targetFPS, scale)
 	if err != nil {
 		log.Println("Could not create gif from video: ", err)
 		return err
 	}
+
+	log.Println("Delay: ", newGif.Delay)
 
 	err = SaveGifWithLoopCount(newGif, loopCount, gifPath)
 	if err != nil {

@@ -28,9 +28,9 @@ func main() {
 		),
 	)
 
-	if _, e := NFFS.Stat("assets/videos/test3.gif", NFFS.NewConfiguration(true)); e != nil {
+	if _, e := NFFS.Stat("assets/videos/test4.gif", NFFS.NewConfiguration(true)); e != nil {
 		log.Println("Creating video")
-		err = NFVideo.FormatVideo("data/assets/videos/test3.mp4", 20, -1, "1080")
+		err = NFVideo.FormatVideo("data/assets/videos/test4.mp4", 30, -1, "720")
 		if err != nil {
 			log.Println("Failed to format video: ", err)
 			return
@@ -47,7 +47,7 @@ func initContent(w fyne.Window) {
 	config := NFFS.NewConfiguration(true)
 	config.OnlyLocal = true
 	log.Println("Loading video")
-	video, err := NFVideo.NewGifPlayer("assets/videos/test3.gif", config)
+	video, err := NFVideo.NewGifPlayer("assets/videos/test4.gif", false, config)
 	if err != nil {
 		log.Println(err)
 		return
