@@ -127,7 +127,7 @@ func CheckBinaries() error {
 
 // FormatVideo formats the video into a gif and mp3
 //
-// TODO: Set up an editor integration to allow doing this automatically a build time(No loops)
+// TODO: Set up an editor integration to allow doing this automatically at build time(No loops)
 // or manually at any time allowing the user to set the loop count
 func FormatVideo(path string, maxFPS float64, loopCount int, scale scale) error {
 	absPath, err := filepath.Abs(path)
@@ -185,21 +185,11 @@ func FormatVideo(path string, maxFPS float64, loopCount int, scale scale) error 
 		gifPath = strings.TrimSuffix(absPath, filepath.Ext(absPath)) + "_" + strconv.Itoa(i) + ".gif"
 	}
 
-	/*
-		err = CreateGifFromExtractedFrames(absPath, targetFPS, loopCount, gifPath)
-		if err != nil {
-			log.Println("Could not create gif from video: ", err)
-			return err
-		}
-	*/
-
 	newGif, err := CreateGifFromVideo(absPath, targetFPS, scale)
 	if err != nil {
 		log.Println("Could not create gif from video: ", err)
 		return err
 	}
-
-	log.Println("Delay: ", newGif.Delay)
 
 	err = SaveGifWithLoopCount(newGif, loopCount, gifPath)
 	if err != nil {

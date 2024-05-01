@@ -106,6 +106,7 @@ func (g *ModifiedAnimatedGif) LoadGif(inGif *gif.GIF) error {
 // Start begins the animation. The speed of the transition is controlled by the loaded gif file.
 func (g *ModifiedAnimatedGif) Start() {
 	if g.isRunning() {
+		log.Println("Already running")
 		return
 	}
 	g.runLock.Lock()
@@ -113,7 +114,7 @@ func (g *ModifiedAnimatedGif) Start() {
 	g.runLock.Unlock()
 
 	buffer := image.NewNRGBA(g.dst.Image.Bounds())
-	g.draw(buffer, 0)
+	g.draw(buffer, g.currentFrame)
 
 	go func() {
 		//if on windows set the timer resolution to 1ms
@@ -142,8 +143,8 @@ func (g *ModifiedAnimatedGif) Start() {
 	loop:
 		for g.remaining != 0 {
 			lastFrameTime := time.Now()
-			for c := g.currentFrame; c < len(g.src.Image); c++ {
-				if g.isStopping() {
+			for c := g.currentFrame + 1; c < len(g.src.Image); c++ {
+				if g.isStopping() || g.IsPaused() {
 					break loop
 				}
 
@@ -232,6 +233,12 @@ func (g *ModifiedAnimatedGif) HandleFrame(c int) {
 	}
 }
 
+func (g *ModifiedAnimatedGif) IsPaused() bool {
+	g.runLock.RLock()
+	defer g.runLock.RUnlock()
+	return g.paused
+}
+
 func NewModifiedAnimatedGif(inGif *gif.GIF, usePreciseTiming bool) (*ModifiedAnimatedGif, error) {
 	ret := &ModifiedAnimatedGif{
 		preciseTiming: usePreciseTiming,
@@ -292,6 +299,8 @@ func (g *GifPlayer) Start() {
 	}
 	g.player.Start()
 }
+
+//TODO need to fix up these functions to make sure that they properly handle the audio and gif player
 
 func (g *GifPlayer) Stop() {
 	AudioTrack.PauseAudio() //This needs to be a reset/clear

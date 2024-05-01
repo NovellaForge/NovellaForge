@@ -52,15 +52,23 @@ func initContent(w fyne.Window) {
 		log.Println(err)
 		return
 	}
-
+	pauseButton := widget.NewButton("Pause Video", func() {
+		video.Pause()
+	})
+	resumeButton := widget.NewButton("Resume Video", func() {
+		video.Resume()
+	})
+	restartButton := widget.NewButton("Restart Video", func() {
+		video.Restart()
+	})
 	playButton := widget.NewButton("Play Video", func() {
 		video.Start()
 	})
-	pauseButton := widget.NewButton("Pause Video", func() {
+	stopButton := widget.NewButton("Pause Video", func() {
 		video.Stop()
 	})
 
-	vbox := container.NewVBox(playButton, pauseButton)
+	vbox := container.NewVBox(playButton, pauseButton, resumeButton, restartButton, stopButton)
 	border := container.NewBorder(nil, nil, vbox, nil, video.Player())
 	w.SetContent(border)
 }
