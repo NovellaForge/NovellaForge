@@ -64,30 +64,33 @@ func NewSpeakerTrack(name string) (*SpeakerTrack, error) {
 // Play an audio from bytes with a specified volume, playback speed, and looping option.
 // A volume of 0 mutes the audio, and volume increases as the value increases.
 // The speed should be a ratio for the speed adjustment, with 1 using the original speed of the file.
-// The looping option allows for the audio track to be repeated indefinitely.
-func (s *SpeakerTrack) PlayAudioFromBytes(data []byte, volume float64, speed float64, looping bool) error {
+// The loops option allows for the audio track to be repeated indefinitely. Choose -1 for infinitely looping audio
+// A loops value of 0 and 1 have the same functionality, playing the audio once.
+func (s *SpeakerTrack) PlayAudioFromBytes(data []byte, volume float64, speed float64, loops int) error {
 	reader := bytes.NewReader(data)
 	rc := io.NopCloser(reader)
-	return s.playAudio(rc, volume, speed, looping)
+	return s.playAudio(rc, volume, speed, loops)
 }
 
 // Play an audio file with a specified volume, playback speed, and looping option.
 // A volume of 0 mutes the audio, and volume increases as the value increases.
 // The speed should be a ratio for the speed adjustment, with 1 using the original speed of the file.
-// The looping option allows for the audio track to be repeated indefinitely.
-func (s *SpeakerTrack) PlayAudioFromFile(file string, volume float64, speed float64, looping bool) error {
+// The loops option allows for the audio track to be repeated indefinitely. Choose -1 for infinitely looping audio
+// A loops value of 0 and 1 have the same functionality, playing the audio once.
+func (s *SpeakerTrack) PlayAudioFromFile(file string, volume float64, speed float64, loops int) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
 	}
-	return s.playAudio(f, volume, speed, looping)
+	return s.playAudio(f, volume, speed, loops)
 }
 
 // Play an audio file with a specified volume, playback speed, and looping option.
 // A volume of 0 mutes the audio, and volume increases as the value increases.
 // The speed should be a ratio for the speed adjustment, with 1 using the original speed of the file.
-// The looping option allows for the audio track to be repeated indefinitely.
-func (s *SpeakerTrack) playAudio(rc io.ReadCloser, volume float64, speed float64, looping bool) error {
+// The looping option allows for the audio track to be repeated indefinitely. Choose -1 for infinitely looping audio
+// A loops value of 0 and 1 have the same functionality, playing the audio once.
+func (s *SpeakerTrack) playAudio(rc io.ReadCloser, volume float64, speed float64, loops int) error {
 
 	streamer, format, err := mp3.Decode(rc)
 	if err != nil {
@@ -100,12 +103,16 @@ func (s *SpeakerTrack) playAudio(rc io.ReadCloser, volume float64, speed float64
 		speakerInitialized = true
 	}
 	// Allow for looping of the audio track
-	loop := 1
-	if looping {
-		loop = -1
-	}
+	numLoops := loops
+	// if loops == -1 {
+	// 	numLoops = -1
+	// } else if loops == 0 {
+	// 	numLoops = 0
+	// } else {
+	// 	numLoops = loops
+	// }
 
-	loopStreamer := beep.Loop(loop, streamer)
+	loopStreamer := beep.Loop(numLoops, streamer)
 
 	// Resample the audio track to 44100 Hz
 	resampled := beep.Resample(4, format.SampleRate, 44100, loopStreamer)
