@@ -18,11 +18,8 @@ import (
 	"time"
 )
 
-//TODO finish the implementation of the gif player
-
 // ModifiedAnimatedGif is a modified version of the AnimatedGif widget from the fyne x package.
 // This version will allow for frame handlers and precise timing.
-// TODO Need to add in the ability to pause resume and reset the gif back to the beginning
 type ModifiedAnimatedGif struct {
 	widget.BaseWidget
 	min fyne.Size
@@ -35,8 +32,6 @@ type ModifiedAnimatedGif struct {
 	runLock           sync.RWMutex
 	preciseTiming     bool
 	frameEvents       map[int][]func()
-	paused            bool
-	currentFrame      int
 }
 
 func (g *ModifiedAnimatedGif) AddFrameHandler(frame int, handler func()) {
@@ -114,7 +109,7 @@ func (g *ModifiedAnimatedGif) Start() {
 	g.runLock.Unlock()
 
 	buffer := image.NewNRGBA(g.dst.Image.Bounds())
-	g.draw(buffer, g.currentFrame)
+	g.draw(buffer, 0)
 
 	go func() {
 		//if on windows set the timer resolution to 1ms
@@ -143,15 +138,14 @@ func (g *ModifiedAnimatedGif) Start() {
 	loop:
 		for g.remaining != 0 {
 			lastFrameTime := time.Now()
-			for c := g.currentFrame + 1; c < len(g.src.Image); c++ {
-				if g.isStopping() || g.IsPaused() {
+			for c := range g.src.Image {
+				if g.isStopping() {
 					break loop
 				}
 
 				frameStartTime := time.Now()
 
 				g.draw(buffer, c)
-				g.currentFrame = c
 				go g.HandleFrame(c)
 				frameProcessingTime := time.Since(frameStartTime)
 				delay := (time.Duration(g.src.Delay[c]) * time.Millisecond * 10) - frameProcessingTime
@@ -176,26 +170,6 @@ func (g *ModifiedAnimatedGif) Start() {
 		g.stopping = false
 		g.runLock.Unlock()
 	}()
-}
-
-func (g *ModifiedAnimatedGif) Pause() {
-	g.runLock.Lock()
-	g.paused = true
-	g.runLock.Unlock()
-}
-
-func (g *ModifiedAnimatedGif) Resume() {
-	g.runLock.Lock()
-	g.paused = false
-	g.runLock.Unlock()
-	g.Start()
-}
-
-func (g *ModifiedAnimatedGif) Reset() {
-	g.runLock.Lock()
-	g.currentFrame = 0
-	g.runLock.Unlock()
-	g.Stop()
 }
 
 func (g *ModifiedAnimatedGif) isStopping() bool {
@@ -231,12 +205,6 @@ func (g *ModifiedAnimatedGif) HandleFrame(c int) {
 			}
 		}
 	}
-}
-
-func (g *ModifiedAnimatedGif) IsPaused() bool {
-	g.runLock.RLock()
-	defer g.runLock.RUnlock()
-	return g.paused
 }
 
 func NewModifiedAnimatedGif(inGif *gif.GIF, usePreciseTiming bool) (*ModifiedAnimatedGif, error) {
@@ -300,28 +268,9 @@ func (g *GifPlayer) Start() {
 	g.player.Start()
 }
 
-//TODO need to fix up these functions to make sure that they properly handle the audio and gif player
-
 func (g *GifPlayer) Stop() {
-	AudioTrack.PauseAudio() //This needs to be a reset/clear
+	AudioTrack.PauseAudio() //TODO This needs to be a reset/clear
 	g.player.Stop()
-}
-
-func (g *GifPlayer) Pause() {
-	AudioTrack.PauseAudio()
-	g.player.Pause()
-}
-
-func (g *GifPlayer) Resume() {
-	AudioTrack.ResumeAudio()
-	g.player.Resume()
-}
-
-func (g *GifPlayer) Restart() {
-	AudioTrack.PauseAudio() //This needs to be a reset/clear
-	// We need to restart audio from the beginning here
-	g.player.Reset()
-	g.player.Start()
 }
 
 func (g *GifPlayer) Player() *ModifiedAnimatedGif {
