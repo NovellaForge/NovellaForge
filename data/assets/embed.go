@@ -2,13 +2,12 @@ package assets
 
 import "embed"
 
+// EditorPng is an embed.FS that contains the editor icon
+//
 //go:embed icons/editor.png
 var EditorPng embed.FS
 
-// BinaryFS
-//
-// TODO These embedded Binaries need to be copied to the game folder instead of being unpacked by the editor,
-// since it will be the game unpacking them for normal runtime
+// BinaryFS is an embed.FS that contains the binary files
 //
 //go:embed binaries
 var BinaryFS embed.FS

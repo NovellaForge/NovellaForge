@@ -1,28 +1,21 @@
 package main
 
 import (
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/theme"
 	"go.novellaforge.dev/novellaforge/data/assets"
+	"go.novellaforge.dev/novellaforge/internal/NFEditor"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFFunction/DefaultFunctions"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
+	"go.novellaforge.dev/novellaforge/pkg/NFLog"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
 	"log"
 	"net/http"
 	"os"
-	"time"
-
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/internal/NFEditor"
-	"go.novellaforge.dev/novellaforge/pkg/NFLog"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
-
 	//Profiler stuff
 
 	_ "net/http/pprof"
@@ -30,13 +23,16 @@ import (
 
 /*
 
+TODO Need to add in an overlay type which is similar to scenes but has a string map of layout slices
+ that will be drawn on top of the scene if the scene has an OverLayGroup property set to a matching overlay name
+
+
+
 
 TODO 0.0.1: [ ] = Required, ( ) = Optional, X = Done, - = Alternative implementation
  [X] Finish the parsing refactor to use the new interface system.
  [ ] Finish documentation/comments
  [ ] Video And Audio players need to be added to the game templates
- 	[ ] Make sure ffmpeg binaries are added to the game folder and are unpacked into the config folder or wherever the game creator specifies
- 	[ ] This includes allowing embedding of the binaries in the game via a build option and making sure the path to the binaries is set properly
  [ ] Finish the scene editor
 	[X] Add in the ability to add and remove scenes
 	[X] Add in the ability to group scenes
@@ -52,8 +48,9 @@ TODO 0.0.1: [ ] = Required, ( ) = Optional, X = Done, - = Alternative implementa
 TODO 0.1.0:
  [ ] Add in a way to run the game from the editor for testing
  [ ] Scene Editor Preview Mode
+ 	[ ] This should allow the user to see the scene as it would appear in the game as well as switch it to an editing mode
 	[ ] This should add clickable elements to all elements that select them for editing in the properties
-    [ ] This should override buttons and other interactive elements to not be clickable
+    [ ] This should override buttons and other interactive elements to not be clickable while in editing mode
 TODO 1.0.0:
  [ ] Add in the debug run mode
    [ ] This should run the game with a debug flag enabled, that enables editing in certain widget that support it
@@ -103,7 +100,7 @@ func main() {
 	application := app.NewWithID("com.novellaforge.editor")
 
 	//Load the embedded icons/EditorPng as bytes
-	iconBytes, err := assets.EditorPng.ReadFile("editor.png")
+	iconBytes, err := assets.EditorPng.ReadFile("icons/editor.png")
 	if err != nil {
 		//If the icon fails to load, log the error and set the icon to the default application icon
 		log.Printf("Failed to load icon: %v", err)
@@ -128,6 +125,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	NFEditor.CreateMainContent(window)
+	window.ShowAndRun()
+}
+
+//Splash Screen disabled for now as it is not needed due to how fast the editor loads
+
+/*
 	// Create a loading widget shown while the main NovellaForge content is loading
 	loadingChannel := make(chan struct{})
 	loading := CalsWidgets.NewLoading(loadingChannel, 0*time.Second, 100)
@@ -136,7 +140,6 @@ func main() {
 		widget.NewLabelWithStyle("NovellaForge", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle("Version: "+Version, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		widget.NewLabelWithStyle("Developed By: "+Author, fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewLabelWithStyle("Powered By: Fyne", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 		loading.Box,
 	)
 
@@ -152,7 +155,8 @@ func main() {
 	//Sets the main window to be the master window so that it can be focused and when it is closed the application will close
 	window.SetMaster()
 
-	// Once the loading bar is complete, close the splash screen and show the main window
+
+// Once the loading bar is complete, close the splash screen and show the main window
 	// This code runs in a thread, so we can continue to load the main content while the splash screen is shown
 	// Note that the splash variable contains the loading bar, and once the loading bar is complete, the splash screen is closed
 	// The window variable contains the NovellaForge main content, which is shown after the splash screen is closed
@@ -175,4 +179,5 @@ func main() {
 		go NFEditor.CreateMainContent(window, loading)
 		window.ShowAndRun()
 	}
-}
+
+*/

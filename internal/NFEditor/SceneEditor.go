@@ -38,7 +38,7 @@ TODO: SceneEditor
 	[] Project Version
 	[] Project Author
 	[] Anything else we can think of
-	[] To make this easy move the project info to an embedded .NFConfig file in the project folder
+	[X] To make this easy move the project info to an embedded .NFConfig file in the project folder
  [] Scene Editor
  	[] Scene Saving on Key Press and via Button and Auto Save
  	[X] Scene Selector
@@ -561,7 +561,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	projectPath := ActiveProject.Info.Path
 	//Go to the parent folder of the .NFProject file in the project path
 	projectPath = filepath.Dir(projectPath)
-	scenesFolder := filepath.Join(projectPath, "game/data/scenes/")
+	scenesFolder := filepath.Join(projectPath, "data/scenes/")
 	scenesFolder = filepath.Clean(scenesFolder)
 	if !fs.ValidPath(scenesFolder) {
 		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder Path"))
@@ -1048,7 +1048,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			layouts = make(map[string]NFData.AssetProperties)
 			widgets = make(map[string]NFData.AssetProperties)
 			//Walk the assets folder for all .NFLayout files
-			assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "game/assets/")
+			assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "data/assets/")
 			assetsFolder = filepath.Clean(assetsFolder)
 			err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
 				if err != nil {

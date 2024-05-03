@@ -21,9 +21,13 @@ import (
 var SceneMap = map[string]string{}
 
 // Get gets a scene from the SceneMap loading it from the filesystem
-func Get(name string, config NFFS.Configuration) (*Scene, error) {
+func Get(name string, config ...NFFS.Configuration) (*Scene, error) {
+	//If config[0] is not passed, use the default configuration
+	if len(config) == 0 {
+		config = append(config, NFFS.NewConfiguration(true))
+	}
 	if path, ok := SceneMap[name]; ok {
-		file, err := NFFS.Open(path, config)
+		file, err := NFFS.Open(path, config[0])
 		if err != nil {
 			return nil, err
 		}

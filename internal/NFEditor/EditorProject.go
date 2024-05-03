@@ -212,7 +212,7 @@ func (p NFInfo) Load(window fyne.Window) error {
 	}
 	//Walk the game directory of the project for the .NFConfig file
 	//If it doesn't exist, return an error
-	gameDir := filepath.Dir(p.Path) + "/game/"
+	gameDir := filepath.Dir(p.Path) + "/data/"
 	//Look for the first file ending in .NFConfig
 	err := filepath.Walk(gameDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".NFConfig" {
@@ -346,7 +346,7 @@ func (p NFProject) Create(window fyne.Window) error {
 	}
 
 	loading.SetProgress(50, "Saving Local config")
-	err = p.Config.Save(projectDir + "/game/Game.NFConfig")
+	err = p.Config.Save(projectDir + "/data/Game.NFConfig")
 	if err != nil {
 		shouldDelete = true
 		return err
@@ -380,45 +380,45 @@ func (p NFProject) Create(window fyne.Window) error {
 		data:            mainGameData,
 	})
 
-	//game/FileSystem.go
+	//data/FileSystem.go
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/FileLoader/FileLoader.got",
-		destinationPath: projectDir + "/game/FileSystem.go",
+		destinationPath: projectDir + "/data/FileSystem.go",
 		data:            nil,
 	})
 
 	//internal/functions/CustomFunctions.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomFunction/CustomFunctions.got",
-		destinationPath: projectDir + "/internal/functions/CustomFunctions.go",
+		templatePath:    "Templates/CustomFunction/CustomFunction.got",
+		destinationPath: projectDir + "/internal/functions/CustomFunction.go",
 		data:            nil,
 	})
 
 	//internal/layouts/CustomLayouts.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomLayout/CustomLayouts.got",
-		destinationPath: projectDir + "/internal/layouts/CustomLayouts.go",
+		templatePath:    "Templates/CustomLayout/CustomLayout.got",
+		destinationPath: projectDir + "/internal/layouts/CustomLayout.go",
 		data:            nil,
 	})
 
 	//internal/widgets/CustomWidgets.go
 	neededFiles = append(neededFiles, templateCombo{
-		templatePath:    "Templates/CustomWidget/CustomWidgets.got",
-		destinationPath: projectDir + "/internal/widgets/CustomWidgets.go",
+		templatePath:    "Templates/CustomWidget/CustomWidget.got",
+		destinationPath: projectDir + "/internal/widgets/CustomWidget.go",
 		data:            nil,
 	})
 
-	//game/data/scenes/MainMenu.NFScene
+	//data/scenes/MainMenu.NFScene
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/Scenes/MainMenu.NFScene",
-		destinationPath: projectDir + "/game/data/scenes/MainMenu.NFScene",
+		destinationPath: projectDir + "/data/scenes/MainMenu.NFScene",
 		data:            nil,
 	})
 
-	//game/data/scenes/NewGame.NFScene
+	//data/scenes/NewGame.NFScene
 	neededFiles = append(neededFiles, templateCombo{
 		templatePath:    "Templates/Scenes/NewGame.NFScene",
-		destinationPath: projectDir + "/game/data/scenes/NewGame.NFScene",
+		destinationPath: projectDir + "/data/scenes/NewGame.NFScene",
 		data:            nil,
 	})
 

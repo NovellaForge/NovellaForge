@@ -10,7 +10,6 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFLog"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget/CalsWidgets"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,32 +17,32 @@ import (
 )
 
 // CreateMainContent updates the loading variable as the NovellaForge content is created
-func CreateMainContent(window fyne.Window, loading *CalsWidgets.Loading) {
+func CreateMainContent(window fyne.Window) {
 	// Runs "go version" to check if Go is installed
-	loading.SetProgress(10, "Checking Dependencies")
+	//loading.SetProgress(10, "Checking Dependencies")
 	CheckAndInstallDependencies(window)
 
 	// Creates a main menu to hold the buttons below
-	loading.SetProgress(30, "Creating Main Menu")
+	//loading.SetProgress(30, "Creating Main Menu")
 	CreateMainMenu(window)
 
 	// Create a grid layout for the four main buttons
-	loading.SetProgress(50, "Creating Main Content")
+	//loading.SetProgress(50, "Creating Main Content")
 	grid := CreateMainGrid(window)
 	//Fetch the buttons from the grid to allow for disabling them
 	openRecentButton := grid.(*fyne.Container).Objects[2].(*widget.Button)
 	continueLastButton := grid.(*fyne.Container).Objects[3].(*widget.Button)
 
-	loading.SetProgress(70, "Initializing Buttons")
+	//loading.SetProgress(70, "Initializing Buttons")
 	err := InitButtons(window, continueLastButton, openRecentButton)
 	if err != nil {
 		//Show an error dialog
 		dialog.ShowError(err, window)
 		return
 	}
-	loading.SetProgress(100, "Setting Content")
+	//loading.SetProgress(100, "Setting Content")
 	window.SetContent(grid)
-	loading.Complete()
+	//loading.Complete()
 }
 
 func InitButtons(window fyne.Window, continueLastButton *widget.Button, openRecentButton *widget.Button) error {
