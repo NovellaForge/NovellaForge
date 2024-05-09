@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"log"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func (f *Function) AddChild(_ NFData.NFObject) {
+func (f *Function) AddChild(_ NFObjects.NFObject) {
 	log.Println("Functions cannot have children")
 }
 

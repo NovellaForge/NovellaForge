@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFConfig"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"io/fs"
 	"log"
 	"os"
@@ -974,7 +975,7 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 											//Check if the parent object is a layout or a widget
 
 											//Check if it is a widget or a layout
-											if obj, ok := parentObject.(NFData.NFObject); ok {
+											if obj, ok := parentObject.(NFObjects.NFObject); ok {
 												//Add a new child widget
 												//Create an ID that doesn't exist in the parent
 												newID := obj.GetType()
@@ -1134,7 +1135,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 			} else {
 				properties.Objects = properties.Objects[:1]
 				typeLabel := widget.NewLabel("Type: ")
-				object, ok := selectedObject.(NFData.NFObject)
+				object, ok := selectedObject.(NFObjects.NFObject)
 				if !ok {
 					panic("Selected Object is not an NFObject")
 				}

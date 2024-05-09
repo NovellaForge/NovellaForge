@@ -5,9 +5,9 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout/DefaultLayouts"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget/DefaultWidgets"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"time"
 )
 

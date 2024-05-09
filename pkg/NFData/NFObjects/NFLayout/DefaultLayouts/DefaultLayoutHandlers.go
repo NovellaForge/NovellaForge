@@ -12,14 +12,6 @@ import (
 func VBoxLayoutHandler(window fyne.Window, _ *NFData.NFInterfaceMap, l *NFLayout.Layout) (fyne.CanvasObject, error) {
 	vbox := container.NewVBox()
 	for _, child := range l.Children {
-		if child.Type == "Button" {
-			//Print the on tapped event
-			var onTapped string
-			err := child.Args.Get("OnTapped", &onTapped)
-			if err != nil {
-				return nil, NFError.NewErrMissingArgument(l.Type, "OnTapped")
-			}
-		}
 		widget, err := child.Parse(window)
 		if err != nil {
 			return nil, err

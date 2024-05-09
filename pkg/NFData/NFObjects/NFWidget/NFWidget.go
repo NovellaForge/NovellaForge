@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ type Widget struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func (w *Widget) AddChild(object NFData.NFObject) {
+func (w *Widget) AddChild(object NFObjects.NFObject) {
 	//Try to convert the object to a widget
 	newWidget, ok := object.(*Widget)
 	if !ok {

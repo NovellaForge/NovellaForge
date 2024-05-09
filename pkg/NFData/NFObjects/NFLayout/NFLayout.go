@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"log"
 	"os"
@@ -30,7 +31,7 @@ type Layout struct {
 	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
 }
 
-func (l *Layout) AddChild(object NFData.NFObject) {
+func (l *Layout) AddChild(object NFObjects.NFObject) {
 	//Try to convert the object to a widget
 	newWidget, ok := object.(*NFWidget.Widget)
 	if !ok {

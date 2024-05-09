@@ -3,8 +3,8 @@ package DefaultFunctions
 import (
 	"errors"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFScene"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFSave"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"log"
 	"os"
 	"path/filepath"

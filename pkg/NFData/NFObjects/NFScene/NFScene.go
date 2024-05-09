@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
@@ -54,31 +56,82 @@ func NewScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap)
 }
 
 // ParseAndLoad runs Parse before loading the scene in to active scene data
-func (scene *Scene) ParseAndLoad(window fyne.Window, overlay ...NFLayout.Layout) (fyne.CanvasObject, error) {
+func (scene *Scene) ParseAndLoad(window fyne.Window) (fyne.CanvasObject, error) {
+	sceneObject, err := scene.Parse(window)
+	if err != nil {
+		return nil, err
+	}
 	NFData.ActiveSceneData = NFData.NewSceneData(scene.Name)
 	NFData.ActiveSceneData.Layouts.Set("main", *scene.Layout)
 	NFData.ActiveSceneData.Variables = scene.Args
-	for i, o := range overlay {
-		NFData.ActiveSceneData.Layouts.Set("overlay_"+strconv.Itoa(i), o)
-	}
-	return scene.Parse(window, overlay...)
+	return sceneObject, nil
 }
 
-// Parse parses a scene and returns a fyne.CanvasObject that can be added to the window each argument passed should be an overlay, with the first being the bottom most overlay
-func (scene *Scene) Parse(window fyne.Window, overlay ...NFLayout.Layout) (fyne.CanvasObject, error) {
-	stack := container.NewStack()
+type SceneStack struct {
+	widget.BaseWidget
+	container *fyne.Container
+}
+
+type StackRenderer struct {
+	stack *SceneStack
+}
+
+func (s *StackRenderer) Destroy() {}
+
+func (s *StackRenderer) Layout(size fyne.Size) {
+	s.stack.container.Layout.Layout(s.stack.container.Objects, size)
+}
+
+func (s *StackRenderer) MinSize() fyne.Size {
+	return s.stack.container.MinSize()
+}
+
+func (s *StackRenderer) Objects() []fyne.CanvasObject {
+	return s.stack.container.Objects
+}
+
+func (s *StackRenderer) Refresh() {
+	s.stack.container.Refresh()
+}
+
+func (s *SceneStack) CreateRenderer() fyne.WidgetRenderer {
+	return &StackRenderer{s}
+}
+
+func NewSceneStack(window fyne.Window, scene fyne.CanvasObject) *SceneStack {
+	stack := &SceneStack{
+		container: container.NewStack(scene),
+	}
+	stack.ExtendBaseWidget(stack)
+	stack.RefreshOverlays(window)
+	return stack
+}
+
+func (s *SceneStack) RefreshOverlays(window fyne.Window) {
+	scene := s.container.Objects[0]
+	s.container.Objects = nil
+	s.Refresh()
+	s.container.Objects = append(s.container.Objects, scene)
+	for _, overlay := range Overlays {
+		if overlay.visible {
+			layout, err := overlay.layout.Parse(window)
+			if err != nil {
+				log.Println(err)
+				dialog.ShowError(err, window)
+			}
+			s.container.Objects = append(s.container.Objects, layout)
+		}
+	}
+	s.Refresh()
+}
+
+// Parse parses a scene and returns a fyne.CanvasObject that can be added to the window
+func (scene *Scene) Parse(window fyne.Window) (*SceneStack, error) {
 	layout, err := scene.Layout.Parse(window)
 	if err != nil {
 		return nil, err
 	}
-	stack.Add(layout)
-	for _, o := range overlay {
-		obj, e := o.Parse(window)
-		if e == nil {
-			stack.Add(obj)
-		}
-	}
-	return stack, err
+	return NewSceneStack(window, layout), err
 }
 
 func (scene *Scene) Save(path string) error {
