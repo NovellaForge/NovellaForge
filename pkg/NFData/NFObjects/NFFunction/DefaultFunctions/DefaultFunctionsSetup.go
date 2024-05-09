@@ -2,7 +2,7 @@ package DefaultFunctions
 
 import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
 	"log"
 )
 

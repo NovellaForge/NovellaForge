@@ -3,7 +3,8 @@ package DefaultFunctions
 import (
 	"errors"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFScene"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFSave"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFSave"
 )
 
 // Quit simply closes the window after prompting the user for confirmation

@@ -4,11 +4,13 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFFS"
-	"go.novellaforge.dev/novellaforge/pkg/NFLog"
-	"go.novellaforge.dev/novellaforge/pkg/NFVideo"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFLog"
+	NFVideo2 "go.novellaforge.dev/novellaforge/pkg/NFData/NFVideo"
 	"log"
+	"time"
 )
 
 func main() {
@@ -30,7 +32,7 @@ func main() {
 
 	if _, e := NFFS.Stat("assets/videos/test4.gif", NFFS.NewConfiguration(true)); e != nil {
 		log.Println("Creating video")
-		err = NFVideo.FormatVideo("data/assets/videos/test4.mp4", 30, -1, "720")
+		err = NFVideo2.FormatVideo("data/assets/videos/test4.mp4", 30, -1, "720")
 		if err != nil {
 			log.Println("Failed to format video: ", err)
 			return
@@ -46,20 +48,45 @@ func main() {
 func initContent(w fyne.Window) {
 	config := NFFS.NewConfiguration(true)
 	config.OnlyLocal = true
+	stopWatchBinding := binding.NewString()
+	err := stopWatchBinding.Set("0")
+	if err != nil {
+		return
+	}
+	stopWatch := widget.NewLabelWithData(stopWatchBinding)
 	log.Println("Loading video")
-	video, err := NFVideo.NewGifPlayer("assets/videos/test4.gif", false, config)
+	video, err := NFVideo2.NewGifPlayer("assets/videos/test4.gif", false, config)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	startTime := time.Now()
+	resetWatch := func() {
+		startTime = time.Now()
+	}
+	go func() {
+		for i := 0; i < 1000; i++ {
+			select {
+			case <-time.After(100 * time.Millisecond):
+				elapsed := time.Since(startTime)
+				err := stopWatchBinding.Set(elapsed.String())
+				if err != nil {
+					return
+				}
+			}
+		}
+		log.Println("Watch done")
+	}()
+	video.Player().SetMinSize(fyne.NewSize(500, 500))
 	playButton := widget.NewButton("Play Video", func() {
 		video.Start()
+		resetWatch()
 	})
 	stopButton := widget.NewButton("Stop Video", func() {
 		video.Stop()
 	})
 
 	vbox := container.NewVBox(playButton, stopButton)
-	border := container.NewBorder(nil, nil, vbox, nil, video.Player())
+	border := container.NewBorder(nil, nil, vbox, nil, container.NewVBox(stopWatch, video.Player()))
 	w.SetContent(border)
 }

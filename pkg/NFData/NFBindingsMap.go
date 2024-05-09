@@ -2,7 +2,7 @@ package NFData
 
 import (
 	"fyne.io/fyne/v2/data/binding"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"reflect"
 	"sync"
 )

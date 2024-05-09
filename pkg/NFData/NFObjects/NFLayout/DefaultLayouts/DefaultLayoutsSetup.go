@@ -2,7 +2,7 @@ package DefaultLayouts
 
 import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"log"
 )
 

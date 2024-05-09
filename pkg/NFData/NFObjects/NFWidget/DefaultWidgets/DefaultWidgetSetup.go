@@ -1,11 +1,11 @@
 package DefaultWidgets
 
 import (
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"log"
 
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 // Import is an empty function, created to allow the inclusion of this package in other parts of the code,

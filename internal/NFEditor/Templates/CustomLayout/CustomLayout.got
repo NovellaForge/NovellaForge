@@ -5,7 +5,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"log"
 )
 

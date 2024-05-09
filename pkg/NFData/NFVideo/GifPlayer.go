@@ -5,7 +5,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
 	"golang.org/x/sys/windows"
 	"image"
 	"image/draw"

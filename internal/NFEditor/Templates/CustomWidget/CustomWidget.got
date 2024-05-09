@@ -4,8 +4,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"log"
 )
 

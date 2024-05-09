@@ -3,6 +3,10 @@ package DefaultWidgets
 import (
 	"errors"
 	"fmt"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFStyling"
 	"log"
 	"os"
 
@@ -14,10 +18,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
-	"go.novellaforge.dev/novellaforge/pkg/NFStyling"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 // VBoxContainerHandler creates a vertical box container

@@ -2,7 +2,7 @@ package NFData
 
 import (
 	"errors"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"log"
 	"reflect"
 	"sync"

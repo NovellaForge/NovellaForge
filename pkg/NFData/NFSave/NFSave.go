@@ -3,7 +3,7 @@ package NFSave
 import (
 	"encoding/json"
 	"errors"
-	"go.novellaforge.dev/novellaforge/pkg/NFEncryption"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFEncryption"
 	"os"
 	"path/filepath"
 	"time"

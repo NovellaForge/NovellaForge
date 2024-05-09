@@ -3,7 +3,11 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
-	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFConfig"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"io/fs"
 	"log"
 	"os"
@@ -23,10 +27,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFFunction"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFScene"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
 )
 
 /*

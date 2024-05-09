@@ -4,8 +4,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 )
 
 // VBoxLayoutHandler simply adds all children to a vertical box

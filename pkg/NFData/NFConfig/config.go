@@ -2,7 +2,7 @@ package NFConfig
 
 import (
 	"encoding/json"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"io"
 	"io/fs"
 	"os"

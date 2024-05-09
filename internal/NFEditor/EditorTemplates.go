@@ -2,9 +2,9 @@ package NFEditor
 
 import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFScene"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 )
 
 var MainMenuSceneTemplate = NFScene.NewScene(

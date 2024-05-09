@@ -6,8 +6,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFFS"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"io"
 	"io/fs"
 	"log"
@@ -20,121 +20,12 @@ import (
 // SceneMap is a map of scene names to their paths for easy access
 var SceneMap = map[string]string{}
 
-// Get gets a scene from the SceneMap loading it from the filesystem
-func Get(name string, config ...NFFS.Configuration) (*Scene, error) {
-	//If config[0] is not passed, use the default configuration
-	if len(config) == 0 {
-		config = append(config, NFFS.NewConfiguration(true))
-	}
-	if path, ok := SceneMap[name]; ok {
-		file, err := NFFS.Open(path, config[0])
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-		data, err := io.ReadAll(file)
-		if err != nil {
-			return nil, err
-		}
-		scene := &Scene{}
-		err = json.Unmarshal(data, scene)
-		if err != nil {
-			return nil, err
-		}
-		return scene, nil
-	}
-	return nil, errors.New("scene not registered")
-}
-
-func Load(path string) (*Scene, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-	scene := &Scene{}
-	err = json.Unmarshal(data, scene)
-	if err != nil {
-		return nil, err
-	}
-
-	//Loop through the children of the layout and set the ID to SceneName.TypeName#Number if it doesn't have one
-	counts := map[string]int{}
-	for i, child := range scene.Layout.Children {
-		if child.ID == "" {
-			if count, ok := counts[child.Type]; ok {
-				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
-				scene.Layout.Children[i] = child
-				counts[child.Type] = count + 1
-			} else {
-				counts[child.Type] = 1
-				child.ID = scene.Name + "." + child.Type + "#1"
-				scene.Layout.Children[i] = child
-			}
-		}
-	}
-	//Save the scene back to the file in case the ID's were changed
-	err = scene.Save(path)
-	if err != nil {
-		log.Println("Error saving scene: ", err)
-	}
-	return scene, nil
-}
-
-// Register registers a scene with the SceneMap
-func Register(name, path string) error {
-	path = filepath.Clean(path)
-	if !fs.ValidPath(path) {
-		return errors.New("invalid path")
-	}
-	//Check if the name is already in the SceneMap
-	if _, ok := SceneMap[name]; ok {
-		return errors.New("scene already registered")
-	}
-	SceneMap[name] = path
-	return nil
-}
-
-// RegisterAll registers all scenes by walking both the embedded and local filesystems
-//
-// This function is heavy and should only be called once at the start of the program,
-// For adding scenes after the program has started use Register instead
-//
-// Like most NFFS functions this function only functions in the local directory and the embedded filesystems
-func RegisterAll(path string) error {
-	err := NFFS.Walk(path, NFFS.NewConfiguration(true), func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		//Check if the file ends in .NFScene
-		if strings.HasSuffix(path, ".NFScene") {
-			name := strings.TrimSuffix(d.Name(), ".NFScene")
-			if oldPath, ok := SceneMap[name]; ok {
-				log.Println("Scene already registered: ", name, " at ", oldPath)
-				log.Println("Make sure scenes have unique names for easy management")
-			} else {
-				SceneMap[name] = path
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Scene is the struct that holds all the information about a scene
 // TODO Add startup values to the scene to be populated when the scene is loaded
 type Scene struct {
-	Name   string           `json:"Name"`
-	Layout *NFLayout.Layout `json:"Layout"`
-	//Overlays map[string]*NFLayout.Layout `json:"Overlays"` //TODO Implement overlays
-	Args *NFData.NFInterfaceMap `json:"Args"`
+	Name   string                 `json:"Name"`
+	Layout *NFLayout.Layout       `json:"Layout"`
+	Args   *NFData.NFInterfaceMap `json:"Args"`
 }
 
 func (scene *Scene) GetType() string {
@@ -238,6 +129,114 @@ func (scene *Scene) Save(path string) error {
 	}
 	// Write the file
 	err = os.WriteFile(path, jsonBytes, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Get gets a scene from the SceneMap loading it from the filesystem
+func Get(name string, config ...NFFS.Configuration) (*Scene, error) {
+	//If config[0] is not passed, use the default configuration
+	if len(config) == 0 {
+		config = append(config, NFFS.NewConfiguration(true))
+	}
+	if path, ok := SceneMap[name]; ok {
+		file, err := NFFS.Open(path, config[0])
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		data, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+		scene := &Scene{}
+		err = json.Unmarshal(data, scene)
+		if err != nil {
+			return nil, err
+		}
+		return scene, nil
+	}
+	return nil, errors.New("scene not registered")
+}
+
+func Load(path string) (*Scene, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	scene := &Scene{}
+	err = json.Unmarshal(data, scene)
+	if err != nil {
+		return nil, err
+	}
+
+	//Loop through the children of the layout and set the ID to SceneName.TypeName#Number if it doesn't have one
+	counts := map[string]int{}
+	for i, child := range scene.Layout.Children {
+		if child.ID == "" {
+			if count, ok := counts[child.Type]; ok {
+				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
+				scene.Layout.Children[i] = child
+				counts[child.Type] = count + 1
+			} else {
+				counts[child.Type] = 1
+				child.ID = scene.Name + "." + child.Type + "#1"
+				scene.Layout.Children[i] = child
+			}
+		}
+	}
+	//Save the scene back to the file in case the ID's were changed
+	err = scene.Save(path)
+	if err != nil {
+		log.Println("Error saving scene: ", err)
+	}
+	return scene, nil
+}
+
+// Register registers a scene with the SceneMap
+func Register(name, path string) error {
+	path = filepath.Clean(path)
+	if !fs.ValidPath(path) {
+		return errors.New("invalid path")
+	}
+	//Check if the name is already in the SceneMap
+	if _, ok := SceneMap[name]; ok {
+		return errors.New("scene already registered")
+	}
+	SceneMap[name] = path
+	return nil
+}
+
+// RegisterAll registers all scenes by walking both the embedded and local filesystems
+//
+// This function is heavy and should only be called once at the start of the program,
+// For adding scenes after the program has started use Register instead
+//
+// Like most NFFS functions this function only functions in the local directory and the embedded filesystems
+func RegisterAll(path string) error {
+	err := NFFS.Walk(path, NFFS.NewConfiguration(true), func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		//Check if the file ends in .NFScene
+		if strings.HasSuffix(path, ".NFScene") {
+			name := strings.TrimSuffix(d.Name(), ".NFScene")
+			if oldPath, ok := SceneMap[name]; ok {
+				log.Println("Scene already registered: ", name, " at ", oldPath)
+				log.Println("Make sure scenes have unique names for easy management")
+			} else {
+				SceneMap[name] = path
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}

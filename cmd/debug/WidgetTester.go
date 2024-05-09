@@ -3,11 +3,11 @@ package main
 import (
 	"fyne.io/fyne/v2/app"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFLayout/DefaultLayouts"
-	"go.novellaforge.dev/novellaforge/pkg/NFScene"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget"
-	"go.novellaforge.dev/novellaforge/pkg/NFWidget/DefaultWidgets"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout/DefaultLayouts"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget/DefaultWidgets"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFScene"
 	"time"
 )
 

@@ -2,7 +2,7 @@ package game
 
 import (
 	"embed"
-	"go.novellaforge.dev/novellaforge/pkg/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
 )
 
 //go:embed {{.EmbedFiles}}

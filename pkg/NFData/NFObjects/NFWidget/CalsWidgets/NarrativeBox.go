@@ -6,46 +6,46 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
-	"go.novellaforge.dev/novellaforge/pkg/NFStyling"
+	NFStyling2 "go.novellaforge.dev/novellaforge/pkg/NFData/NFStyling"
 	"image/color"
 	"strings"
 	"time"
 )
 
 type SafeNarrativeBox struct {
-	AllText           []string            `json:"AllText"`
-	State             int                 `json:"State"`
-	MaxState          int                 `json:"MaxState"`
-	Name              string              `json:"Name"`
-	HasName           bool                `json:"HasName"`
-	StrokeColor       color.Color         `json:"StrokeColor"`
-	NameStrokeColor   color.Color         `json:"NameStrokeColor"`
-	Fill              color.Color         `json:"Fill"`
-	NameFill          color.Color         `json:"NameFill"`
-	Stroke            float32             `json:"Stroke"`
-	NameStroke        float32             `json:"NameStroke"`
-	NamePosition      fyne.Position       `json:"NamePosition"`
-	NameAffectsLayout bool                `json:"NameAffectsLayout"`
-	StateOnTap        bool                `json:"StateOnTap"`
-	TextOnStateChange bool                `json:"TextOnStateChange"`
-	ConcatText        bool                `json:"ConcatText"`
-	AnimateText       bool                `json:"AnimateText"`
-	CanSkip           bool                `json:"CanSkip"`
-	TextDelay         float32             `json:"TextDelay"`
-	OnStateChange     string              `json:"OnStateChange"`
-	OnTapped          string              `json:"OnTapped"`
-	OnSecondaryTapped string              `json:"OnSecondaryTapped"`
-	OnDoubleTapped    string              `json:"OnDoubleTapped"`
-	OnHover           string              `json:"OnHover"`
-	OnEndHover        string              `json:"OnEndHover"`
-	WhileHover        string              `json:"WhileHover"`
-	Sizing            NFStyling.NFSizing  `json:"Sizing"`
-	Padding           NFStyling.NFPadding `json:"Padding"`
-	ExternalPadding   NFStyling.NFPadding `json:"ExternalPadding"`
-	ContentStyle      NFStyling.NFStyling `json:"ContentStyle"`
-	NameStyle         NFStyling.NFStyling `json:"NameStyle"`
-	NamePadding       NFStyling.NFPadding `json:"NamePadding"`
-	NameSizing        NFStyling.NFSizing  `json:"NameSizing"`
+	AllText           []string             `json:"AllText"`
+	State             int                  `json:"State"`
+	MaxState          int                  `json:"MaxState"`
+	Name              string               `json:"Name"`
+	HasName           bool                 `json:"HasName"`
+	StrokeColor       color.Color          `json:"StrokeColor"`
+	NameStrokeColor   color.Color          `json:"NameStrokeColor"`
+	Fill              color.Color          `json:"Fill"`
+	NameFill          color.Color          `json:"NameFill"`
+	Stroke            float32              `json:"Stroke"`
+	NameStroke        float32              `json:"NameStroke"`
+	NamePosition      fyne.Position        `json:"NamePosition"`
+	NameAffectsLayout bool                 `json:"NameAffectsLayout"`
+	StateOnTap        bool                 `json:"StateOnTap"`
+	TextOnStateChange bool                 `json:"TextOnStateChange"`
+	ConcatText        bool                 `json:"ConcatText"`
+	AnimateText       bool                 `json:"AnimateText"`
+	CanSkip           bool                 `json:"CanSkip"`
+	TextDelay         float32              `json:"TextDelay"`
+	OnStateChange     string               `json:"OnStateChange"`
+	OnTapped          string               `json:"OnTapped"`
+	OnSecondaryTapped string               `json:"OnSecondaryTapped"`
+	OnDoubleTapped    string               `json:"OnDoubleTapped"`
+	OnHover           string               `json:"OnHover"`
+	OnEndHover        string               `json:"OnEndHover"`
+	WhileHover        string               `json:"WhileHover"`
+	Sizing            NFStyling2.NFSizing  `json:"Sizing"`
+	Padding           NFStyling2.NFPadding `json:"Padding"`
+	ExternalPadding   NFStyling2.NFPadding `json:"ExternalPadding"`
+	ContentStyle      NFStyling2.NFStyling `json:"ContentStyle"`
+	NameStyle         NFStyling2.NFStyling `json:"NameStyle"`
+	NamePadding       NFStyling2.NFPadding `json:"NamePadding"`
+	NameSizing        NFStyling2.NFSizing  `json:"NameSizing"`
 }
 
 // NarrativeBox is a widget that displays a message to the user while also having interactive elements
@@ -97,18 +97,18 @@ func NewJsonSafeDialog() SafeNarrativeBox {
 		CanSkip:           true,
 		TextDelay:         25,
 		Name:              "",
-		ContentStyle:      NFStyling.NewTextStyling(),
-		Sizing:            NFStyling.NewSizing(100, 100, 200, 200, true, false),
-		Padding:           NFStyling.NewPadding(5, 5, 5, 5),
-		ExternalPadding:   NFStyling.NewPadding(5, 5, 5, 5),
+		ContentStyle:      NFStyling2.NewTextStyling(),
+		Sizing:            NFStyling2.NewSizing(100, 100, 200, 200, true, false),
+		Padding:           NFStyling2.NewPadding(5, 5, 5, 5),
+		ExternalPadding:   NFStyling2.NewPadding(5, 5, 5, 5),
 		StrokeColor:       color.RGBA{A: 255},
 		Fill:              color.RGBA{R: 128, G: 128, B: 128, A: 255},
 		Stroke:            1,
 		HasName:           false,
 		NameAffectsLayout: true,
-		NameStyle:         NFStyling.NewTextStyling(),
-		NamePadding:       NFStyling.NewPadding(1, 1, 1, 1),
-		NameSizing:        NFStyling.NewSizing(100, 50, 200, 50, false, false),
+		NameStyle:         NFStyling2.NewTextStyling(),
+		NamePadding:       NFStyling2.NewPadding(1, 1, 1, 1),
+		NameSizing:        NFStyling2.NewSizing(100, 50, 200, 50, false, false),
 		NameStrokeColor:   color.RGBA{A: 255},
 		NameFill:          color.RGBA{B: 255, A: 255},
 		NameStroke:        1,
@@ -176,7 +176,7 @@ func (r *renderer) MinSize() fyne.Size {
 	if n.HasName && n.NameAffectsLayout {
 		nameSize := n.nameLabel.Size()
 		// Initialize calculatedPadding with user-set externalPadding
-		calculatedPadding := NFStyling.NewPadding(n.ExternalPadding.Top, n.ExternalPadding.Bottom, n.ExternalPadding.Left, n.ExternalPadding.Right)
+		calculatedPadding := NFStyling2.NewPadding(n.ExternalPadding.Top, n.ExternalPadding.Bottom, n.ExternalPadding.Left, n.ExternalPadding.Right)
 
 		// Only add padding to the sides that nameBorder extends over
 		if n.NamePosition.X < 0 {

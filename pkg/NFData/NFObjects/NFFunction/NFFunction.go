@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
-	"go.novellaforge.dev/novellaforge/pkg/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"log"
 	"os"
 	"path/filepath"

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/data/assets"
-	"go.novellaforge.dev/novellaforge/pkg/NFAudio"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFAudio"
 	"io/fs"
 	"log"
 	"os"
