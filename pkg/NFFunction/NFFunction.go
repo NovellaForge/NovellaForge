@@ -25,6 +25,10 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (f *Function) AddChild(_ NFData.NFObject) {
+	log.Println("Functions cannot have children")
+}
+
 //Functions for the NFData.NFObject interface
 
 func (f *Function) GetType() string {

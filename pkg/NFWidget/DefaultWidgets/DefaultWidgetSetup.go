@@ -23,6 +23,16 @@ func init() {
 	Import()
 	log.Println("Registering Default Widgets")
 
+	//Null Widget for a placeholder widget
+	null := NFWidget.Widget{
+		Type:         "Null",
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	null.Register(func(window fyne.Window, args *NFData.NFInterfaceMap, widget *NFWidget.Widget) (fyne.CanvasObject, error) {
+		return nil, nil
+	})
+
 	// VBoxContainerHandler
 	vbox := NFWidget.Widget{
 		Type:         "VBoxContainer",

@@ -131,9 +131,10 @@ func RegisterAll(path string) error {
 // Scene is the struct that holds all the information about a scene
 // TODO Add startup values to the scene to be populated when the scene is loaded
 type Scene struct {
-	Name   string                 `json:"Name"`
-	Layout *NFLayout.Layout       `json:"Layout"`
-	Args   *NFData.NFInterfaceMap `json:"Args"`
+	Name   string           `json:"Name"`
+	Layout *NFLayout.Layout `json:"Layout"`
+	//Overlays map[string]*NFLayout.Layout `json:"Overlays"` //TODO Implement overlays
+	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
 func (scene *Scene) GetType() string {

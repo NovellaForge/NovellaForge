@@ -5,4 +5,5 @@ type NFObject interface {
 	SetArgs(args *NFInterfaceMap)
 	GetType() string
 	SetType(t string)
+	AddChild(object NFObject)
 }

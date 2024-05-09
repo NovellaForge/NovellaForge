@@ -30,6 +30,16 @@ type Layout struct {
 	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
 }
 
+func (l *Layout) AddChild(object NFData.NFObject) {
+	//Try to convert the object to a widget
+	newWidget, ok := object.(*NFWidget.Widget)
+	if !ok {
+		log.Println("Cannot add non-widget object to widget")
+		return
+	}
+	l.Children = append(l.Children, newWidget)
+}
+
 func (l *Layout) GetType() string {
 	return l.Type
 }

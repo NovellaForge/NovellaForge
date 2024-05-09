@@ -28,6 +28,16 @@ type Widget struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (w *Widget) AddChild(object NFData.NFObject) {
+	//Try to convert the object to a widget
+	newWidget, ok := object.(*Widget)
+	if !ok {
+		log.Println("Cannot add non-widget object to widget")
+		return
+	}
+	w.Children = append(w.Children, newWidget)
+}
+
 func (w *Widget) GetType() string {
 	return w.Type
 }

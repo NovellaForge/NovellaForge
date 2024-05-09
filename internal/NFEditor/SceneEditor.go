@@ -3,6 +3,7 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
+	"go.novellaforge.dev/novellaforge/pkg/NFConfig"
 	"io/fs"
 	"log"
 	"os"
@@ -30,20 +31,23 @@ import (
 
 /*
 TODO: SceneEditor
- [] Project Settings
-	[] Project Name
-	[] Move Project
-	[] Project Icon
-	[] Project Description
-	[] Project Version
-	[] Project Author
+ Need to add in mutexes for all the channel updates !!! Important !!!
+ [X] Project Settings
+	[X] Project Name
+	[X] Move Project
+	[X] Project Description
+	[X] Project Version
+	[X] Project Author
 	[] Anything else we can think of
 	[X] To make this easy move the project info to an embedded .NFConfig file in the project folder
  [] Scene Editor
  	[] Scene Saving on Key Press and via Button and Auto Save
+		[X] Auto Save
+		[X] Save Button
+		[O] Save on Key Press (Not Implemented I could not get fyne key press events to work I will ask in the fyne discord soon)
  	[X] Scene Selector
 		[X] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
-		[] Scene Preview - Parses the scene fully using default values for all objects
+		[-] Scene Preview - Parses the scene fully using default values for all objects (Basic is done but could be extended to allow better control)
 	[] Scene Properties
 		[] Lists the scene name and object id of the selected object at the top
 		[X] Lists all properties of the selected object
@@ -724,12 +728,73 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		}
 	}()
 	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), CreateNewSceneButton(scenesFolder, "", window), CreateNewGroupButton(scenesFolder, "", window))
-	border := container.NewBorder(hbox, nil, nil, nil, tree)
+	vbox := container.NewVBox(CreateProjectSettings(window), hbox)
+	border := container.NewBorder(vbox, nil, nil, nil, tree)
 	scroll := container.NewVScroll(border)
 	windowSize := window.Canvas().Size()
 	scroll.Resize(fyne.NewSize(windowSize.Width/4, windowSize.Height))
 	scroll.SetMinSize(fyne.NewSize(300, 0))
 	return scroll
+}
+
+func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
+	projectPath := ActiveProject.Info.Path
+	projectPath = filepath.Dir(projectPath)
+	configPath := filepath.Join(projectPath, "data", ".NFConfig")
+	configPath = filepath.Clean(configPath)
+	if !fs.ValidPath(configPath) {
+		return widget.NewLabel("Invalid Project Config Path")
+	}
+	configFile, err := os.Open(configPath)
+	if err != nil {
+		log.Println(err)
+		return widget.NewLabel("Error Loading Project Config")
+	}
+	//Parse the config file
+	config := NFConfig.NewBlankConfig()
+	err = config.Load(configFile)
+	if err != nil {
+		log.Println(err)
+		return widget.NewLabel("Error Loading Project Config")
+	}
+
+	form := widget.NewForm()
+	form.Append("Move Project", widget.NewButton("Move", func() {
+		//TODO: Move the project to a new location
+	}))
+	nameEntry := widget.NewEntry()
+	nameEntry.SetText(config.Name)
+	nameEntry.OnChanged = func(s string) {
+		config.Name = s
+	}
+	form.Append("Project Name", nameEntry)
+	descriptionEntry := widget.NewMultiLineEntry()
+	descriptionEntry.SetText(config.Credits)
+	descriptionEntry.OnChanged = func(s string) {
+		config.Credits = s
+	}
+	form.Append("Project Description", descriptionEntry)
+	versionEntry := widget.NewEntry()
+	versionEntry.SetText(config.Version)
+	versionEntry.OnChanged = func(s string) {
+		config.Version = s
+	}
+	form.Append("Project Version", versionEntry)
+	authorEntry := widget.NewEntry()
+	authorEntry.SetText(config.Author)
+	authorEntry.OnChanged = func(s string) {
+		config.Author = s
+	}
+	form.Append("Project Author", authorEntry)
+	saveButton := widget.NewButton("Save", func() {
+		err := config.Save(configPath)
+		if err != nil {
+			dialog.ShowError(err, window)
+		}
+	})
+	form.Append("", saveButton)
+	return form
+
 }
 
 func countChildren(n interface{}) int {
@@ -802,7 +867,6 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 }
 
 func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
-	// objectsCanvas = container.NewBorder(widget.NewLabel("Scene Objects"), nil, nil, nil, widget.NewLabel("No Scene Loaded"))
 	sceneObjectsLabel := container.NewVBox(widget.NewLabel("Scene Objects"))
 	objectsCanvas = container.NewBorder(sceneObjectsLabel, nil, nil, nil, widget.NewLabel("No Scene Loaded"))
 	go func() {
@@ -874,6 +938,7 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 						if b {
 							hbox := container.NewHBox(
 								widget.NewLabel("Group"),
+								widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {}),
 							)
 							return hbox
 						} else {
@@ -890,6 +955,47 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 								if open || node.Selected {
 									object.(*fyne.Container).Objects = []fyne.CanvasObject{
 										widget.NewLabel(node.Name),
+										widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+											//Add a new object to the scene
+											//Get the parent of the node
+											parentNode, ok := sceneObjects[node.Parent]
+											if !ok {
+												log.Println("Parent Node not found")
+												return
+											}
+											//Get the parent object
+											var parentObject interface{}
+											if parentNode.Data != nil {
+												parentObject = parentNode.Data
+											} else {
+												log.Println("Parent Object not found")
+												return
+											}
+											//Check if the parent object is a layout or a widget
+
+											//Check if it is a widget or a layout
+											if obj, ok := parentObject.(NFData.NFObject); ok {
+												//Add a new child widget
+												//Create an ID that doesn't exist in the parent
+												newID := obj.GetType()
+												count := 0
+												for {
+													innerID := newID + "_" + strconv.Itoa(count)
+													_, ok := sceneObjects[innerID]
+													if !ok {
+														newID = innerID
+														break
+													}
+													count++
+												}
+												newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
+												//Add the new object to the parent
+												obj.AddChild(newObject)
+											} else {
+												log.Println("Parent Object is not an NFObject")
+												return
+											}
+										}),
 										layout.NewSpacer(),
 									}
 								} else {
@@ -964,8 +1070,9 @@ func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
 		}
 		for i, child := range l.Children {
 			id := l.Type + "_" + strconv.Itoa(i)
+			childID, _ := child.GetInfo()
 			children[id] = &sceneNode{
-				Name:     child.ID,
+				Name:     childID,
 				Leaf:     false,
 				Parent:   "MainLayout",
 				Children: nil,
