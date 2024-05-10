@@ -3,12 +3,6 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFConfig"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFScene"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"io/fs"
 	"log"
 	"os"
@@ -19,6 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFConfig"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFScene"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -64,6 +65,7 @@ var (
 	sceneObjectsUpdate    = make(chan struct{})
 	scenePropertiesUpdate = make(chan struct{})
 	propertyTypesUpdate   = make(chan struct{})
+	sceneChangeEvent      = make(chan struct{})
 
 	functions = make(map[string]NFData.AssetProperties)
 	layouts   = make(map[string]NFData.AssetProperties)
@@ -78,9 +80,10 @@ var (
 
 	autoSaveTimer *time.Timer
 
-	previewCanvas    fyne.CanvasObject
-	propertiesCanvas fyne.CanvasObject
-	objectsCanvas    fyne.CanvasObject
+	scenePreviewWindow fyne.Window
+	previewCanvas      fyne.CanvasObject
+	propertiesCanvas   fyne.CanvasObject
+	objectsCanvas      fyne.CanvasObject
 )
 
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
@@ -665,6 +668,11 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			if node.Leaf {
 				scenePath := node.FullPath
 				log.Println("Selected Scene: " + scenePath)
+				// Send empty struct to sceneChangeEvent
+				// Close the scene preview window if it exists
+				if scenePreviewWindow != nil {
+					scenePreviewWindow.Close()
+				}
 				scene, err := NFScene.Load(scenePath)
 				if err != nil {
 					log.Println(err)
@@ -690,6 +698,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 						scenePreviewUpdate <- emptyData
 					}
 				}
+				sceneChangeEvent <- emptyData
 			}
 		}
 	}
@@ -807,6 +816,14 @@ func countChildren(n interface{}) int {
 }
 
 func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
+
+	// Create a button, when pressed opens scene preview in seperate window
+	previewButton := widget.NewButton("Preview Scene", func() {
+		scenePreviewWindow = fyne.CurrentApp().NewWindow("Scene Preview")
+		scenePreviewWindow.SetContent(previewCanvas)
+		scenePreviewWindow.Show()
+	})
+
 	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
 	autoSaveTimer = time.NewTimer(autoSaveTime)
 	go func() {
@@ -847,8 +864,25 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 		}
 	}()
 
+	// If a scene is selected, show the preview button
+	// If no scene is selected, show a label saying "No Scene Loaded"
+	scenePreviewButton := container.NewVBox(widget.NewLabel("No Scene Loaded"))
+	// Create a go routine to only show the preview button if a scene is selected
+	go func() {
+		for {
+			<-sceneChangeEvent
+			if selectedScene != nil {
+				scenePreviewButton.Objects = []fyne.CanvasObject{previewButton}
+			} else {
+				scenePreviewButton.Objects = []fyne.CanvasObject{widget.NewLabel("No Scene Loaded")}
+			}
+			scenePreviewButton.Refresh()
+		}
+	}()
+
 	scenePreviewUpdate <- emptyData
-	return previewCanvas
+	return scenePreviewButton
+	// return previewCanvas
 }
 
 func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {

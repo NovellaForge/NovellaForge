@@ -33,3 +33,6 @@ go.work
 /assets/debug/
 /logs/
 /data/assets/videos/
+
+*.mp3
+assets/
