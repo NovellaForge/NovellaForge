@@ -56,6 +56,7 @@ func (g *ModifiedAnimatedGif) SetMinSize(size fyne.Size) {
 	g.min = size
 }
 
+// This is fully fyne x code and is not modified I do not fully know what it does
 func (g *ModifiedAnimatedGif) draw(dst draw.Image, index int) {
 	defer g.dst.Refresh()
 	if index == 0 {

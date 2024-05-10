@@ -56,7 +56,7 @@ func NewScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap)
 }
 
 // ParseAndLoad runs Parse before loading the scene in to active scene data
-func (scene *Scene) ParseAndLoad(window fyne.Window) (fyne.CanvasObject, error) {
+func (scene *Scene) ParseAndLoad(window fyne.Window) (*SceneStack, error) {
 	sceneObject, err := scene.Parse(window)
 	if err != nil {
 		return nil, err
