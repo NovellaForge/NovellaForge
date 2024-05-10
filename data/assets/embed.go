@@ -11,3 +11,8 @@ var EditorPng embed.FS
 //
 //go:embed binaries
 var BinaryFS embed.FS
+
+// TypesFS is an embed.FS that contains the type files for editor parsing
+//
+//go:embed layouts widgets functions
+var TypesFS embed.FS

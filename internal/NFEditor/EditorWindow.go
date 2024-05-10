@@ -411,7 +411,7 @@ func NewProjectDialog(window fyne.Window) {
 		authorBackButton.Show()
 	}
 	authorConfirmButton.OnTapped = func() {
-		config := NFConfig.NewConfig(projectName, authorEntry.Text, "0.0.1", "Created with NovellaForge")
+		config := NFConfig.NewConfig(projectName, "0.0.1", authorEntry.Text, "Created with NovellaForge")
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			log.Println("Error getting home directory")
