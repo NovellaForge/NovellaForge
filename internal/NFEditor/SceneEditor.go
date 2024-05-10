@@ -32,31 +32,15 @@ import (
 
 /*
 TODO: SceneEditor
- Need to add in mutexes for all the channel updates !!! Important !!!
- [X] Project Settings
-	[X] Project Name
-	[X] Move Project
-	[X] Project Description
-	[X] Project Version
-	[X] Project Author
-	[] Anything else we can think of
-	[X] To make this easy move the project info to an embedded .NFConfig file in the project folder
- [] Scene Editor
- 	[] Scene Saving on Key Press and via Button and Auto Save
-		[X] Auto Save
-		[X] Save Button
-		[O] Save on Key Press (Not Implemented I could not get fyne key press events to work I will ask in the fyne discord soon)
- 	[X] Scene Selector
-		[X] Scene List - Grabs all scenes from the project and sorts them based on folders into a tree
-		[-] Scene Preview - Parses the scene fully using default values for all objects (Basic is done but could be extended to allow better control)
-	[] Scene Properties
-		[] Lists the scene name and object id of the selected object at the top
-		[X] Lists all properties of the selected object
-		[X] Allows for editing of the properties limiting to allowed types/values
-	[X] Scene Objects
-		[X] Lists all objects in the scene
-		[X] Allows for adding/removing objects
-		[X] Allows for selecting objects to edit properties
+ [ ] Add in way to use hotkeys to save scene - Need to contact fyne devs to see if this is possible
+ [ ] Finish new widget/layout creation
+ [ ] Integrate type loading from the asset files (i.e functions, layouts, widgets)
+ [ ] Add in way to easily change widget to different types
+ [ ] Make property editor show required and optional args
+ [ ] Fix up project settings
+ [ ] Build Manager to build the project
+ [ ] Migrate Preview to a separate window
+ [ ] Add run game button to launch the game from source
 */
 
 type sceneNode struct {
