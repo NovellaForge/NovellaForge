@@ -231,6 +231,11 @@ func ChangeMasterVolume(volume float64) {
 
 }
 
+// Clear the audio track
+func (s *SpeakerTrack) ClearAudio() {
+	s.clear <- true
+}
+
 func (s *SpeakerTrack) GetName() string {
 	return s.name
 }
