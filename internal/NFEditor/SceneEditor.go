@@ -42,6 +42,8 @@ TODO: SceneEditor
  [ ] Build Manager to build the project
  [ ] Migrate Preview to a separate window
  [ ] Add run game button to launch the game from source
+ [ ] Convert the function parser to make it an actual object
+     so that the user can choose from added functions and specify the args
 */
 
 type sceneNode struct {
@@ -143,6 +145,14 @@ func updateMainMenuBar(window fyne.Window) {
 	saveItem.Shortcut = NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierControl)
 	editMenu.Items = append(editMenu.Items, saveItem)
 	mainMenu := window.MainMenu()
+	//Check if a menu with the name "Editor" exists and if it does replace it
+	for i, menu := range mainMenu.Items {
+		if menu.Label == "Editor" {
+			mainMenu.Items[i] = editMenu
+			window.SetMainMenu(mainMenu)
+			return
+		}
+	}
 	mainMenu.Items = append(mainMenu.Items, editMenu)
 	window.SetMainMenu(mainMenu)
 }
@@ -173,7 +183,7 @@ func parseTime(s string) (time.Duration, error) {
 }
 
 func saveScene(window fyne.Window) {
-	log.Println("Check Save Scene")
+	//log.Println("Check Save Scene")
 	if selectedScene != nil && selectedScenePath != "" {
 		label := widget.NewButtonWithIcon("Saving Scene", theme.DocumentSaveIcon(), func() {})
 		hbox := container.NewHBox(layout.NewSpacer(), label)
@@ -734,7 +744,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
 	projectPath := ActiveProject.Info.Path
 	projectPath = filepath.Dir(projectPath)
-	configPath := filepath.Join(projectPath, "data", ".NFConfig")
+	configPath := filepath.Join(projectPath, "data", "Game.NFConfig")
 	configPath = filepath.Clean(configPath)
 	if !fs.ValidPath(configPath) {
 		return widget.NewLabel("Invalid Project Config Path")
@@ -969,75 +979,60 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 					},
 					func(id widget.TreeNodeID, b bool, object fyne.CanvasObject) {
 						if node, ok := sceneObjects[id]; ok {
-							if b {
-								open := tree.IsBranchOpen(id)
-								if open || node.Selected {
-									object.(*fyne.Container).Objects = []fyne.CanvasObject{
-										widget.NewLabel(node.Name),
-										widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-											//Add a new object to the scene
-											//Get the parent of the node
-											parentNode, ok := sceneObjects[node.Parent]
-											if !ok {
-												log.Println("Parent Node not found")
-												return
-											}
-											//Get the parent object
-											var parentObject interface{}
-											if parentNode.Data != nil {
-												parentObject = parentNode.Data
-											} else {
-												log.Println("Parent Object not found")
-												return
-											}
-											//Check if the parent object is a layout or a widget
+							open := tree.IsBranchOpen(id)
+							if open || node.Selected {
+								object.(*fyne.Container).Objects = []fyne.CanvasObject{
+									widget.NewLabel(node.Name),
+									widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+										//Add a new object to the scene
+										parentNode, ok := sceneObjects[node.Name]
+										if !ok {
+											log.Println("Parent Node not found")
+											return
+										}
+										//Get the parent object
+										var parentObject interface{}
+										if parentNode.Data != nil {
+											parentObject = parentNode.Data
+										} else {
+											log.Println("Parent Object not found")
+											return
+										}
+										//Check if the parent object is a layout or a widget
 
-											//Check if it is a widget or a layout
-											if obj, ok := parentObject.(NFObjects.NFObject); ok {
-												//Add a new child widget
-												//Create an ID that doesn't exist in the parent
-												newID := obj.GetType()
-												count := 0
-												for {
-													innerID := newID + "_" + strconv.Itoa(count)
-													_, ok := sceneObjects[innerID]
-													if !ok {
-														newID = innerID
-														break
-													}
-													count++
+										//Check if it is a widget or a layout
+										if obj, ok := parentObject.(NFObjects.NFObject); ok {
+											//Add a new child widget
+											//Create an ID that doesn't exist in the parent
+											newID := obj.GetType()
+											count := 0
+											for {
+												innerID := newID + "_" + strconv.Itoa(count)
+												_, ok := sceneObjects[innerID]
+												if !ok {
+													newID = innerID
+													break
 												}
-												newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
-												//Add the new object to the parent
-												obj.AddChild(newObject)
-											} else {
-												log.Println("Parent Object is not an NFObject")
-												return
+												count++
 											}
-										}),
-										layout.NewSpacer(),
-									}
-								} else {
-									object.(*fyne.Container).Objects = []fyne.CanvasObject{
-										widget.NewLabel(node.Name),
-										layout.NewSpacer(),
-									}
+											newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
+											//Add the new object to the parent
+											obj.AddChild(newObject)
+											sceneObjectsUpdate <- emptyData
+										} else {
+											log.Println("Parent Object is not an NFObject")
+											return
+										}
+									}),
+									layout.NewSpacer(),
 								}
 							} else {
-								if node.Selected {
-									object.(*fyne.Container).Objects = []fyne.CanvasObject{
-										widget.NewLabel(node.Name),
-										layout.NewSpacer(),
-									}
-								} else {
-									object.(*fyne.Container).Objects = []fyne.CanvasObject{
-										widget.NewLabel(node.Name),
-										layout.NewSpacer(),
-									}
+								object.(*fyne.Container).Objects = []fyne.CanvasObject{
+									widget.NewLabel(node.Name),
+									layout.NewSpacer(),
 								}
 							}
 						}
-
 					},
 				)
 
