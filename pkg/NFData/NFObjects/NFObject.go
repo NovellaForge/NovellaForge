@@ -8,4 +8,5 @@ type NFObject interface {
 	GetType() string
 	SetType(t string)
 	AddChild(object NFObject)
+	DeleteChild(name string) error
 }

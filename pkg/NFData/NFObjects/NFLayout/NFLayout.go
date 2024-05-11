@@ -31,6 +31,18 @@ type Layout struct {
 	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
 }
 
+func (l *Layout) DeleteChild(name string) error {
+	//Find the child with the given name
+	for i, child := range l.Children {
+		if child.ID == name {
+			//Remove the child from the list
+			l.Children = append(l.Children[:i], l.Children[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("child not found")
+}
+
 func (l *Layout) AddChild(object NFObjects.NFObject) {
 	//Try to convert the object to a widget
 	newWidget, ok := object.(*NFWidget.Widget)

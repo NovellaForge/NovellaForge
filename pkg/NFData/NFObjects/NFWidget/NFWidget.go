@@ -29,6 +29,18 @@ type Widget struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (w *Widget) DeleteChild(name string) error {
+	//Find the child with the given name
+	for i, child := range w.Children {
+		if child.ID == name {
+			//Remove the child from the list
+			w.Children = append(w.Children[:i], w.Children[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("child not found")
+}
+
 func (w *Widget) AddChild(object NFObjects.NFObject) {
 	//Try to convert the object to a widget
 	newWidget, ok := object.(*Widget)

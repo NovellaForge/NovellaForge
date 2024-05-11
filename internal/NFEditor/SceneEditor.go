@@ -34,11 +34,11 @@ import (
 /*
 TODO: SceneEditor
  [ ] Add in way to use hotkeys to save scene - Need to contact fyne devs to see if this is possible
- [ ] Finish new widget/layout creation
+ [X] Finish new widget/layout creation
  [ ] Integrate type loading from the asset files (i.e functions, layouts, widgets)
  [ ] Add in way to easily change widget to different types
  [ ] Make property editor show required and optional args
- [ ] Fix up project settings
+ [X] Fix up project settings
  [ ] Build Manager to build the project
  [ ] Migrate Preview to a separate window
  [ ] Add run game button to launch the game from source
@@ -803,6 +803,7 @@ func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
 
 func countChildren(n interface{}) int {
 	//Go all the way down the tree and count the children
+	//TODO add this function as an NFObject method instead of here
 	count := 1
 	var l *NFLayout.Layout
 	var w *NFWidget.Widget
@@ -981,51 +982,84 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 						if node, ok := sceneObjects[id]; ok {
 							open := tree.IsBranchOpen(id)
 							if open || node.Selected {
+								addButton := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+									//Add a new object to the scene
+									selectedNode, ok := sceneObjects[id]
+									if !ok {
+										log.Println("Parent Node not found")
+										return
+									}
+									//Get the parent object
+									var selObject interface{}
+									if selectedNode.Data != nil {
+										selObject = selectedNode.Data
+									} else {
+										log.Println("Parent Object not found")
+										return
+									}
+									//Check if the parent object is a layout or a widget
+
+									//Check if it is a widget or a layout
+									if obj, ok := selObject.(NFObjects.NFObject); ok {
+										//Add a new child widget
+										//Create an ID that doesn't exist in the parent
+										newID := "newWidget"
+										count := 0
+										for {
+											innerID := newID + "_" + strconv.Itoa(count)
+											_, ok := sceneObjects[innerID]
+											if !ok {
+												newID = innerID
+												break
+											}
+											count++
+										}
+										newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
+										//Add the new object to the parent
+										obj.AddChild(newObject)
+										sceneObjectsUpdate <- emptyData
+									} else {
+										log.Println("Parent Object is not an NFObject")
+										return
+									}
+								})
+								deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+									//Delete the object from the scene
+									selectedNode, ok := sceneObjects[id]
+									if !ok {
+										log.Println("Node not found")
+										return
+									}
+									//Get the parent object
+									var parentObject interface{}
+									if selectedNode.Data != nil {
+										parentObject = selectedNode.Data
+									} else {
+										log.Println("Parent Object not found")
+										return
+									}
+									//Check if the parent object is a layout or a widget
+									if obj, ok := parentObject.(NFObjects.NFObject); ok {
+										//Delete the object from the parent
+										err := obj.DeleteChild(selectedNode.Name)
+										if err != nil {
+											log.Println(err)
+										}
+										sceneObjectsUpdate <- emptyData
+									} else {
+										log.Println("Parent Object is not an NFObject")
+										return
+									}
+								})
 								object.(*fyne.Container).Objects = []fyne.CanvasObject{
 									widget.NewLabel(node.Name),
-									widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-										//Add a new object to the scene
-										parentNode, ok := sceneObjects[node.Name]
-										if !ok {
-											log.Println("Parent Node not found")
-											return
-										}
-										//Get the parent object
-										var parentObject interface{}
-										if parentNode.Data != nil {
-											parentObject = parentNode.Data
-										} else {
-											log.Println("Parent Object not found")
-											return
-										}
-										//Check if the parent object is a layout or a widget
-
-										//Check if it is a widget or a layout
-										if obj, ok := parentObject.(NFObjects.NFObject); ok {
-											//Add a new child widget
-											//Create an ID that doesn't exist in the parent
-											newID := obj.GetType()
-											count := 0
-											for {
-												innerID := newID + "_" + strconv.Itoa(count)
-												_, ok := sceneObjects[innerID]
-												if !ok {
-													newID = innerID
-													break
-												}
-												count++
-											}
-											newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
-											//Add the new object to the parent
-											obj.AddChild(newObject)
-											sceneObjectsUpdate <- emptyData
-										} else {
-											log.Println("Parent Object is not an NFObject")
-											return
-										}
-									}),
-									layout.NewSpacer(),
+									addButton,
 								}
+								if _, ok := node.Data.(*NFWidget.Widget); ok {
+									object.(*fyne.Container).Objects = append(object.(*fyne.Container).Objects, deleteButton)
+								}
+								//Add the spacer
+								object.(*fyne.Container).Objects = append(object.(*fyne.Container).Objects, layout.NewSpacer())
 							} else {
 								object.(*fyne.Container).Objects = []fyne.CanvasObject{
 									widget.NewLabel(node.Name),
@@ -1035,6 +1069,8 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 						}
 					},
 				)
+
+				tree.OpenAllBranches()
 
 				tree.OnSelected = func(id widget.TreeNodeID) {
 					if node, ok := sceneObjects[id]; ok {
@@ -1064,6 +1100,7 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 
 func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
 	children := make(map[string]*sceneNode)
+	//TODO Convert this to an NFObject cast
 	var l *NFLayout.Layout
 	var w *NFWidget.Widget
 	switch v := n.(type) {

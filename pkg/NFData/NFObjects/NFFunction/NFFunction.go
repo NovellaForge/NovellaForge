@@ -26,6 +26,11 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
+func (f *Function) DeleteChild(name string) error {
+	//Find a child by name and delete it
+	return errors.New("functions cannot have children")
+}
+
 func (f *Function) AddChild(_ NFObjects.NFObject) {
 	log.Println("Functions cannot have children")
 }
