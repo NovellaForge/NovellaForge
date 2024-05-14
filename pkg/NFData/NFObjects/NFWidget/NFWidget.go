@@ -7,6 +7,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,12 +23,37 @@ type Widget struct {
 	Type string `json:"Type"`
 	// Children is a list of widgets that are children of this widget
 	Children []*Widget `json:"Children"`
+	// Functions is a list of functions that are children of this widget for action based execution
+	Functions map[string][]*NFFunction.Function `json:"Functions"`
+	// SupportedActions is a list of actions that the widget supports for action based execution
+	SupportedActions []string `json:"-"`
 	// RequiredArgs is a list of arguments that are required for the widget to run
 	RequiredArgs *NFData.NFInterfaceMap `json:"-"`
 	// OptionalArgs is a list of arguments that are optional for the widget to run
 	OptionalArgs *NFData.NFInterfaceMap `json:"-"`
 	// Args is a list of arguments that are passed to the widget through the scene
 	Args *NFData.NFInterfaceMap `json:"Args"`
+}
+
+func (w *Widget) FetchFunctions() map[string][]*NFFunction.Function {
+	return w.Functions
+}
+
+func (w *Widget) RunAction(action string, window fyne.Window) (int, []*NFData.NFInterfaceMap, error) {
+	var fullErr error
+	var returnValues []*NFData.NFInterfaceMap
+	count := 0
+	if functions, ok := w.Functions[action]; ok {
+		for _, function := range functions {
+			newReturn, err := function.Run(window)
+			if err != nil {
+				fullErr = errors.Join(fullErr, err)
+			}
+			returnValues = append(returnValues, newReturn)
+			count++
+		}
+	}
+	return count, returnValues, fullErr
 }
 
 func (w *Widget) FetchChildren(children map[string][]NFObjects.NFObject) map[string][]NFObjects.NFObject {

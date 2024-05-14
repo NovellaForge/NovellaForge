@@ -6,7 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
-	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,7 +15,7 @@ import (
 // Almost identically to widgets and layouts just without children and it won't return a fyne.CanvasObject
 // But it will act as a child to the widget/layout that it is attached to so that it can be given specific traits
 // Like running on scene load or just on a button press
-// This will include Name validation since it will be used in the editor and will need an ID to be referenced
+// This will include ID validation since it will be used in the editor and will need an ID to be referenced
 // Functions will be allowed to be called in two ways, direct parsing via Type, as well as via child invocation
 // By specifying which actions the functions will be called on, this will allow for more complex interactions
 // For example we could have a function that is called by name, like error. Or we could have a button call its OnTapped
@@ -27,8 +26,10 @@ import (
 // Widgets and layouts will be updated to include which action fields they support in their exported types
 
 type Function struct {
-	//Name is the name of the function for later reference in editing
-	Name string `json:"Name"`
+	//ID is the name of the function for later reference in editing
+	ID string `json:"ID"`
+	// Action is the action that the function will be called on(OnTapped, OnHover, etc)
+	Action string `json:"Action"`
 	//Type is the type of function that is used to parse the function this should be Globally Unique, so when making
 	//custom ones prefix it with your package name like "MyPackage.MyFunction"
 	Type string `json:"Type"`
@@ -40,18 +41,13 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func (f *Function) FetchChildren() []NFObjects.NFObject {
-	log.Println("Functions cannot have children")
-	return nil
-}
-
-func (f *Function) DeleteChild(name string) error {
-	//Find a child by name and delete it
-	return errors.New("functions cannot have children")
-}
-
-func (f *Function) AddChild(_ NFObjects.NFObject) {
-	log.Println("Functions cannot have children")
+func NewFunction(id, action, functionType string) *Function {
+	return &Function{
+		ID:     id,
+		Action: action,
+		Type:   functionType,
+		Args:   NFData.NewNFInterfaceMap(),
+	}
 }
 
 //Functions for the NFData.NFObject interface
@@ -72,6 +68,10 @@ func (f *Function) SetArgs(args *NFData.NFInterfaceMap) {
 	f.Args = args
 }
 
+func (f *Function) Run(window fyne.Window) (*NFData.NFInterfaceMap, error) {
+	return ParseAndRun(window, f.Type, f.Args)
+}
+
 //End of Functions for the NFData.NFObject interface
 
 // CheckArgs checks if the function has all the required arguments
@@ -87,7 +87,7 @@ func (f *Function) CheckArgs() error {
 	}
 	var missArgs error
 	for _, m := range miss {
-		errors.Join(missArgs, NFError.NewErrMissingArgument(f.Name, m))
+		errors.Join(missArgs, NFError.NewErrMissingArgument(f.ID, m))
 	}
 	return missArgs
 }

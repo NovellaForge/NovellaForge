@@ -1,6 +1,9 @@
 package NFObjects
 
-import "go.novellaforge.dev/novellaforge/pkg/NFData"
+import (
+	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
+)
 
 type NFObject interface {
 	GetArgs() *NFData.NFInterfaceMap
@@ -10,4 +13,5 @@ type NFObject interface {
 	AddChild(NFObject)
 	DeleteChild(string) error
 	FetchChildren(map[string][]NFObject) map[string][]NFObject
+	FetchFunctions() map[string][]*NFFunction.Function
 }

@@ -10,6 +10,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"io"
 	"io/fs"
@@ -23,11 +24,28 @@ import (
 var SceneMap = map[string]string{}
 
 // Scene is the struct that holds all the information about a scene
-// TODO Add startup values to the scene to be populated when the scene is loaded
 type Scene struct {
-	Name   string                 `json:"Name"`
-	Layout *NFLayout.Layout       `json:"Layout"`
-	Args   *NFData.NFInterfaceMap `json:"Args"`
+	Name      string                            `json:"ID"`
+	Layout    *NFLayout.Layout                  `json:"Layout"`
+	Functions map[string][]*NFFunction.Function `json:"Functions"` // List of functions that are children of the scene for action based execution
+	Args      *NFData.NFInterfaceMap            `json:"Args"`
+}
+
+func (scene *Scene) RunAction(action string, window fyne.Window) (int, []*NFData.NFInterfaceMap, error) {
+	var fullErr error
+	var returnValues []*NFData.NFInterfaceMap
+	count := 0
+	if functions, ok := scene.Functions[action]; ok {
+		for _, function := range functions {
+			newReturn, err := function.Run(window)
+			if err != nil {
+				fullErr = errors.Join(fullErr, err)
+			}
+			returnValues = append(returnValues, newReturn)
+			count++
+		}
+	}
+	return count, returnValues, fullErr
 }
 
 func (scene *Scene) GetType() string {

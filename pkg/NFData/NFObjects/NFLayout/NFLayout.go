@@ -7,6 +7,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFFunction"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 	"log"
 	"os"
@@ -24,22 +25,45 @@ type layoutHandler func(window fyne.Window, args *NFData.NFInterfaceMap, l *Layo
 //
 // They also contain a list of arguments that are required for the layout to run.
 type Layout struct {
-	Type         string                 `json:"Type"`    // Type of the layout
-	Children     []*NFWidget.Widget     `json:"Widgets"` // List of widgets that are children of the layout
-	RequiredArgs *NFData.NFInterfaceMap `json:"-"`       // List of arguments that are required for the layout to run
-	OptionalArgs *NFData.NFInterfaceMap `json:"-"`       // List of arguments that are optional for the layout to run
-	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
+	Type             string                            `json:"Type"`      // Type of the layout
+	Children         []*NFWidget.Widget                `json:"Widgets"`   // List of widgets that are children of the layout
+	Functions        map[string][]*NFFunction.Function `json:"Functions"` // List of functions that are children of the layout for action based execution
+	SupportedActions []string                          `json:"-"`
+	RequiredArgs     *NFData.NFInterfaceMap            `json:"-"`    // List of arguments that are required for the layout to run
+	OptionalArgs     *NFData.NFInterfaceMap            `json:"-"`    // List of arguments that are optional for the layout to run
+	Args             *NFData.NFInterfaceMap            `json:"Args"` // List of arguments that are passed to the layout
 }
 
-func (l *Layout) FetchChildren(children map[string][]NFObjects.NFObject) (map[string][]NFObjects.NFObject, error) {
+func (l *Layout) FetchChildren(children map[string][]NFObjects.NFObject) map[string][]NFObjects.NFObject {
 	if children == nil {
 		children = make(map[string][]NFObjects.NFObject)
 	}
 	for _, child := range l.Children {
-		children["Layout"] = append(children["Layout"], child)
+		children[""] = append(children[""], child)
 		children = child.FetchChildren(children)
 	}
-	return children, nil
+	return children
+}
+
+func (l *Layout) FetchFunctions() map[string][]*NFFunction.Function {
+	return l.Functions
+}
+
+func (l *Layout) RunAction(action string, window fyne.Window) (int, []*NFData.NFInterfaceMap, error) {
+	var fullErr error
+	var returnValues []*NFData.NFInterfaceMap
+	count := 0
+	if functions, ok := l.Functions[action]; ok {
+		for _, function := range functions {
+			newReturn, err := function.Run(window)
+			if err != nil {
+				fullErr = errors.Join(fullErr, err)
+			}
+			returnValues = append(returnValues, newReturn)
+			count++
+		}
+	}
+	return count, returnValues, fullErr
 }
 
 func (l *Layout) DeleteChild(name string) error {
