@@ -12,6 +12,17 @@ import (
 	"path/filepath"
 )
 
+//TODO turn this into an Object that can be created in the editor and then run in the scene, it will function
+// Almost identically to widgets and layouts just without children and it won't return a fyne.CanvasObject
+// But it will act as a child to the widget/layout that it is attached to so that it can be given specific traits
+// Like running on scene load or just on a button press
+// This will include Name validation since it will be used in the editor and will need an ID to be referenced
+// Functions will be allowed to be called in two ways, direct parsing via Type, as well as via child invocation
+// By specifying which actions the functions will be called on, this will allow for more complex interactions
+// For example we could have a function that is called by name, like error. Or we could have a button call its OnTapped
+// Which will execute all child functions that have their ActionField set to OnTapped
+// Widgets and layouts will be updated to include which action fields they support in their exported types
+
 type Function struct {
 	//Name is the name of the function for later reference in editing
 	Name string `json:"Name"`
@@ -24,6 +35,11 @@ type Function struct {
 	OptionalArgs *NFData.NFInterfaceMap `json:"-"` //This is not exported to json
 	//Args is a list of arguments that are passed to the function through the scene
 	Args *NFData.NFInterfaceMap `json:"Args"`
+}
+
+func (f *Function) FetchChildren() []NFObjects.NFObject {
+	log.Println("Functions cannot have children")
+	return nil
 }
 
 func (f *Function) DeleteChild(name string) error {

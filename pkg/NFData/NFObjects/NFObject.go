@@ -4,9 +4,10 @@ import "go.novellaforge.dev/novellaforge/pkg/NFData"
 
 type NFObject interface {
 	GetArgs() *NFData.NFInterfaceMap
-	SetArgs(args *NFData.NFInterfaceMap)
+	SetArgs(*NFData.NFInterfaceMap)
 	GetType() string
-	SetType(t string)
-	AddChild(object NFObject)
-	DeleteChild(name string) error
+	SetType(string)
+	AddChild(NFObject)
+	DeleteChild(string) error
+	FetchChildren(map[string][]NFObject) map[string][]NFObject
 }

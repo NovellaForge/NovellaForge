@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFFS"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFLayout"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -148,28 +148,6 @@ func (scene *Scene) Save(path string) error {
 		log.Println("Invalid path")
 		return errors.New("invalid path")
 	}
-
-	//Make sure each of the layouts children have a unique ID by counting the ones of the same type and naming them SceneName.TypeName#Number
-	//Create a map of string to int
-	counts := map[string]int{}
-	//Iterate over the children
-	for i, child := range scene.Layout.Children {
-		//Check if the child has an ID
-		if child.ID == "" {
-			//If it doesn't, check the count of the type
-			if count, ok := counts[child.Type]; ok {
-				//if it does add one to the count and name it SceneName.TypeName#Number
-				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
-				scene.Layout.Children[i] = child
-				counts[child.Type] = count + 1
-			} else {
-				//Set the count to 1 and name it SceneName.TypeName#1
-				counts[child.Type] = 1
-				child.ID = scene.Name + "." + child.Type + "#1"
-				scene.Layout.Children[i] = child
-			}
-		}
-	}
 	// Marshal the jsonScene
 	jsonBytes, err := json.MarshalIndent(scene, "", "\t")
 	if err != nil {
@@ -214,6 +192,17 @@ func Get(name string, config ...NFFS.Configuration) (*Scene, error) {
 	return nil, errors.New("scene not registered")
 }
 
+func (scene *Scene) Validate() (bool, error) {
+	if scene.Name == "" {
+		return false, NFError.NewErrSceneValidation("scene name is empty")
+	}
+	if scene.Layout == nil {
+		//Create a new simple layout if the layout is nil
+		scene.Layout = NFLayout.NewLayout("VBox", nil, nil)
+	}
+	return scene.Layout.Validate()
+}
+
 func Load(path string) (*Scene, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -230,26 +219,18 @@ func Load(path string) (*Scene, error) {
 		return nil, err
 	}
 
-	//Loop through the children of the layout and set the ID to SceneName.TypeName#Number if it doesn't have one
-	counts := map[string]int{}
-	for i, child := range scene.Layout.Children {
-		if child.ID == "" {
-			if count, ok := counts[child.Type]; ok {
-				child.ID = scene.Name + "." + child.Type + "#" + strconv.Itoa(count+1)
-				scene.Layout.Children[i] = child
-				counts[child.Type] = count + 1
-			} else {
-				counts[child.Type] = 1
-				child.ID = scene.Name + "." + child.Type + "#1"
-				scene.Layout.Children[i] = child
-			}
+	changed, err := scene.Validate()
+	if changed {
+		if errors.Is(err, NFError.ErrSceneValidation) {
+			return nil, err
+		}
+		//Save the scene if it was changed
+		err = scene.Save(path)
+		if err != nil {
+			return nil, err
 		}
 	}
-	//Save the scene back to the file in case the ID's were changed
-	err = scene.Save(path)
-	if err != nil {
-		log.Println("Error saving scene: ", err)
-	}
+
 	return scene, nil
 }
 

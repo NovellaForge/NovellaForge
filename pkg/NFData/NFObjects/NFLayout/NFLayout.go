@@ -31,6 +31,17 @@ type Layout struct {
 	Args         *NFData.NFInterfaceMap `json:"Args"`    // List of arguments that are passed to the layout
 }
 
+func (l *Layout) FetchChildren(children map[string][]NFObjects.NFObject) (map[string][]NFObjects.NFObject, error) {
+	if children == nil {
+		children = make(map[string][]NFObjects.NFObject)
+	}
+	for _, child := range l.Children {
+		children["Layout"] = append(children["Layout"], child)
+		children = child.FetchChildren(children)
+	}
+	return children, nil
+}
+
 func (l *Layout) DeleteChild(name string) error {
 	//Find the child with the given name
 	for i, child := range l.Children {
@@ -206,6 +217,31 @@ func (l *Layout) Export() error {
 		return err
 	}
 	return nil
+}
+
+func (l *Layout) Validate() (bool, error) {
+	var fullErr error
+	if _, ok := layouts[l.Type]; !ok {
+		fullErr = errors.Join(fullErr, NFError.NewErrNotImplemented("Layout Type: "+l.Type+" is not implemented"))
+	}
+
+	//Check if the layout has all the required arguments
+	if err := l.CheckArgs(); err != nil {
+		fullErr = errors.Join(fullErr, err)
+	}
+
+	layoutChanged := false
+	idCounts := map[string]int{}
+	for _, child := range l.Children {
+		childChanged, ids, err := child.Validate(idCounts)
+		idCounts = ids
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+		layoutChanged = layoutChanged || childChanged
+	}
+
+	return layoutChanged, fullErr
 }
 
 func Load(path string) (a NFData.AssetProperties, err error) {

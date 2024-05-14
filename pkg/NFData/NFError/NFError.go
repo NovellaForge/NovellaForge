@@ -18,6 +18,7 @@ var (
 	ErrNotImplemented       = errors.New("not implemented")
 	ErrProjectNotFound      = errors.New("project not found")
 	ErrProjectAlreadyExists = errors.New("project already exists")
+	ErrSceneValidation      = errors.New("scene validation failed")
 )
 
 func NewErrInvalidArgument(arg, reason string) error {
@@ -62,4 +63,8 @@ func NewErrConfigLoad(reason string) error {
 
 func NewErrConfigSave(s string) error {
 	return fmt.Errorf("%w: %s", ErrConfigSave, s)
+}
+
+func NewErrSceneValidation(s string) error {
+	return fmt.Errorf("%w: %s", ErrSceneValidation, s)
 }

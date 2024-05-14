@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 // Widget is the struct that holds all the information about a widget
@@ -27,6 +28,17 @@ type Widget struct {
 	OptionalArgs *NFData.NFInterfaceMap `json:"-"`
 	// Args is a list of arguments that are passed to the widget through the scene
 	Args *NFData.NFInterfaceMap `json:"Args"`
+}
+
+func (w *Widget) FetchChildren(children map[string][]NFObjects.NFObject) map[string][]NFObjects.NFObject {
+	if children == nil {
+		children = make(map[string][]NFObjects.NFObject)
+	}
+	for _, child := range w.Children {
+		children[w.ID] = append(children[w.ID], child)
+		children = child.FetchChildren(children)
+	}
+	return children
 }
 
 func (w *Widget) DeleteChild(name string) error {
@@ -226,6 +238,55 @@ func (w *Widget) Export() error {
 		return err
 	}
 	return nil
+}
+
+func (w *Widget) Validate(ids map[string]int) (bool, map[string]int, error) {
+	var fullErr error
+	if _, ok := Widgets[w.Type]; !ok {
+		fullErr = errors.Join(fullErr, NFError.NewErrNotImplemented("Widget Type: "+w.Type+" is not implemented"))
+	}
+
+	//Check if the widget has all the required arguments
+	if err := w.CheckArgs(); err != nil {
+		fullErr = errors.Join(fullErr, err)
+	}
+	widgetChanged := false
+	//Check if the widget has an ID
+	if w.ID == "" {
+		widgetChanged = true
+		//If it doesn't, check the count of the type
+		if count, ok := ids[w.Type]; ok {
+			//if it does add one to the count and name it TypeName#Number
+			w.ID = w.Type + "#" + strconv.Itoa(count+1)
+			ids[w.Type] = count + 1
+		} else {
+			//Set the count to 1 and name it SceneName.TypeName#1
+			ids[w.Type] = 1
+			w.ID = w.Type + "#1"
+		}
+	} else {
+		//Check if the ID is unique and if it isn't, add a number to the end
+		if _, ok := ids[w.ID]; ok {
+			widgetChanged = true
+			count := ids[w.ID]
+			w.ID = w.ID + "#" + strconv.Itoa(count+1)
+			ids[w.ID] = count + 1
+		} else {
+			ids[w.ID] = 1
+		}
+	}
+
+	//Validate the children
+	for _, child := range w.Children {
+		childChanged, newIds, err := child.Validate(ids)
+		ids = newIds
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+		widgetChanged = widgetChanged || childChanged
+	}
+
+	return widgetChanged, ids, fullErr
 }
 
 func Load(path string) (a NFData.AssetProperties, err error) {

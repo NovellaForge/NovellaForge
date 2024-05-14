@@ -987,6 +987,7 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 									selectedNode, ok := sceneObjects[id]
 									if !ok {
 										log.Println("Parent Node not found")
+										dialog.ShowError(errors.New("node not found"), window)
 										return
 									}
 									//Get the parent object
@@ -994,7 +995,8 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 									if selectedNode.Data != nil {
 										selObject = selectedNode.Data
 									} else {
-										log.Println("Parent Object not found")
+										log.Println("selected object not found")
+										dialog.ShowError(errors.New("selected object not found"), window)
 										return
 									}
 									//Check if the parent object is a layout or a widget
@@ -1019,7 +1021,8 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 										obj.AddChild(newObject)
 										sceneObjectsUpdate <- emptyData
 									} else {
-										log.Println("Parent Object is not an NFObject")
+										log.Println("Selected Object is not an NFObject")
+										dialog.ShowError(errors.New("selected Object is not an NFObject"), window)
 										return
 									}
 								})
@@ -1027,19 +1030,19 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 									//Delete the object from the scene
 									selectedNode, ok := sceneObjects[id]
 									if !ok {
-										log.Println("Node not found")
+										log.Println("Selected Node not found")
 										return
 									}
 									//Get the parent object
-									var parentObject interface{}
+									var selObject interface{}
 									if selectedNode.Data != nil {
-										parentObject = selectedNode.Data
+										selObject = selectedNode.Data
 									} else {
-										log.Println("Parent Object not found")
+										log.Println("Selected Object not found")
 										return
 									}
 									//Check if the parent object is a layout or a widget
-									if obj, ok := parentObject.(NFObjects.NFObject); ok {
+									if obj, ok := selObject.(NFObjects.NFObject); ok {
 										//Delete the object from the parent
 										err := obj.DeleteChild(selectedNode.Name)
 										if err != nil {
