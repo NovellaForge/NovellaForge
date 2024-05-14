@@ -21,6 +21,9 @@ import (
 // By specifying which actions the functions will be called on, this will allow for more complex interactions
 // For example we could have a function that is called by name, like error. Or we could have a button call its OnTapped
 // Which will execute all child functions that have their ActionField set to OnTapped
+// Child Functions will be in their own Functions field in the widget layout and scene structs
+// I will potentially add a ChildFunctions field to the Function struct that will allow for functions
+// to be called on function failure or success and stuff like that
 // Widgets and layouts will be updated to include which action fields they support in their exported types
 
 type Function struct {
