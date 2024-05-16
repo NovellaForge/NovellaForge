@@ -1,9 +1,11 @@
 package NFLayout
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
+	"github.com/google/uuid"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
@@ -12,6 +14,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 )
 
 // layoutHandler is a function type that handles the layout logic.
@@ -25,67 +29,312 @@ type layoutHandler func(window fyne.Window, args *NFData.NFInterfaceMap, l *Layo
 //
 // They also contain a list of arguments that are required for the layout to run.
 type Layout struct {
-	Type             string                            `json:"Type"`      // Type of the layout
-	Children         []*NFWidget.Widget                `json:"Widgets"`   // List of widgets that are children of the layout
-	Functions        map[string][]*NFFunction.Function `json:"Functions"` // List of functions that are children of the layout for action based execution
-	SupportedActions []string                          `json:"-"`
-	RequiredArgs     *NFData.NFInterfaceMap            `json:"-"`    // List of arguments that are required for the layout to run
-	OptionalArgs     *NFData.NFInterfaceMap            `json:"-"`    // List of arguments that are optional for the layout to run
-	Args             *NFData.NFInterfaceMap            `json:"Args"` // List of arguments that are passed to the layout
+	Name             string                 `json:"Name"`      // Name of the layout
+	Type             string                 `json:"Type"`      // Type of the layout
+	UUID             uuid.UUID              `json:"UUID"`      // uuid.UUID of the layout
+	Children         []*NFWidget.Widget     `json:"Widgets"`   // List of widgets that are children of the layout
+	Functions        []*NFFunction.Function `json:"Functions"` // List of functions that are children of the layout for action based execution
+	SupportedActions []string               `json:"-"`
+	RequiredArgs     *NFData.NFInterfaceMap `json:"-"`    // List of arguments that are required for the layout to run
+	OptionalArgs     *NFData.NFInterfaceMap `json:"-"`    // List of arguments that are optional for the layout to run
+	Args             *NFData.NFInterfaceMap `json:"Args"` // List of arguments that are passed to the layout
 }
 
-func (l *Layout) FetchChildren(children map[string][]NFObjects.NFObject) map[string][]NFObjects.NFObject {
-	if children == nil {
-		children = make(map[string][]NFObjects.NFObject)
+func (l *Layout) Validate() error {
+	name := l.GetName()
+	l.SetName(l.GetName())
+	newName := l.GetName()
+	var fullErr error
+	if name != newName {
+		fullErr = errors.Join(fullErr, NFError.NewErrSceneValidation("Name: "+name+" is invalid, setting to: "+newName))
 	}
 	for _, child := range l.Children {
-		children[""] = append(children[""], child)
-		children = child.FetchChildren(children)
-	}
-	return children
-}
-
-func (l *Layout) FetchFunctions() map[string][]*NFFunction.Function {
-	return l.Functions
-}
-
-func (l *Layout) RunAction(action string, window fyne.Window) (int, []*NFData.NFInterfaceMap, error) {
-	var fullErr error
-	var returnValues []*NFData.NFInterfaceMap
-	count := 0
-	if functions, ok := l.Functions[action]; ok {
-		for _, function := range functions {
-			newReturn, err := function.Run(window)
-			if err != nil {
-				fullErr = errors.Join(fullErr, err)
-			}
-			returnValues = append(returnValues, newReturn)
-			count++
+		err := child.Validate()
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
 		}
 	}
-	return count, returnValues, fullErr
+	for _, function := range l.Functions {
+		err := function.Validate()
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+	}
+	return fullErr
 }
 
-func (l *Layout) DeleteChild(name string) error {
-	//Find the child with the given name
+func (l *Layout) MakeId() {
+	l.UUID = uuid.New()
+	for _, child := range l.Children {
+		child.MakeId()
+	}
+	for _, function := range l.Functions {
+		function.MakeId()
+	}
+}
+
+func (l *Layout) FetchIDs() []uuid.UUID {
+	ids := make([]uuid.UUID, 0)
+	ids = append(ids, l.UUID)
+	for _, child := range l.Children {
+		ids = append(ids, child.FetchIDs()...)
+	}
+	for _, function := range l.Functions {
+		ids = append(ids, function.GetID())
+	}
+	return ids
+}
+
+func (l *Layout) GetName() string {
+	return l.Name
+}
+
+func (l *Layout) SetName(newName string) {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		newName = "Layout"
+	}
+	l.Name = newName
+}
+
+func (l *Layout) AddChild(new NFObjects.NFRendered) {
+	if newWidget, ok := new.(*NFWidget.Widget); ok {
+		l.Children = append(l.Children, newWidget)
+	} else {
+		log.Println("Cannot add non widget object to layout as child")
+	}
+}
+
+func (l *Layout) AddFunction(new NFObjects.NFObject) {
+	if newFunction, ok := new.(*NFFunction.Function); ok {
+		l.Functions = append(l.Functions, newFunction)
+	} else {
+		log.Println("Cannot add non function object to layout as function")
+	}
+}
+
+func (l *Layout) DeleteByID(ID uuid.UUID, search bool) error {
 	for i, child := range l.Children {
-		if child.ID == name {
-			//Remove the child from the list
+		if child.GetID() == ID {
 			l.Children = append(l.Children[:i], l.Children[i+1:]...)
+			log.Println("Deleted child with ID: " + ID.String() + " from layout: " + l.GetID().String())
 			return nil
 		}
 	}
-	return errors.New("child not found")
+	for i, function := range l.Functions {
+		if function.GetID() == ID {
+			l.Functions = append(l.Functions[:i], l.Functions[i+1:]...)
+			log.Println("Deleted function with ID: " + ID.String() + " from layout: " + l.GetID().String())
+			return nil
+		}
+	}
+	if search {
+		for _, child := range l.Children {
+			err := child.DeleteByID(ID, search)
+			if err == nil {
+				return nil
+			}
+		}
+	}
+	return NFError.NewErrNotFound("Object with ID: " + ID.String() + " not found in layout: " + l.GetID().String())
 }
 
-func (l *Layout) AddChild(object NFObjects.NFObject) {
-	//Try to convert the object to a widget
-	newWidget, ok := object.(*NFWidget.Widget)
-	if !ok {
-		log.Println("Cannot add non-widget object to widget")
-		return
+func (l *Layout) DeleteChild(childID uuid.UUID, search bool) error {
+	for i, child := range l.Children {
+		if child.GetID() == childID {
+			l.Children = append(l.Children[:i], l.Children[i+1:]...)
+			log.Println("Deleted child with ID: " + childID.String() + " from layout: " + l.GetID().String())
+			return nil
+		}
 	}
-	l.Children = append(l.Children, newWidget)
+	if search {
+		for _, child := range l.Children {
+			err := child.DeleteChild(childID, search)
+			if err == nil {
+				return nil
+			}
+		}
+
+	}
+	return NFError.NewErrNotFound("Child with ID: " + childID.String() + " not found in layout: " + l.GetID().String())
+}
+
+func (l *Layout) DeleteFunction(functionID uuid.UUID, search bool) error {
+	for i, function := range l.Functions {
+		if function.GetID() == functionID {
+			l.Functions = append(l.Functions[:i], l.Functions[i+1:]...)
+			log.Println("Deleted function with ID: " + functionID.String() + " from layout: " + l.GetID().String())
+			return nil
+		}
+	}
+	if search {
+		for _, child := range l.Children {
+			err := child.DeleteFunction(functionID, search)
+			if err == nil {
+				return nil
+			}
+		}
+	}
+	return NFError.NewErrNotFound("Function with ID: " + functionID.String() + " not found in layout: " + l.GetID().String())
+}
+
+func (l *Layout) GetFunctions() []NFObjects.NFObject {
+	functions := make([]NFObjects.NFObject, 0)
+	for _, function := range l.Functions {
+		functions = append(functions, function)
+	}
+	return functions
+}
+
+func (l *Layout) GetChildByID(childID uuid.UUID) NFObjects.NFObject {
+	for _, child := range l.Children {
+		if child.GetID() == childID {
+			return child
+		}
+	}
+	//Check the children
+	for _, child := range l.Children {
+		if found := child.GetChildByID(childID); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func (l *Layout) GetFunctionByID(functionID uuid.UUID) NFObjects.NFObject {
+	for _, function := range l.Functions {
+		if function.GetID() == functionID {
+			return function
+		}
+	}
+	//Check the children
+	for _, child := range l.Children {
+		if found := child.GetFunctionByID(functionID); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func (l *Layout) GetByID(ID uuid.UUID) NFObjects.NFObject {
+	if l.GetID() == ID {
+		return l
+	}
+	for _, child := range l.Children {
+		if found := child.GetByID(ID); found != nil {
+			return found
+		}
+	}
+	for _, function := range l.Functions {
+		if function.GetID() == ID {
+			return function
+		}
+	}
+	return nil
+}
+
+func (l *Layout) FetchChildrenAndFunctions(childrenAndFunctions map[uuid.UUID][]NFObjects.NFObject) int {
+	if childrenAndFunctions == nil {
+		childrenAndFunctions = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, child := range l.Children {
+		childrenAndFunctions[l.GetID()] = append(childrenAndFunctions[l.GetID()], child)
+		count++
+		count += child.FetchChildrenAndFunctions(childrenAndFunctions)
+	}
+	for _, function := range l.Functions {
+		childrenAndFunctions[l.GetID()] = append(childrenAndFunctions[l.GetID()], function)
+		count++
+	}
+	return count
+}
+
+func (l *Layout) FetchChildren(children map[uuid.UUID][]NFObjects.NFObject) int {
+	if children == nil {
+		children = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, child := range l.Children {
+		children[l.GetID()] = append(children[l.GetID()], child)
+		count++
+		count += child.FetchChildren(children)
+	}
+	return count
+}
+
+func (l *Layout) FetchFunctions(functions map[uuid.UUID][]NFObjects.NFObject) int {
+	if functions == nil {
+		functions = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, function := range l.Functions {
+		functions[l.GetID()] = append(functions[l.GetID()], function)
+		count++
+	}
+	for _, child := range l.Children {
+		count += child.FetchFunctions(functions)
+	}
+	return count
+}
+
+func (l *Layout) GetID() uuid.UUID {
+	return l.UUID
+}
+
+func (l *Layout) RunAllActions(action string, window fyne.Window, newValues *NFData.NFInterfaceMap) (int, []*NFData.NFInterfaceMap, error) {
+	var fullErr error
+	var returnValues []*NFData.NFInterfaceMap
+	runnableFunctions := make([]*NFFunction.Function, 0)
+	count := 0
+	for _, function := range l.Functions {
+		if function.Action == action {
+			runnableFunctions = append(runnableFunctions, function)
+		}
+	}
+
+	if len(runnableFunctions) == 0 {
+		return 0, returnValues, NFError.NewErrNotImplemented("Action: " + action + " for layout: " + l.GetName() + " with ID: " + l.GetID().String())
+	}
+
+	//Sort the functions by their priority highest to lowest
+	slices.SortStableFunc(runnableFunctions, func(i, j *NFFunction.Function) int {
+		return cmp.Compare(i.Priority, j.Priority)
+	})
+
+	for _, function := range runnableFunctions {
+		newReturn, err := function.Run(window, newValues)
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+		returnValues = append(returnValues, newReturn)
+		count++
+	}
+
+	return count, returnValues, fullErr
+}
+
+func (l *Layout) RunAction(action string, window fyne.Window, newValues *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
+	runnableFunctions := make([]*NFFunction.Function, 0)
+	for _, function := range l.Functions {
+		if function.Action == action {
+			runnableFunctions = append(runnableFunctions, function)
+		}
+	}
+
+	if len(runnableFunctions) == 0 {
+		return nil, NFError.NewErrNotImplemented("Action: " + action + " for Layout: " + l.GetName() + " with ID: " + l.GetID().String())
+	}
+
+	//Sort the functions by their priority highest to lowest
+	slices.SortStableFunc(runnableFunctions, func(i, j *NFFunction.Function) int {
+		return cmp.Compare(i.Priority, j.Priority)
+	})
+
+	if len(runnableFunctions) > 0 {
+		return runnableFunctions[0].Run(window, newValues)
+	}
+	return nil, NFError.NewErrNotImplemented("Action: " + action + " for Layout: " + l.GetName() + " with ID: " + l.GetID().String())
 }
 
 func (l *Layout) GetType() string {
@@ -241,31 +490,6 @@ func (l *Layout) Export() error {
 		return err
 	}
 	return nil
-}
-
-func (l *Layout) Validate() (bool, error) {
-	var fullErr error
-	if _, ok := layouts[l.Type]; !ok {
-		fullErr = errors.Join(fullErr, NFError.NewErrNotImplemented("Layout Type: "+l.Type+" is not implemented"))
-	}
-
-	//Check if the layout has all the required arguments
-	if err := l.CheckArgs(); err != nil {
-		fullErr = errors.Join(fullErr, err)
-	}
-
-	layoutChanged := false
-	idCounts := map[string]int{}
-	for _, child := range l.Children {
-		childChanged, ids, err := child.Validate(idCounts)
-		idCounts = ids
-		if err != nil {
-			fullErr = errors.Join(fullErr, err)
-		}
-		layoutChanged = layoutChanged || childChanged
-	}
-
-	return layoutChanged, fullErr
 }
 
 func Load(path string) (a NFData.AssetProperties, err error) {

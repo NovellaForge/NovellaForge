@@ -1,9 +1,11 @@
 package NFWidget
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
+	"github.com/google/uuid"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
@@ -11,20 +13,23 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
+	"slices"
+	"strings"
 )
 
 // Widget is the struct that holds all the information about a widget
 type Widget struct {
+	// Name is the name of the widget for display in the editor
+	Name string `json:"Name"`
 	// ID is the unique ID of the widget for later reference in editing
-	ID string `json:"ID"`
+	UUID uuid.UUID `json:"UUID"`
 	// Type is the type of widget that is used to parse the widget this should be Globally Unique, so when making
 	//custom ones prefix it with your package name like "MyPackage.MyWidget"
 	Type string `json:"Type"`
 	// Children is a list of widgets that are children of this widget
 	Children []*Widget `json:"Children"`
 	// Functions is a list of functions that are children of this widget for action based execution
-	Functions map[string][]*NFFunction.Function `json:"Functions"`
+	Functions []*NFFunction.Function `json:"Functions"`
 	// SupportedActions is a list of actions that the widget supports for action based execution
 	SupportedActions []string `json:"-"`
 	// RequiredArgs is a list of arguments that are required for the widget to run
@@ -35,58 +40,299 @@ type Widget struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func (w *Widget) FetchFunctions() map[string][]*NFFunction.Function {
-	return w.Functions
-}
-
-func (w *Widget) RunAction(action string, window fyne.Window) (int, []*NFData.NFInterfaceMap, error) {
+func (w *Widget) Validate() error {
+	name := w.GetName()
+	w.SetName(w.GetName())
+	newName := w.GetName()
 	var fullErr error
-	var returnValues []*NFData.NFInterfaceMap
-	count := 0
-	if functions, ok := w.Functions[action]; ok {
-		for _, function := range functions {
-			newReturn, err := function.Run(window)
-			if err != nil {
-				fullErr = errors.Join(fullErr, err)
-			}
-			returnValues = append(returnValues, newReturn)
-			count++
-		}
-	}
-	return count, returnValues, fullErr
-}
-
-func (w *Widget) FetchChildren(children map[string][]NFObjects.NFObject) map[string][]NFObjects.NFObject {
-	if children == nil {
-		children = make(map[string][]NFObjects.NFObject)
+	if name != newName {
+		fullErr = errors.Join(fullErr, NFError.NewErrSceneValidation("Name: "+name+" is invalid, changing to: "+newName))
 	}
 	for _, child := range w.Children {
-		children[w.ID] = append(children[w.ID], child)
-		children = child.FetchChildren(children)
+		if err := child.Validate(); err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
 	}
-	return children
+	for _, function := range w.Functions {
+		if err := function.Validate(); err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+	}
+	if err := w.CheckArgs(); err != nil {
+		fullErr = errors.Join(fullErr, err)
+	}
+	return fullErr
 }
 
-func (w *Widget) DeleteChild(name string) error {
-	//Find the child with the given name
+func (w *Widget) MakeId() {
+	w.UUID = uuid.New()
+	for _, child := range w.Children {
+		child.MakeId()
+	}
+	for _, function := range w.Functions {
+		function.MakeId()
+	}
+}
+
+func (w *Widget) GetID() uuid.UUID {
+	return w.UUID
+}
+
+func (w *Widget) FetchIDs() []uuid.UUID {
+	ids := make([]uuid.UUID, 0)
+	ids = append(ids, w.UUID)
+	for _, child := range w.Children {
+		ids = append(ids, child.FetchIDs()...)
+	}
+	for _, function := range w.Functions {
+		ids = append(ids, function.GetID())
+	}
+	return ids
+}
+
+func (w *Widget) GetName() string {
+	return w.Name
+}
+
+func (w *Widget) SetName(newName string) {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		newName = w.GetType()
+	}
+	w.Name = newName
+}
+
+func (w *Widget) AddChild(new NFObjects.NFRendered) {
+	if newWidget, ok := new.(*Widget); ok {
+		w.Children = append(w.Children, newWidget)
+	} else {
+		log.Println("Cannot add a non widget object as a child to a widget")
+	}
+}
+
+func (w *Widget) AddFunction(new NFObjects.NFObject) {
+	if newFunction, ok := new.(*NFFunction.Function); ok {
+		w.Functions = append(w.Functions, newFunction)
+	} else {
+		log.Println("Cannot add a non function object as a function to a widget")
+	}
+}
+
+func (w *Widget) DeleteByID(ID uuid.UUID, search bool) error {
 	for i, child := range w.Children {
-		if child.ID == name {
-			//Remove the child from the list
+		if child.GetID() == ID {
+			w.Children = append(w.Children[:i], w.Children[i+1:]...)
+			return nil
+		}
+
+	}
+	for i, function := range w.Functions {
+		if function.GetID() == ID {
+			w.Functions = append(w.Functions[:i], w.Functions[i+1:]...)
+			return nil
+		}
+	}
+	if search {
+		for _, child := range w.Children {
+			if err := child.DeleteByID(ID, true); err == nil {
+				return nil
+			}
+		}
+	}
+	return NFError.NewErrNotFound("Could not find ID: " + ID.String())
+}
+
+func (w *Widget) DeleteChild(childID uuid.UUID, search bool) error {
+	for i, child := range w.Children {
+		if child.GetID() == childID {
 			w.Children = append(w.Children[:i], w.Children[i+1:]...)
 			return nil
 		}
 	}
-	return errors.New("child not found")
+	if search {
+		for _, child := range w.Children {
+			if err := child.DeleteChild(childID, true); err == nil {
+				return nil
+			}
+		}
+	}
+	return NFError.NewErrNotFound("Could not find ID: " + childID.String())
 }
 
-func (w *Widget) AddChild(object NFObjects.NFObject) {
-	//Try to convert the object to a widget
-	newWidget, ok := object.(*Widget)
-	if !ok {
-		log.Println("Cannot add non-widget object to widget")
-		return
+func (w *Widget) DeleteFunction(functionID uuid.UUID, search bool) error {
+	for i, function := range w.Functions {
+		if function.GetID() == functionID {
+			w.Functions = append(w.Functions[:i], w.Functions[i+1:]...)
+			return nil
+		}
 	}
-	w.Children = append(w.Children, newWidget)
+	if search {
+		for _, child := range w.Children {
+			if err := child.DeleteFunction(functionID, true); err == nil {
+				return nil
+			}
+		}
+	}
+	return NFError.NewErrNotFound("Could not find ID: " + functionID.String())
+}
+
+func (w *Widget) GetFunctions() []NFObjects.NFObject {
+	functions := make([]NFObjects.NFObject, 0)
+	for _, function := range w.Functions {
+		functions = append(functions, function)
+	}
+	return functions
+}
+
+func (w *Widget) GetChildByID(childID uuid.UUID) NFObjects.NFObject {
+	for _, child := range w.Children {
+		if child.GetID() == childID {
+			return child
+		}
+	}
+	for _, child := range w.Children {
+		if c := child.GetChildByID(childID); c != nil {
+			return c
+		}
+	}
+	return nil
+}
+
+func (w *Widget) GetFunctionByID(functionID uuid.UUID) NFObjects.NFObject {
+	for _, function := range w.Functions {
+		if function.GetID() == functionID {
+			return function
+		}
+	}
+	for _, child := range w.Children {
+		if c := child.GetFunctionByID(functionID); c != nil {
+			return c
+		}
+	}
+	return nil
+}
+
+func (w *Widget) GetByID(ID uuid.UUID) NFObjects.NFObject {
+	if w.GetID() == ID {
+		return w
+	}
+	for _, child := range w.Children {
+		if child.GetID() == ID {
+			return child
+		}
+	}
+	for _, function := range w.Functions {
+		if function.GetID() == ID {
+			return function
+		}
+	}
+	for _, child := range w.Children {
+		if c := child.GetByID(ID); c != nil {
+			return c
+		}
+	}
+	return nil
+}
+
+func (w *Widget) FetchChildrenAndFunctions(childrenAndFunctions map[uuid.UUID][]NFObjects.NFObject) int {
+	if childrenAndFunctions == nil {
+		childrenAndFunctions = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, function := range w.Functions {
+		childrenAndFunctions[w.UUID] = append(childrenAndFunctions[w.UUID], function)
+		count++
+	}
+	for _, child := range w.Children {
+		childrenAndFunctions[w.UUID] = append(childrenAndFunctions[w.UUID], child)
+		count++
+		count += child.FetchChildrenAndFunctions(childrenAndFunctions)
+	}
+
+	return count
+}
+
+func (w *Widget) FetchChildren(children map[uuid.UUID][]NFObjects.NFObject) int {
+	if children == nil {
+		children = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, child := range w.Children {
+		children[w.UUID] = append(children[w.UUID], child)
+		count++
+		count += child.FetchChildren(children)
+	}
+	return count
+}
+
+func (w *Widget) FetchFunctions(functions map[uuid.UUID][]NFObjects.NFObject) int {
+	if functions == nil {
+		functions = make(map[uuid.UUID][]NFObjects.NFObject)
+	}
+	count := 0
+	for _, function := range w.Functions {
+		functions[w.UUID] = append(functions[w.UUID], function)
+		count++
+	}
+	for _, child := range w.Children {
+		count += child.FetchFunctions(functions)
+	}
+	return count
+}
+
+func (w *Widget) RunAllActions(action string, window fyne.Window, newValues *NFData.NFInterfaceMap) (int, []*NFData.NFInterfaceMap, error) {
+	var fullErr error
+	var returnValues []*NFData.NFInterfaceMap
+	runnableFunctions := make([]*NFFunction.Function, 0)
+	count := 0
+	for _, function := range w.Functions {
+		if function.Action == action {
+			runnableFunctions = append(runnableFunctions, function)
+		}
+	}
+
+	if len(runnableFunctions) == 0 {
+		return 0, returnValues, NFError.NewErrNotImplemented("Action: " + action + " for Widget: " + w.GetName() + ":" + w.GetID().String())
+	}
+
+	//Sort the functions by their priority highest to lowest
+	slices.SortStableFunc(runnableFunctions, func(i, j *NFFunction.Function) int {
+		return cmp.Compare(i.Priority, j.Priority)
+	})
+
+	for _, function := range runnableFunctions {
+		newReturn, err := function.Run(window, newValues)
+		if err != nil {
+			fullErr = errors.Join(fullErr, err)
+		}
+		returnValues = append(returnValues, newReturn)
+		count++
+	}
+
+	return count, returnValues, fullErr
+}
+
+func (w *Widget) RunAction(action string, window fyne.Window, newValues *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
+	runnableFunctions := make([]*NFFunction.Function, 0)
+	for _, function := range w.Functions {
+		if function.Action == action {
+			runnableFunctions = append(runnableFunctions, function)
+		}
+	}
+
+	if len(runnableFunctions) == 0 {
+		return nil, NFError.NewErrNotImplemented("Action: " + action + " for Widget: " + w.GetName() + ":" + w.GetID().String())
+	}
+
+	//Sort the functions by their priority highest to lowest
+	slices.SortStableFunc(runnableFunctions, func(i, j *NFFunction.Function) int {
+		return cmp.Compare(i.Priority, j.Priority)
+	})
+
+	if len(runnableFunctions) > 0 {
+		return runnableFunctions[0].Run(window, newValues)
+	}
+	return nil, NFError.NewErrNotImplemented("Action: " + action + " for Widget: " + w.GetName() + ":" + w.GetID().String())
 }
 
 func (w *Widget) GetType() string {
@@ -105,16 +351,6 @@ func (w *Widget) SetArgs(args *NFData.NFInterfaceMap) {
 	w.Args = args
 }
 
-// NewWithID creates a new widget with the given ID and type
-func NewWithID(id, widgetType string, children []*Widget, args *NFData.NFInterfaceMap) *Widget {
-	return &Widget{
-		ID:       id,
-		Type:     widgetType,
-		Children: children,
-		Args:     args,
-	}
-}
-
 func NewChildren(children ...*Widget) []*Widget {
 	return children
 }
@@ -122,6 +358,7 @@ func NewChildren(children ...*Widget) []*Widget {
 // New creates a new widget with the given type
 func New(widgetType string, children []*Widget, args *NFData.NFInterfaceMap) *Widget {
 	return &Widget{
+		Name:     widgetType,
 		Type:     widgetType,
 		Children: children,
 		Args:     args,
@@ -189,17 +426,8 @@ func (w *Widget) Parse(window fyne.Window) (fyne.CanvasObject, error) {
 		}
 		return ref.Handler(window, w.Args, w)
 	} else {
-		return nil, NFError.NewErrNotImplemented(w.Type + ":" + w.ID)
+		return nil, NFError.NewErrNotImplemented(w.Type + ":" + w.GetID().String())
 	}
-}
-
-func (w *Widget) GetInfo() (ID, Type string) {
-	ID = w.ID
-	Type = w.Type
-	if ID == "" {
-		ID = "Unknown"
-	}
-	return
 }
 
 // Register adds a custom widget to the customWidgets map
@@ -264,55 +492,6 @@ func (w *Widget) Export() error {
 		return err
 	}
 	return nil
-}
-
-func (w *Widget) Validate(ids map[string]int) (bool, map[string]int, error) {
-	var fullErr error
-	if _, ok := Widgets[w.Type]; !ok {
-		fullErr = errors.Join(fullErr, NFError.NewErrNotImplemented("Widget Type: "+w.Type+" is not implemented"))
-	}
-
-	//Check if the widget has all the required arguments
-	if err := w.CheckArgs(); err != nil {
-		fullErr = errors.Join(fullErr, err)
-	}
-	widgetChanged := false
-	//Check if the widget has an ID
-	if w.ID == "" {
-		widgetChanged = true
-		//If it doesn't, check the count of the type
-		if count, ok := ids[w.Type]; ok {
-			//if it does add one to the count and name it TypeName#Number
-			w.ID = w.Type + "#" + strconv.Itoa(count+1)
-			ids[w.Type] = count + 1
-		} else {
-			//Set the count to 1 and name it SceneName.TypeName#1
-			ids[w.Type] = 1
-			w.ID = w.Type + "#1"
-		}
-	} else {
-		//Check if the ID is unique and if it isn't, add a number to the end
-		if _, ok := ids[w.ID]; ok {
-			widgetChanged = true
-			count := ids[w.ID]
-			w.ID = w.ID + "#" + strconv.Itoa(count+1)
-			ids[w.ID] = count + 1
-		} else {
-			ids[w.ID] = 1
-		}
-	}
-
-	//Validate the children
-	for _, child := range w.Children {
-		childChanged, newIds, err := child.Validate(ids)
-		ids = newIds
-		if err != nil {
-			fullErr = errors.Join(fullErr, err)
-		}
-		widgetChanged = widgetChanged || childChanged
-	}
-
-	return widgetChanged, ids, fullErr
 }
 
 func Load(path string) (a NFData.AssetProperties, err error) {

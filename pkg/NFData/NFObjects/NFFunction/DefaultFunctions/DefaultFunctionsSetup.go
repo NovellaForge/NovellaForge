@@ -22,7 +22,6 @@ func init() {
 	log.Println("Registering Default Functions")
 
 	quit := NFFunction.Function{
-		ID:           "Quit",
 		Type:         "Quit",
 		RequiredArgs: NFData.NewNFInterfaceMap(),
 		OptionalArgs: NFData.NewNFInterfaceMap(),
@@ -30,7 +29,6 @@ func init() {
 	quit.Register(Quit)
 
 	customError := NFFunction.Function{
-		ID:           "Error",
 		Type:         "Error",
 		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("Error", "This should be an error message in a string format")),
 		OptionalArgs: NFData.NewNFInterfaceMap(),
@@ -38,7 +36,6 @@ func init() {
 	customError.Register(CustomError)
 
 	newGame := NFFunction.Function{
-		ID:           "New Game",
 		Type:         "NewGame",
 		RequiredArgs: NFData.NewNFInterfaceMap(NFData.NewKeyVal("NewGameScene", "This should be the name of the scene to start the game with. THIS IS CASE SENSITIVE")),
 		OptionalArgs: NFData.NewNFInterfaceMap(),
@@ -46,7 +43,6 @@ func init() {
 	newGame.Register(NewGame)
 
 	saveAs := NFFunction.Function{
-		ID:           "Save As",
 		Type:         "SaveAs",
 		RequiredArgs: NFData.NewNFInterfaceMap(),
 		OptionalArgs: NFData.NewNFInterfaceMap(),
@@ -54,7 +50,6 @@ func init() {
 	saveAs.Register(SaveAs)
 
 	loadGame := NFFunction.Function{
-		ID:           "Load Game",
 		Type:         "LoadGame",
 		RequiredArgs: NFData.NewNFInterfaceMap(),
 		OptionalArgs: NFData.NewNFInterfaceMap(),
@@ -62,7 +57,6 @@ func init() {
 	loadGame.Register(LoadGame)
 
 	continueGame := NFFunction.Function{
-		ID:           "Continue Game",
 		Type:         "ContinueGame",
 		RequiredArgs: NFData.NewNFInterfaceMap(),
 		OptionalArgs: NFData.NewNFInterfaceMap(),

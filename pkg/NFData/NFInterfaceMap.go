@@ -284,3 +284,16 @@ func (a *NFInterfaceMap) SetMulti(args ...NFKeyVal) {
 		a.Data[arg.Key] = arg.Value
 	}
 }
+
+// Merge merges the values of a NFInterfaceMap into the NFInterfaceMap it is called on overwriting any existing values when there are conflicts
+func (a *NFInterfaceMap) Merge(values *NFInterfaceMap) *NFInterfaceMap {
+	if values == nil {
+		return a
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for key, value := range values.Data {
+		a.Data[key] = value
+	}
+	return a
+}

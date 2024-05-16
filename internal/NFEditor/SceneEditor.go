@@ -3,6 +3,8 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
+	"fyne.io/fyne/v2/data/binding"
+	"github.com/google/uuid"
 	"io/fs"
 	"log"
 	"os"
@@ -59,15 +61,10 @@ type sceneNode struct {
 var (
 	emptyData = struct{}{}
 
-	sceneNodes   = make(map[string]*sceneNode)
-	sceneObjects = make(map[string]*sceneNode)
-
-	sceneListUpdate       = make(chan struct{})
-	scenePreviewUpdate    = make(chan struct{})
-	sceneObjectsUpdate    = make(chan struct{})
-	scenePropertiesUpdate = make(chan struct{})
-	propertyTypesUpdate   = make(chan struct{})
-	sceneChangeEvent      = make(chan struct{})
+	sceneNodes        = make(map[string]*sceneNode)
+	objectTreeBinding = binding.NewStringTree()
+	selectedObjectID  = ""
+	sceneNameBinding  = binding.NewString()
 
 	functions = make(map[string]NFData.AssetProperties)
 	layouts   = make(map[string]NFData.AssetProperties)
@@ -85,76 +82,25 @@ var (
 	scenePreviewWindow fyne.Window
 	previewCanvas      fyne.CanvasObject
 	propertiesCanvas   fyne.CanvasObject
+	selectorCanvas     fyne.CanvasObject
 	objectsCanvas      fyne.CanvasObject
 )
 
-func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
-	updateMainMenuBar(window)
-	propertyScroll := container.NewScroll(CreateSceneProperties(window))
-	propertyScroll.SetMinSize(fyne.NewSize(300, 0))
-	MainSplit := container.NewHSplit(
-		CreateSceneSelector(window),
-		container.NewVSplit(CreateScenePreview(window),
-			container.NewHSplit(propertyScroll,
-				CreateSceneObjects(window),
-			),
-		),
-	)
-	MainSplit.Offset = 0.25
-	return MainSplit
-}
-
-func updateMainMenuBar(window fyne.Window) {
-	editMenu := fyne.NewMenu("Editor")
-	preferencesItem := fyne.NewMenuItem("Preferences", func() {
-		prefForm := widget.NewForm()
-		autoSave = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_AutoSave", true)
-		autoSaveCheck := widget.NewCheck("", func(b bool) {
-			autoSave = b
-			fyne.CurrentApp().Preferences().SetBool("SceneEditor_AutoSave", b)
-		})
-		autoSaveCheck.Checked = autoSave
-		prefForm.Append("Auto Save", autoSaveCheck)
-		autoSaveTimeText := fyne.CurrentApp().Preferences().StringWithFallback("SceneEditor_AutoSaveTime", "30s")
-		autoSaveTimeEntry := widget.NewEntry()
-		autoSaveTimeEntry.SetText(autoSaveTimeText)
-		autoSaveTimeEntry.Validator = func(s string) error {
-			_, err := parseTime(s)
-			return err
+func refreshForm(objectKey string, form *widget.Form, object NFData.CoupledObject, window fyne.Window) {
+	form.Items = nil
+	form.Refresh()
+	formItems := make([]*widget.FormItem, 0)
+	formItems = append(formItems, FormButtons(objectKey, form, object, window))
+	objectKeys := object.Keys()
+	for _, key := range objectKeys {
+		val, b := object.Get(key)
+		if !b {
+			dialog.ShowError(errors.New("failed to get key"), window)
 		}
-		autoSaveTimeEntry.OnChanged = func(s string) {
-			valErr := autoSaveTimeEntry.Validate()
-			if valErr == nil {
-				parsedTime, err := parseTime(s)
-				if err == nil {
-					autoSaveTime = parsedTime
-					autoSaveTimer.Stop()
-					autoSaveTimer.Reset(autoSaveTime)
-					fyne.CurrentApp().Preferences().SetString("SceneEditor_AutoSaveTime", s)
-				}
-
-			}
-		}
-		prefForm.Append("Auto Save Time", autoSaveTimeEntry)
-		dialog.ShowCustom("Scene Editor Preferences", "Close", prefForm, window)
-	})
-	editMenu.Items = append(editMenu.Items, preferencesItem)
-	saveItem := fyne.NewMenuItem("Save", func() {
-		saveScene(window)
-	})
-	saveItem.Shortcut = NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierControl)
-	editMenu.Items = append(editMenu.Items, saveItem)
-	mainMenu := window.MainMenu()
-	//Check if a menu with the name "Editor" exists and if it does replace it
-	for i, menu := range mainMenu.Items {
-		if menu.Label == "Editor" {
-			mainMenu.Items[i] = editMenu
-			window.SetMainMenu(mainMenu)
-			return
-		}
+		formItems = append(formItems, CreateParamItem(key, val, object, objectKey, form, window))
 	}
-	mainMenu.Items = append(mainMenu.Items, editMenu)
-	window.SetMainMenu(mainMenu)
+	form.Items = formItems
+	form.Refresh()
 }
 
 func parseTime(s string) (time.Duration, error) {
@@ -272,294 +218,178 @@ func scanScenesFolder(rootPath string) error {
 	return nil
 }
 
-func CreateNewSceneButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon(text, theme.ContentAddIcon(), func() {
-		var newSceneDialog *dialog.CustomDialog
-		entry := widget.NewEntry()
-		entry.SetPlaceHolder("Scene Name")
-		entry.Validator = func(s string) error {
-			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
-			if !re.MatchString(s) {
-				return errors.New("invalid characters in scene name")
-			}
-			return nil
-		}
-		confirmButton := widget.NewButton("Create", func() {
-			if entry.Validate() != nil {
-				return
-			}
-			sceneName := entry.Text
-			if sceneName == "" {
-				return
-			}
-			scenePath := filepath.Join(path, sceneName+".NFScene")
-			log.Println("Creating Scene at " + scenePath)
-			newScene := NFScene.NewScene(
-				sceneName,
-				NFLayout.NewLayout(
-					"VBox",
-					NFLayout.NewChildren(
-						NFWidget.New(
-							"Label",
-							NFWidget.NewChildren(),
-							NFData.NewNFInterfaceMap(
-								NFData.NewKeyVal(
-									"Text",
-									"Hello World",
-								),
-							),
-						),
-					),
-					NFData.NewNFInterfaceMap(),
-				),
-				NFData.NewNFInterfaceMap(),
-			)
-			err := newScene.Save(scenePath)
-			if err != nil {
-				dialog.ShowError(err, window)
-				return
-			}
-			sceneListUpdate <- emptyData
-			newSceneDialog.Hide()
-		})
-		cancelButton := widget.NewButton("Cancel", func() {
-			newSceneDialog.Hide()
-		})
-
-		entry.SetOnValidationChanged(func(e error) {
-			if e != nil {
-				confirmButton.Disable()
-			} else {
-				confirmButton.Enable()
-			}
-		})
-
-		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
-		content := container.NewVBox(entry, hbox)
-		newSceneDialog = dialog.NewCustomWithoutButtons("Create New Scene", content, window)
-		newSceneDialog.Show()
-	})
+func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
+	UpdateMenuBar(window)
+	propertiesCanvas = CreateSceneProperties(window)
+	selectorCanvas = CreateSceneSelector(window)
+	objectsCanvas = CreateSceneObjects(window)
+	propertyScroll := container.NewScroll(propertiesCanvas)
+	propertyScroll.SetMinSize(fyne.NewSize(300, 0))
+	previewCanvas = CreateScenePreview(window)
+	MainSplit := container.NewHSplit(
+		selectorCanvas,
+		container.NewHSplit(
+			propertyScroll,
+			objectsCanvas,
+		),
+	)
+	MainSplit.Offset = 0.25
+	return MainSplit
 }
 
-func CreateNewGroupButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon(text, theme.FolderNewIcon(), func() {
-		var newGroupDialog *dialog.CustomDialog
-		entry := widget.NewEntry()
-		entry.SetPlaceHolder("Group Name")
-		entry.Validator = func(s string) error {
-			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
-			if !re.MatchString(s) {
-				return errors.New("invalid characters in group name")
-			}
-			return nil
+func UpdateMenuBar(window fyne.Window) {
+	editMenu := fyne.NewMenu("Editor")
+	preferencesItem := fyne.NewMenuItem("Preferences", func() {
+		prefForm := widget.NewForm()
+		autoSave = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_AutoSave", true)
+		autoSaveCheck := widget.NewCheck("", func(b bool) {
+			autoSave = b
+			fyne.CurrentApp().Preferences().SetBool("SceneEditor_AutoSave", b)
+		})
+		autoSaveCheck.Checked = autoSave
+		prefForm.Append("Auto Save", autoSaveCheck)
+		autoSaveTimeText := fyne.CurrentApp().Preferences().StringWithFallback("SceneEditor_AutoSaveTime", "30s")
+		autoSaveTimeEntry := widget.NewEntry()
+		autoSaveTimeEntry.SetText(autoSaveTimeText)
+		autoSaveTimeEntry.Validator = func(s string) error {
+			_, err := parseTime(s)
+			return err
 		}
-		confirmButton := widget.NewButton("Create", func() {
-			if entry.Validate() != nil {
-				return
-			}
-			groupName := entry.Text
-			if groupName == "" {
-				return
-			}
-			groupPath := filepath.Join(path, groupName)
-			log.Println("Creating Group at " + groupPath)
-			err := os.MkdirAll(groupPath, os.ModePerm)
-			if err != nil {
-				return
-			}
-			sceneListUpdate <- emptyData
-			newGroupDialog.Hide()
-		})
-		cancelButton := widget.NewButton("Cancel", func() {
-			newGroupDialog.Hide()
-		})
-
-		entry.SetOnValidationChanged(func(e error) {
-			if e != nil {
-				confirmButton.Disable()
-			} else {
-				confirmButton.Enable()
-			}
-		})
-
-		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
-		content := container.NewVBox(entry, hbox)
-		newGroupDialog = dialog.NewCustomWithoutButtons("Create New Group", content, window)
-		newGroupDialog.Show()
-	})
-}
-
-func CreateNewGroupDeleteButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the group: "+text, func(b bool) {
-			if b {
-				log.Println("Delete Group at " + path)
-				//Check if the group is empty
-				empty := true
-				err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
-					if path != innerPath {
-						empty = false
-					}
-					return nil
-				})
-				if err != nil {
-					dialog.ShowError(err, window)
+		autoSaveTimeEntry.OnChanged = func(s string) {
+			valErr := autoSaveTimeEntry.Validate()
+			if valErr == nil {
+				parsedTime, err := parseTime(s)
+				if err == nil {
+					autoSaveTime = parsedTime
+					autoSaveTimer.Stop()
+					autoSaveTimer.Reset(autoSaveTime)
+					fyne.CurrentApp().Preferences().SetString("SceneEditor_AutoSaveTime", s)
 				}
-				if !empty {
-					dialog.ShowCustomConfirm("Keep Files", "Keep", "Delete", widget.NewLabel("Do you want to keep the files in the group?"), func(b bool) {
-						if b {
-							//Get all the files in the group and move them to the parent directory
-							err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
-								if path != innerPath {
-									newPath := filepath.Join(filepath.Dir(path), info.Name())
-									//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
-									for i := 1; ; i++ {
-										if _, err := os.Stat(newPath); os.IsNotExist(err) {
-											break
-										}
-										newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))+"_"+strconv.Itoa(i)+filepath.Ext(info.Name()))
-									}
-									err := os.Rename(innerPath, newPath)
-									if err != nil {
-										return err
-									}
-								}
-								return nil
-							})
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-							err = os.RemoveAll(path)
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-						} else {
-							err := os.RemoveAll(path)
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-						}
-						sceneListUpdate <- emptyData
-					}, window)
+
+			}
+		}
+		prefForm.Append("Auto Save Time", autoSaveTimeEntry)
+		dialog.ShowCustom("Scene Editor Preferences", "Close", prefForm, window)
+	})
+	editMenu.Items = append(editMenu.Items, preferencesItem)
+	saveItem := fyne.NewMenuItem("Save", func() {
+		saveScene(window)
+	})
+	saveItem.Shortcut = NewCustomShortcut("Save", fyne.KeyS, fyne.KeyModifierControl)
+	editMenu.Items = append(editMenu.Items, saveItem)
+	previewSceneItem := fyne.NewMenuItem("Preview Scene", func() {
+		if selectedScene != nil {
+			if scenePreviewWindow == nil {
+				scenePreviewWindow = fyne.CurrentApp().NewWindow("Scene Preview")
+				scenePreviewWindow.SetContent(CreateScenePreview(scenePreviewWindow))
+				scenePreviewWindow.Resize(fyne.NewSize(800, 600))
+				scenePreviewWindow.Show()
+			} else {
+				scenePreviewWindow.Show()
+			}
+		}
+	})
+	editMenu.Items = append(editMenu.Items, previewSceneItem)
+	runGameItem := fyne.NewMenuItem("Run Game", func() {
+		//TODO: Add in code to run the game
+	})
+	editMenu.Items = append(editMenu.Items, runGameItem)
+	mainMenu := window.MainMenu()
+	//Check if a menu with the name "Editor" exists and if it does replace it
+	for i, menu := range mainMenu.Items {
+		if menu.Label == "Editor" {
+			mainMenu.Items[i] = editMenu
+			window.SetMainMenu(mainMenu)
+			return
+		}
+	}
+	mainMenu.Items = append(mainMenu.Items, editMenu)
+	window.SetMainMenu(mainMenu)
+}
+
+func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
+	if propertiesCanvas == nil {
+		propertiesCanvas = container.NewVBox(widget.NewLabel("Scene Properties"))
+	}
+	properties := propertiesCanvas.(*fyne.Container)
+	if selectedObject == nil {
+		//Remove all but the first label
+		properties.Objects = properties.Objects[:1]
+	} else {
+		properties.Objects = properties.Objects[:1]
+		typeLabel := widget.NewLabel("Type: ")
+		object, ok := selectedObject.(NFObjects.NFObject)
+		if !ok {
+			panic("Selected Object is not an NFObject")
+		}
+		typeLabel.SetText("Type: " + object.GetType())
+		coupledArgs := NFData.NewCoupledInterfaceMap(object.GetArgs())
+		form := widget.NewForm()
+		refreshForm("Properties", form, coupledArgs, window)
+		properties.Add(typeLabel)
+		properties.Add(form)
+	}
+
+	functions = make(map[string]NFData.AssetProperties)
+	layouts = make(map[string]NFData.AssetProperties)
+	widgets = make(map[string]NFData.AssetProperties)
+	//Walk the assets folder for all .NFLayout files
+	assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "data/assets/")
+	assetsFolder = filepath.Clean(assetsFolder)
+	err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		switch filepath.Ext(path) {
+		case ".NFLayout":
+			l, lErr := NFLayout.Load(path)
+			if lErr != nil {
+				errors.Join(err, errors.New(fmt.Sprintf("Error loading layout at %s", path)))
+			} else {
+				if _, ok := layouts[l.Type]; !ok {
+					errors.Join(err, errors.New(fmt.Sprintf("Layout Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", l.Type)))
 				} else {
-					log.Println("Group is empty, deleting group")
-					err := os.Remove(path)
-					if err != nil {
-						dialog.ShowError(err, window)
-					} else {
-						sceneListUpdate <- emptyData
-					}
+					layouts[l.Type] = l
 				}
 			}
-		}, window)
-	})
-}
-
-func CreateNewDeleteButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the scene: "+text, func(b bool) {
-			if b {
-				log.Println("Delete Scene at " + path)
-				err := os.Remove(path)
-				if err != nil {
-					dialog.ShowError(err, window)
-				} else {
-					sceneListUpdate <- emptyData
-				}
-			}
-		}, window)
-	})
-}
-
-func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
-		log.Println("Copy Scene at " + path)
-		//Copy the scene to the same directory with a _copy suffix
-		newPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_copy" + filepath.Ext(path)
-		//Copy not Link the file
-		fileBytes, err := os.ReadFile(path)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		err = os.WriteFile(newPath, fileBytes, os.ModePerm)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		sceneListUpdate <- emptyData
-	})
-}
-
-func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
-		openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
-			if err != nil {
-				dialog.ShowError(err, window)
-				return
-			}
-			newPath := uri.Path()
-			newPath = filepath.Clean(newPath)
-			log.Println("Move Scene at " + path + " to " + newPath)
-			//Move the scene to the new directory
-			newPath = filepath.Join(newPath, filepath.Base(path))
-
-			// Ensure the destination directory exists
-			destDir := filepath.Dir(newPath)
-			if _, err := os.Stat(destDir); os.IsNotExist(err) {
-				err = os.MkdirAll(destDir, os.ModePerm)
-				if err != nil {
-					dialog.ShowError(err, window)
-					return
-				}
-			}
-
-			// Check if the file already exists in the destination directory
-			if _, err := os.Stat(newPath); !os.IsNotExist(err) {
-				// Handle the case where the file already exists (e.g., rename, overwrite, or skip)
-				// For now, let's skip the move operation
-				dialog.ShowInformation("File Exists", "A file with the same name already exists in the destination directory.", window)
-				return
-			}
-
-			// Move the file
-			err = os.Rename(path, newPath)
-			if err != nil {
-				dialog.ShowError(err, window)
+		case ".NFWidget":
+			w, wErr := NFWidget.Load(path)
+			if wErr != nil {
+				errors.Join(err, errors.New(fmt.Sprintf("Error loading widget at %s", path)))
 			} else {
-				//Check if the old file still exists and if it does delete it
-				if _, err := os.Stat(path); !os.IsNotExist(err) {
-					err := os.Remove(path)
-					if err != nil {
-						dialog.ShowError(err, window)
-					}
+				if _, ok := widgets[w.Type]; !ok {
+					errors.Join(err, errors.New(fmt.Sprintf("Widget Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", w.Type)))
+				} else {
+					widgets[w.Type] = w
 				}
 			}
-			sceneListUpdate <- emptyData
-		}, window)
-		// Check if the path is a directory
-		fileInfo, err := os.Stat(filepath.Dir(path))
-		if err != nil {
-			log.Println("Failed to get file info")
-			return
+		case ".NFFunction":
+			f, fErr := NFFunction.Load(path)
+			if fErr != nil {
+				errors.Join(err, errors.New(fmt.Sprintf("Error loading function at %s", path)))
+			} else {
+				if _, ok := functions[f.Type]; !ok {
+					errors.Join(err, errors.New(fmt.Sprintf("Function Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", f.Type)))
+				} else {
+					functions[f.Type] = f
+				}
+			}
 		}
-		if !fileInfo.IsDir() {
-			log.Println("Path is not a directory")
-			return
-		}
-		// Convert the path to a fyne.URI
-		uri := storage.NewFileURI(filepath.Dir(path))
-		URI, err := storage.ListerForURI(uri)
-		if err != nil {
-			log.Println("Failed to get URI")
-			return
-		}
-		openDialog.SetLocation(URI)
-		openDialog.Show()
+		return err
 	})
+	if err != nil {
+		log.Println(err)
+		dialog.ShowError(err, window)
+	}
+	propertiesCanvas.Refresh()
+	return propertiesCanvas
 }
 
 func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
+	if selectorCanvas == nil {
+		selectorCanvas = container.NewStack()
+	}
+	selector := selectorCanvas.(*fyne.Container)
 	projectPath := ActiveProject.Info.Path
 	//Go to the parent folder of the .NFProject file in the project path
 	projectPath = filepath.Dir(projectPath)
@@ -568,7 +398,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	if !fs.ValidPath(scenesFolder) {
 		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder Path"))
 	}
-
 	err := scanScenesFolder(scenesFolder)
 	if err != nil {
 		log.Println(err)
@@ -671,7 +500,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			}
 		},
 	)
-
 	tree.OnSelected = func(id widget.TreeNodeID) {
 		if node, ok := sceneNodes[id]; ok {
 			node.Selected = true
@@ -699,38 +527,23 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 							changesMade = false
 							selectedScenePath = scenePath
 							selectedScene = scene
-							scenePreviewUpdate <- emptyData
+							CreateScenePreview(window) // This one may not need to be here since it should hit the next one after the else, but it's here for now as a safety
 						}, window)
 					} else {
 						changesMade = false
 						selectedScenePath = scenePath
 						selectedScene = scene
-						scenePreviewUpdate <- emptyData
 					}
 				}
-				sceneChangeEvent <- emptyData
+				CreateScenePreview(window)
 			}
 		}
 	}
-
 	tree.OnUnselected = func(id widget.TreeNodeID) {
 		if node, ok := sceneNodes[id]; ok {
 			node.Selected = false
 		}
 	}
-
-	go func() {
-		for {
-			<-sceneListUpdate
-			err := scanScenesFolder(scenesFolder)
-			if err != nil {
-				log.Println(err)
-				dialog.ShowError(err, window)
-				return
-			}
-			tree.Refresh()
-		}
-	}()
 	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), CreateNewSceneButton(scenesFolder, "", window), CreateNewGroupButton(scenesFolder, "", window))
 	vbox := container.NewVBox(CreateProjectSettings(window), hbox)
 	border := container.NewBorder(vbox, nil, nil, nil, tree)
@@ -738,7 +551,296 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	windowSize := window.Canvas().Size()
 	scroll.Resize(fyne.NewSize(windowSize.Width/4, windowSize.Height))
 	scroll.SetMinSize(fyne.NewSize(300, 0))
-	return scroll
+	selector.Add(scroll)
+	selectorCanvas.Refresh()
+	return selectorCanvas
+}
+
+func CreateNewSceneButton(path, text string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon(text, theme.ContentAddIcon(), func() {
+		var newSceneDialog *dialog.CustomDialog
+		entry := widget.NewEntry()
+		entry.SetPlaceHolder("Scene Name")
+		entry.Validator = func(s string) error {
+			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
+			if !re.MatchString(s) {
+				return errors.New("invalid characters in scene name")
+			}
+			return nil
+		}
+		confirmButton := widget.NewButton("Create", func() {
+			if entry.Validate() != nil {
+				return
+			}
+			sceneName := entry.Text
+			if sceneName == "" {
+				return
+			}
+			scenePath := filepath.Join(path, sceneName+".NFScene")
+			log.Println("Creating Scene at " + scenePath)
+			newScene := NFScene.NewScene(
+				sceneName,
+				NFLayout.NewLayout(
+					"VBox",
+					NFLayout.NewChildren(
+						NFWidget.New(
+							"Label",
+							NFWidget.NewChildren(),
+							NFData.NewNFInterfaceMap(
+								NFData.NewKeyVal(
+									"Text",
+									"Hello World",
+								),
+							),
+						),
+					),
+					NFData.NewNFInterfaceMap(),
+				),
+				NFData.NewNFInterfaceMap(),
+			)
+			err := newScene.Save(scenePath)
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			CreateSceneSelector(window)
+			newSceneDialog.Hide()
+		})
+		cancelButton := widget.NewButton("Cancel", func() {
+			newSceneDialog.Hide()
+		})
+
+		entry.SetOnValidationChanged(func(e error) {
+			if e != nil {
+				confirmButton.Disable()
+			} else {
+				confirmButton.Enable()
+			}
+		})
+
+		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
+		content := container.NewVBox(entry, hbox)
+		newSceneDialog = dialog.NewCustomWithoutButtons("Create New Scene", content, window)
+		newSceneDialog.Show()
+	})
+}
+
+func CreateNewGroupButton(path, text string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon(text, theme.FolderNewIcon(), func() {
+		var newGroupDialog *dialog.CustomDialog
+		entry := widget.NewEntry()
+		entry.SetPlaceHolder("Group Name")
+		entry.Validator = func(s string) error {
+			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
+			if !re.MatchString(s) {
+				return errors.New("invalid characters in group name")
+			}
+			return nil
+		}
+		confirmButton := widget.NewButton("Create", func() {
+			if entry.Validate() != nil {
+				return
+			}
+			groupName := entry.Text
+			if groupName == "" {
+				return
+			}
+			groupPath := filepath.Join(path, groupName)
+			log.Println("Creating Group at " + groupPath)
+			err := os.MkdirAll(groupPath, os.ModePerm)
+			if err != nil {
+				return
+			}
+			CreateSceneSelector(window)
+			newGroupDialog.Hide()
+		})
+		cancelButton := widget.NewButton("Cancel", func() {
+			newGroupDialog.Hide()
+		})
+
+		entry.SetOnValidationChanged(func(e error) {
+			if e != nil {
+				confirmButton.Disable()
+			} else {
+				confirmButton.Enable()
+			}
+		})
+
+		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
+		content := container.NewVBox(entry, hbox)
+		newGroupDialog = dialog.NewCustomWithoutButtons("Create New Group", content, window)
+		newGroupDialog.Show()
+	})
+}
+
+func CreateNewGroupDeleteButton(path, text string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the group: "+text, func(b bool) {
+			if b {
+				log.Println("Delete Group at " + path)
+				//Check if the group is empty
+				empty := true
+				err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
+					if path != innerPath {
+						empty = false
+					}
+					return nil
+				})
+				if err != nil {
+					dialog.ShowError(err, window)
+				}
+				if !empty {
+					dialog.ShowCustomConfirm("Keep Files", "Keep", "Delete", widget.NewLabel("Do you want to keep the files in the group?"), func(b bool) {
+						if b {
+							//Get all the files in the group and move them to the parent directory
+							err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
+								if path != innerPath {
+									newPath := filepath.Join(filepath.Dir(path), info.Name())
+									//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
+									for i := 1; ; i++ {
+										if _, err := os.Stat(newPath); os.IsNotExist(err) {
+											break
+										}
+										newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))+"_"+strconv.Itoa(i)+filepath.Ext(info.Name()))
+									}
+									err := os.Rename(innerPath, newPath)
+									if err != nil {
+										return err
+									}
+								}
+								return nil
+							})
+							if err != nil {
+								dialog.ShowError(err, window)
+							}
+							err = os.RemoveAll(path)
+							if err != nil {
+								dialog.ShowError(err, window)
+							}
+						} else {
+							err := os.RemoveAll(path)
+							if err != nil {
+								dialog.ShowError(err, window)
+							}
+						}
+						CreateSceneSelector(window)
+					}, window)
+				} else {
+					log.Println("Group is empty, deleting group")
+					err := os.Remove(path)
+					if err != nil {
+						dialog.ShowError(err, window)
+					} else {
+						CreateSceneSelector(window)
+					}
+				}
+			}
+		}, window)
+	})
+}
+
+func CreateNewDeleteButton(path, text string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the scene: "+text, func(b bool) {
+			if b {
+				log.Println("Delete Scene at " + path)
+				err := os.Remove(path)
+				if err != nil {
+					dialog.ShowError(err, window)
+				} else {
+					CreateSceneSelector(window)
+				}
+			}
+		}, window)
+	})
+}
+
+func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
+		log.Println("Copy Scene at " + path)
+		//Copy the scene to the same directory with a _copy suffix
+		newPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_copy" + filepath.Ext(path)
+		//Copy not Link the file
+		fileBytes, err := os.ReadFile(path)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		err = os.WriteFile(newPath, fileBytes, os.ModePerm)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		CreateSceneSelector(window)
+	})
+}
+
+func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
+	return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
+		openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			newPath := uri.Path()
+			newPath = filepath.Clean(newPath)
+			log.Println("Move Scene at " + path + " to " + newPath)
+			//Move the scene to the new directory
+			newPath = filepath.Join(newPath, filepath.Base(path))
+
+			// Ensure the destination directory exists
+			destDir := filepath.Dir(newPath)
+			if _, err := os.Stat(destDir); os.IsNotExist(err) {
+				err = os.MkdirAll(destDir, os.ModePerm)
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+			}
+
+			// Check if the file already exists in the destination directory
+			if _, err := os.Stat(newPath); !os.IsNotExist(err) {
+				// Handle the case where the file already exists (e.g., rename, overwrite, or skip)
+				// For now, let's skip the move operation
+				dialog.ShowInformation("File Exists", "A file with the same name already exists in the destination directory.", window)
+				return
+			}
+
+			// Move the file
+			err = os.Rename(path, newPath)
+			if err != nil {
+				dialog.ShowError(err, window)
+			} else {
+				//Check if the old file still exists and if it does delete it
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					err := os.Remove(path)
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+				}
+			}
+			CreateSceneSelector(window)
+		}, window)
+		// Check if the path is a directory
+		fileInfo, err := os.Stat(filepath.Dir(path))
+		if err != nil {
+			log.Println("Failed to get file info")
+			return
+		}
+		if !fileInfo.IsDir() {
+			log.Println("Path is not a directory")
+			return
+		}
+		// Convert the path to a fyne.URI
+		uri := storage.NewFileURI(filepath.Dir(path))
+		URI, err := storage.ListerForURI(uri)
+		if err != nil {
+			log.Println("Failed to get URI")
+			return
+		}
+		openDialog.SetLocation(URI)
+		openDialog.Show()
+	})
 }
 
 func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
@@ -801,485 +903,215 @@ func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
 
 }
 
-func countChildren(n interface{}) int {
-	//Go all the way down the tree and count the children
-	//TODO add this function as an NFObject method instead of here
-	count := 1
-	var l *NFLayout.Layout
-	var w *NFWidget.Widget
-	switch v := n.(type) {
-	case *NFLayout.Layout:
-		l = v
-	case *NFWidget.Widget:
-		w = v
-	}
-
-	if l != nil {
-		for _, child := range l.Children {
-			count += countChildren(child)
-		}
-	} else if w != nil {
-		for _, child := range w.Children {
-			count += countChildren(child)
-		}
-	}
-	return count
-}
-
 func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
-
-	// Create a button, when pressed opens scene preview in seperate window
-	previewButton := widget.NewButton("Preview Scene", func() {
-		scenePreviewWindow = fyne.CurrentApp().NewWindow("Scene Preview")
-		scenePreviewWindow.SetContent(previewCanvas)
-		scenePreviewWindow.Show()
-	})
-
-	previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
-	autoSaveTimer = time.NewTimer(autoSaveTime)
-	go func() {
-		for {
-			<-autoSaveTimer.C
-			if autoSave {
-				saveScene(window)
-			}
-		}
-	}()
-	go func() {
-		for {
-			<-scenePreviewUpdate
-			//Reset the auto save timer
-			autoSaveTimer.Stop()
-			autoSaveTimer.Reset(autoSaveTime)
-			preview := previewCanvas.(*fyne.Container)
-			if selectedScene == nil {
-				//Remove all but the first label
-				// preview.Objects = preview.Objects[:1]
-				preview.Objects[0] = container.NewVBox(widget.NewLabel("No Scene Loaded, Select a Scene to Preview"))
-			} else {
-				// Put an empty widget in the preview
-				preview.Objects = []fyne.CanvasObject{}
-
-				// Parse the current scene
-				scene, err := selectedScene.Parse(window)
-				if err != nil {
-					log.Println(err)
-					dialog.ShowError(err, window)
-				} else {
-					preview.Add(scene)
+	if previewCanvas == nil {
+		previewCanvas = container.NewVBox(widget.NewLabel("Scene Preview"))
+	}
+	if autoSaveTimer == nil {
+		autoSaveTimer = time.NewTimer(autoSaveTime)
+		go func() {
+			for {
+				<-autoSaveTimer.C
+				if autoSave {
+					saveScene(window)
 				}
-
 			}
-			previewCanvas.Refresh()
-			sceneObjectsUpdate <- emptyData
+		}()
+	} else {
+		autoSaveTimer.Stop()
+		autoSaveTimer.Reset(autoSaveTime)
+	}
+	preview := previewCanvas.(*fyne.Container)
+	if selectedScene == nil {
+		//Remove all but the first label
+		// preview.Objects = preview.Objects[:1]
+		preview.Objects[0] = container.NewVBox(widget.NewLabel("No Scene Loaded, Select a Scene to Preview"))
+	} else {
+		err := sceneNameBinding.Set(selectedScene.GetName())
+		if err != nil {
+			log.Println(err)
+			dialog.ShowError(err, window)
 		}
-	}()
-
-	// If a scene is selected, show the preview button
-	// If no scene is selected, show a label saying "No Scene Loaded"
-	scenePreviewButton := container.NewVBox(widget.NewLabel("No Scene Loaded"))
-	// Create a go routine to only show the preview button if a scene is selected
-	go func() {
-		for {
-			<-sceneChangeEvent
-			if selectedScene != nil {
-				scenePreviewButton.Objects = []fyne.CanvasObject{previewButton}
-			} else {
-				scenePreviewButton.Objects = []fyne.CanvasObject{widget.NewLabel("No Scene Loaded")}
-			}
-			scenePreviewButton.Refresh()
+		children, count := selectedScene.FetchAll()
+		err = CreateObjectNodes(window, children, count)
+		if err != nil {
+			log.Println(err)
+			dialog.ShowError(err, window)
+			os.Exit(1)
 		}
-	}()
 
-	scenePreviewUpdate <- emptyData
-	return scenePreviewButton
-	// return previewCanvas
+		// Put an empty widget in the preview
+		preview.Objects = []fyne.CanvasObject{}
+
+		// Parse the current scene
+		scene, err := selectedScene.Parse(window)
+		if err != nil {
+			log.Println(err)
+			dialog.ShowError(err, window)
+		} else {
+			preview.Add(scene)
+		}
+
+	}
+	previewCanvas.Refresh()
+	return previewCanvas
 }
 
 func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
-	sceneObjectsLabel := container.NewVBox(widget.NewLabel("Scene Objects"))
-	objectsCanvas = container.NewBorder(sceneObjectsLabel, nil, nil, nil, widget.NewLabel("No Scene Loaded"))
-	go func() {
-		for {
-			<-sceneObjectsUpdate
-			if selectedScene == nil {
-				objectsCanvas.(*fyne.Container).Objects[0] = widget.NewLabel("No Scene Loaded")
-			} else {
-				// Get scene info
-				layoutType := selectedScene.Layout.Type
-				layoutChildrenCount := countChildren(selectedScene.Layout)
-				layoutTypeLabel := widget.NewLabel("Layout Type: " + layoutType)
-				layoutChildrenCountLabel := widget.NewLabel(strconv.Itoa(layoutChildrenCount) + " Scene Objects:")
-
-				sceneObjectsLabel.Objects = []fyne.CanvasObject{layoutTypeLabel, layoutChildrenCountLabel}
-
-				//Iterate over the scene objects and add them to the list
-				sceneObjects = fetchChildren(selectedScene.Layout)
-				var tree *widget.Tree
-				tree = widget.NewTree(
-					func(id widget.TreeNodeID) []widget.TreeNodeID {
-						if id == "" {
-							branchNodes := make([]widget.TreeNodeID, 0)
-							leafNodes := make([]widget.TreeNodeID, 0)
-							for nodeID, node := range sceneObjects {
-								if node.Parent == "" {
-									if node.Leaf {
-										leafNodes = append(leafNodes, nodeID)
-									} else {
-										branchNodes = append(branchNodes, nodeID)
-									}
-								}
-							}
-							sort.Strings(branchNodes)
-							sort.Strings(leafNodes)
-							nodes := make([]widget.TreeNodeID, 0)
-							nodes = append(nodes, branchNodes...)
-							nodes = append(nodes, leafNodes...)
-							return nodes
-						} else {
-							//Get the children of the node
-							if node, ok := sceneObjects[id]; ok {
-								branchNodes := make([]widget.TreeNodeID, 0)
-								leafNodes := make([]widget.TreeNodeID, 0)
-								for _, childID := range node.Children {
-									if sceneObjects[childID].Leaf {
-										leafNodes = append(leafNodes, childID)
-									} else {
-										branchNodes = append(branchNodes, childID)
-									}
-								}
-								sort.Strings(branchNodes)
-								sort.Strings(leafNodes)
-								nodes := make([]widget.TreeNodeID, 0)
-								nodes = append(nodes, branchNodes...)
-								nodes = append(nodes, leafNodes...)
-								return nodes
-							}
-						}
-						return []string{}
-					},
-					func(id widget.TreeNodeID) bool {
-						if node, ok := sceneObjects[id]; ok {
-							return !node.Leaf
-						}
-						return true
-					},
-					func(b bool) fyne.CanvasObject {
-						if b {
-							hbox := container.NewHBox(
-								widget.NewLabel("Group"),
-								widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {}),
-							)
-							return hbox
-						} else {
-							hbox := container.NewHBox(
-								widget.NewLabel("Object"),
-							)
-							return hbox
-						}
-					},
-					func(id widget.TreeNodeID, b bool, object fyne.CanvasObject) {
-						if node, ok := sceneObjects[id]; ok {
-							open := tree.IsBranchOpen(id)
-							if open || node.Selected {
-								addButton := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-									//Add a new object to the scene
-									selectedNode, ok := sceneObjects[id]
-									if !ok {
-										log.Println("Parent Node not found")
-										dialog.ShowError(errors.New("node not found"), window)
-										return
-									}
-									//Get the parent object
-									var selObject interface{}
-									if selectedNode.Data != nil {
-										selObject = selectedNode.Data
-									} else {
-										log.Println("selected object not found")
-										dialog.ShowError(errors.New("selected object not found"), window)
-										return
-									}
-									//Check if the parent object is a layout or a widget
-
-									//Check if it is a widget or a layout
-									if obj, ok := selObject.(NFObjects.NFObject); ok {
-										//Add a new child widget
-										//Create an ID that doesn't exist in the parent
-										newID := "newWidget"
-										count := 0
-										for {
-											innerID := newID + "_" + strconv.Itoa(count)
-											_, ok := sceneObjects[innerID]
-											if !ok {
-												newID = innerID
-												break
-											}
-											count++
-										}
-										newObject := NFWidget.NewWithID(newID, "Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
-										//Add the new object to the parent
-										obj.AddChild(newObject)
-										sceneObjectsUpdate <- emptyData
-									} else {
-										log.Println("Selected Object is not an NFObject")
-										dialog.ShowError(errors.New("selected Object is not an NFObject"), window)
-										return
-									}
-								})
-								deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-									//Delete the object from the scene
-									selectedNode, ok := sceneObjects[id]
-									if !ok {
-										log.Println("Selected Node not found")
-										return
-									}
-									//Get the parent object
-									var selObject interface{}
-									if selectedNode.Data != nil {
-										selObject = selectedNode.Data
-									} else {
-										log.Println("Selected Object not found")
-										return
-									}
-									//Check if the parent object is a layout or a widget
-									if obj, ok := selObject.(NFObjects.NFObject); ok {
-										//Delete the object from the parent
-										err := obj.DeleteChild(selectedNode.Name)
-										if err != nil {
-											log.Println(err)
-										}
-										sceneObjectsUpdate <- emptyData
-									} else {
-										log.Println("Parent Object is not an NFObject")
-										return
-									}
-								})
-								object.(*fyne.Container).Objects = []fyne.CanvasObject{
-									widget.NewLabel(node.Name),
-									addButton,
-								}
-								if _, ok := node.Data.(*NFWidget.Widget); ok {
-									object.(*fyne.Container).Objects = append(object.(*fyne.Container).Objects, deleteButton)
-								}
-								//Add the spacer
-								object.(*fyne.Container).Objects = append(object.(*fyne.Container).Objects, layout.NewSpacer())
-							} else {
-								object.(*fyne.Container).Objects = []fyne.CanvasObject{
-									widget.NewLabel(node.Name),
-									layout.NewSpacer(),
-								}
-							}
-						}
-					},
-				)
-
-				tree.OpenAllBranches()
-
-				tree.OnSelected = func(id widget.TreeNodeID) {
-					if node, ok := sceneObjects[id]; ok {
-						if !node.Selected {
-							node.Selected = true
-							selectedObject = node.Data
-							scenePropertiesUpdate <- emptyData
-						}
-					}
-				}
-
-				tree.OnUnselected = func(id widget.TreeNodeID) {
-					if node, ok := sceneObjects[id]; ok {
-						node.Selected = false
-					}
-				}
-				objectsCanvas.(*fyne.Container).Objects[0] = tree
-			}
-			objectsCanvas.Refresh()
-			selectedObject = nil
-			scenePropertiesUpdate <- emptyData
+	if objectsCanvas == nil {
+		objectsCanvas = container.NewStack()
+	}
+	stack := objectsCanvas.(*fyne.Container)
+	sceneObjectsLabel := widget.NewLabelWithData(sceneNameBinding)
+	topBox := container.NewHBox(sceneObjectsLabel, layout.NewSpacer())
+	err := sceneNameBinding.Set("No Scene Loaded")
+	if err != nil {
+		log.Println(err)
+		dialog.ShowError(err, window)
+		return nil
+	}
+	if selectedScene != nil {
+		err = sceneNameBinding.Set(selectedScene.GetName())
+		if err != nil {
+			log.Println(err)
+			dialog.ShowError(err, window)
 		}
-	}()
-	sceneObjectsUpdate <- emptyData
+		previewSceneButton := widget.NewButtonWithIcon("Preview Scene", theme.MediaSkipNextIcon(), func() {
+			if selectedScene != nil {
+				if scenePreviewWindow == nil {
+					scenePreviewWindow = fyne.CurrentApp().NewWindow("Scene Preview")
+					scenePreviewWindow.SetContent(previewCanvas)
+					scenePreviewWindow.Resize(fyne.NewSize(800, 600))
+					scenePreviewWindow.Show()
+				} else {
+					scenePreviewWindow.Show()
+				}
+			} else {
+				dialog.ShowInformation("No Scene Selected", "You must select a scene to preview", window)
+			}
+		})
+		topBox.Add(previewSceneButton)
+		runGameButton := widget.NewButtonWithIcon("Run Game", theme.MediaPlayIcon(), func() {
+			//Todo: Add in code to run the game
+		})
+		topBox.Add(runGameButton)
+	}
+	objectTree := widget.NewTreeWithData(objectTreeBinding,
+		func(bool) fyne.CanvasObject {
+			return container.NewHBox(
+				widget.NewLabel("Object"),
+			)
+		},
+		func(item binding.DataItem, b bool, object fyne.CanvasObject) {
+			log.Println("Creating String Tree Item")
+			stringItem, ok := item.(binding.String)
+			if !ok {
+				log.Println("Item is not a string")
+				return
+			}
+			itemID, gErr := stringItem.Get()
+			if gErr != nil {
+				log.Println(gErr)
+				return
+			}
+			itemUUID, uErr := uuid.Parse(itemID)
+			if uErr != nil {
+				//Log the error and return
+				log.Println(uErr)
+				return
+			}
+			itemObject := selectedScene.GetByID(itemUUID)
+			if itemObject == nil {
+				//Log the error and return
+				log.Println("Object not found")
+				return
+			}
+			itemName := itemObject.GetName()
+			object.(*fyne.Container).Objects = []fyne.CanvasObject{
+				widget.NewLabel(itemName),
+			}
+			createChildButton := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+				newWidget := NFWidget.New("Null", NFWidget.NewChildren(), NFData.NewNFInterfaceMap())
+				err := objectTreeBinding.Append(itemID, newWidget.GetID().String(), newWidget.GetName())
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+			})
+			deleteButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+				err := selectedScene.DeleteChild(itemUUID, true)
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+				children, count := selectedScene.FetchAll()
+				err = CreateObjectNodes(window, children, count)
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+			})
+			if b {
+				if itemID == selectedObjectID && selectedScene.GetID() != itemUUID {
+					object.(*fyne.Container).Objects = []fyne.CanvasObject{
+						widget.NewLabel(itemName),
+						createChildButton,
+						deleteButton,
+						layout.NewSpacer(),
+					}
+				}
+			} else {
+				if itemID == selectedObjectID && selectedScene.GetID() != itemUUID {
+					object.(*fyne.Container).Objects = []fyne.CanvasObject{
+						widget.NewLabel(itemID),
+						createChildButton,
+						deleteButton,
+						layout.NewSpacer(),
+					}
+				}
+			}
+		},
+	)
+	objectTree.OnSelected = func(id widget.TreeNodeID) {
+		selectedObjectID = id
+	}
+	objectTree.Refresh()
+	border := container.NewBorder(topBox, nil, nil, nil, objectTree)
+	stack.Objects = nil
+	stack.Refresh()
+	stack.Objects = append(stack.Objects, border)
+	stack.Refresh()
 	return objectsCanvas
 }
 
-func fetchChildren(n interface{}, parent ...string) map[string]*sceneNode {
-	children := make(map[string]*sceneNode)
-	//TODO Convert this to an NFObject cast
-	var l *NFLayout.Layout
-	var w *NFWidget.Widget
-	switch v := n.(type) {
-	case *NFLayout.Layout:
-		l = v
-	case *NFWidget.Widget:
-		w = v
-	}
-	if l != nil {
-		children["MainLayout"] = &sceneNode{
-			Name:     "MainLayout",
-			Leaf:     false,
-			Parent:   "",
-			Children: nil,
-			FullPath: "",
-			Selected: false,
-			Data:     l,
+func CreateObjectNodes(window fyne.Window, children map[uuid.UUID][]NFObjects.NFObject, count int) error {
+	ids := make(map[string][]string)
+	v := make(map[string]string)
+	log.Println("Creating Object Nodes from " + strconv.Itoa(count) + " children")
+	for parent, childSlice := range children {
+		for _, child := range childSlice {
+			childID := child.GetID()
+			ids[parent.String()] = append(ids[parent.String()], childID.String())
+			//Check if the v map already has the childID and if it does panic
+			if _, ok := v[childID.String()]; ok {
+				log.Println(children)
+				//Log the duplicate ID and return an error
+				log.Println("Duplicate ID found: " + childID.String()) //TODO Need to fix the duplicate ID issue so that scene loading fixes itself
+				return errors.New("duplicate ID found")
+			}
+			v[childID.String()] = childID.String()
 		}
-		for i, child := range l.Children {
-			id := l.Type + "_" + strconv.Itoa(i)
-			childID, _ := child.GetInfo()
-			children[id] = &sceneNode{
-				Name:     childID,
-				Leaf:     false,
-				Parent:   "MainLayout",
-				Children: nil,
-				FullPath: "",
-				Selected: false,
-				Data:     child,
-			}
-			if len(child.Children) > 0 {
-				childChildren := fetchChildren(child, id)
-				for k, v := range childChildren {
-					children[id].Children = append(children[id].Children, k)
-					children[k] = v
-				}
-			} else {
-				children[id].Leaf = true
-			}
-			children["MainLayout"].Children = append(children["MainLayout"].Children, id)
-		}
-	} else if w != nil {
-		for i, child := range w.Children {
-			if len(parent) < 1 {
-				log.Println("Parent ID not found")
-				return nil
-			}
-			id := parent[0] + "_" + strconv.Itoa(i)
-			children[id] = &sceneNode{
-				Name:     w.ID,
-				Leaf:     false,
-				Parent:   parent[0],
-				Children: nil,
-				FullPath: "",
-				Selected: false,
-				Data:     w,
-			}
-			if len(w.Children) > 0 {
-				childChildren := fetchChildren(child)
-				for k, v := range childChildren {
-					children[id].Children = append(children[id].Children, k)
-					children[k] = v
-				}
-			} else {
-				//Set leaf to true
-				children[id].Leaf = true
-			}
+		if parent == selectedScene.GetID() {
+			log.Println("Scene found")
+			ids[""] = append(ids[""], parent.String())
 		}
 	}
-	return children
-}
-
-func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
-	propertiesCanvas = container.NewVBox(widget.NewLabel("Scene Properties"))
-	go func() {
-		for {
-			<-scenePropertiesUpdate
-			properties := propertiesCanvas.(*fyne.Container)
-			if selectedObject == nil {
-				//Remove all but the first label
-				properties.Objects = properties.Objects[:1]
-			} else {
-				properties.Objects = properties.Objects[:1]
-				typeLabel := widget.NewLabel("Type: ")
-				object, ok := selectedObject.(NFObjects.NFObject)
-				if !ok {
-					panic("Selected Object is not an NFObject")
-				}
-				typeLabel.SetText("Type: " + object.GetType())
-				coupledArgs := NFData.NewCoupledInterfaceMap(object.GetArgs())
-				form := widget.NewForm()
-				RefreshForm("Properties", form, coupledArgs, window)
-				properties.Add(typeLabel)
-				properties.Add(form)
-			}
-			propertiesCanvas.Refresh()
-		}
-	}()
-	go func() {
-		for {
-			<-propertyTypesUpdate
-			functions = make(map[string]NFData.AssetProperties)
-			layouts = make(map[string]NFData.AssetProperties)
-			widgets = make(map[string]NFData.AssetProperties)
-			//Walk the assets folder for all .NFLayout files
-			assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "data/assets/")
-			assetsFolder = filepath.Clean(assetsFolder)
-			err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				switch filepath.Ext(path) {
-				case ".NFLayout":
-					l, lErr := NFLayout.Load(path)
-					if lErr != nil {
-						errors.Join(err, errors.New(fmt.Sprintf("Error loading layout at %s", path)))
-					} else {
-						if _, ok := layouts[l.Type]; !ok {
-							errors.Join(err, errors.New(fmt.Sprintf("Layout Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", l.Type)))
-						} else {
-							layouts[l.Type] = l
-						}
-					}
-				case ".NFWidget":
-					w, wErr := NFWidget.Load(path)
-					if wErr != nil {
-						errors.Join(err, errors.New(fmt.Sprintf("Error loading widget at %s", path)))
-					} else {
-						if _, ok := widgets[w.Type]; !ok {
-							errors.Join(err, errors.New(fmt.Sprintf("Widget Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", w.Type)))
-						} else {
-							widgets[w.Type] = w
-						}
-					}
-				case ".NFFunction":
-					f, fErr := NFFunction.Load(path)
-					if fErr != nil {
-						errors.Join(err, errors.New(fmt.Sprintf("Error loading function at %s", path)))
-					} else {
-						if _, ok := functions[f.Type]; !ok {
-							errors.Join(err, errors.New(fmt.Sprintf("Function Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", f.Type)))
-						} else {
-							functions[f.Type] = f
-						}
-					}
-				}
-				return err
-			})
-			if err != nil {
-				log.Println(err)
-				dialog.ShowError(err, window)
-				return
-			}
-		}
-	}()
-
-	propertyTypesUpdate <- emptyData
-	scenePropertiesUpdate <- emptyData
-	return propertiesCanvas
-}
-
-func RefreshForm(objectKey string, form *widget.Form, object NFData.CoupledObject, window fyne.Window) {
-	form.Items = nil
-	form.Refresh()
-	formItems := make([]*widget.FormItem, 0)
-	formItems = append(formItems, FormButtons(objectKey, form, object, window))
-	objectKeys := object.Keys()
-	for _, key := range objectKeys {
-		val, b := object.Get(key)
-		if !b {
-			dialog.ShowError(errors.New("failed to get key"), window)
-		}
-		formItems = append(formItems, CreateParamItem(key, val, object, objectKey, form, window))
+	err := objectTreeBinding.Set(ids, v)
+	if err != nil {
+		return err
 	}
-	form.Items = formItems
-	form.Refresh()
+	CreateSceneObjects(window)
+	return nil
 }
 
 // CreateParamItem creates a FormItem for a parameter
@@ -1352,13 +1184,13 @@ func CreateParamItem(key string, val interface{}, parentObject NFData.CoupledObj
 		go func() {
 			<-waitChan
 			changesMade = true
-			RefreshForm(parentObjectKey, parentForm, parentObject, window)
+			refreshForm(parentObjectKey, parentForm, parentObject, window)
 		}()
 	})
 	copyButton := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
 		parentObject.Copy(key)
 		changesMade = true
-		RefreshForm(parentObjectKey, parentForm, parentObject, window)
+		refreshForm(parentObjectKey, parentForm, parentObject, window)
 	})
 	contextButton := widget.NewButtonWithIcon("", theme.MenuIcon(), func() {})
 	buttonBox := container.NewHBox(deleteButton, copyButton, contextButton)
@@ -1382,7 +1214,7 @@ func CreateParamItem(key string, val interface{}, parentObject NFData.CoupledObj
 			dialog.ShowError(errors.New("failed to change key"), window)
 		}
 		changesMade = true
-		RefreshForm(parentObjectKey, parentForm, parentObject, window)
+		refreshForm(parentObjectKey, parentForm, parentObject, window)
 		contextDialog.Hide()
 	}
 	saveTypeButton.OnTapped = func() {
@@ -1394,7 +1226,7 @@ func CreateParamItem(key string, val interface{}, parentObject NFData.CoupledObj
 			if b {
 				parentObject.SetType(key, newType)
 				changesMade = true
-				RefreshForm(parentObjectKey, parentForm, parentObject, window)
+				refreshForm(parentObjectKey, parentForm, parentObject, window)
 			}
 			contextDialog.Hide()
 		}, window)
@@ -1415,13 +1247,13 @@ func CreateParamItem(key string, val interface{}, parentObject NFData.CoupledObj
 	} else {
 		//If the object is a map or slice we need to create a new form for it
 		innerForm := widget.NewForm()
-		RefreshForm(key, innerForm, coupledObject, window)
+		refreshForm(key, innerForm, coupledObject, window)
 		scrollBox := container.NewVScroll(innerForm)
 		scrollBox.SetMinSize(fyne.NewSize(400, 250))
 		editDialog := dialog.NewCustomConfirm("Editing "+valType.String(), "Save", "Cancel", container.NewCenter(scrollBox), func(b bool) {
 			if b {
 				parentObject.Set(key, coupledObject.Object())
-				RefreshForm(parentObjectKey, parentForm, parentObject, window)
+				refreshForm(parentObjectKey, parentForm, parentObject, window)
 			}
 		}, window)
 		editButton := widget.NewButton(valType.String(), func() {

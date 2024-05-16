@@ -3,22 +3,27 @@ package NFError
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 )
 
 var (
-	ErrConfigLoad           = errors.New("error loading config")
-	ErrConfigSave           = errors.New("error saving config")
-	ErrFileGet              = errors.New("error getting file")
-	ErrNoProjects           = errors.New("no projects found")
-	ErrInvalidArgument      = errors.New("invalid argument")
-	ErrKeyAlreadyExists     = errors.New("key already exists")
-	ErrMissingArgument      = errors.New("missing argument")
-	ErrTypeMismatch         = errors.New("type mismatch")
-	ErrKeyNotFound          = errors.New("key not found")
-	ErrNotImplemented       = errors.New("not implemented")
-	ErrProjectNotFound      = errors.New("project not found")
-	ErrProjectAlreadyExists = errors.New("project already exists")
-	ErrSceneValidation      = errors.New("scene validation failed")
+	ErrConfigLoad              = errors.New("error loading config")
+	ErrConfigSave              = errors.New("error saving config")
+	ErrFileGet                 = errors.New("error getting file")
+	ErrNoProjects              = errors.New("no projects found")
+	ErrInvalidArgument         = errors.New("invalid argument")
+	ErrKeyAlreadyExists        = errors.New("key already exists")
+	ErrMissingArgument         = errors.New("missing argument")
+	ErrTypeMismatch            = errors.New("type mismatch")
+	ErrKeyNotFound             = errors.New("key not found")
+	ErrNotImplemented          = errors.New("not implemented")
+	ErrProjectNotFound         = errors.New("project not found")
+	ErrProjectAlreadyExists    = errors.New("project already exists")
+	ErrSceneSave               = errors.New("error saving scene")
+	ErrSceneValidation         = errors.New("scene validation failed")
+	ErrCriticalSceneValidation = errors.New("critical scene validation failure")
+	ErrNotFound                = errors.New("not found")
+	ErrWidgetParse             = errors.New("error parsing widget")
 )
 
 func NewErrInvalidArgument(arg, reason string) error {
@@ -67,4 +72,20 @@ func NewErrConfigSave(s string) error {
 
 func NewErrSceneValidation(s string) error {
 	return fmt.Errorf("%w: %s", ErrSceneValidation, s)
+}
+
+func NewErrCriticalSceneValidation(s string) error {
+	return fmt.Errorf("%w: %s", ErrCriticalSceneValidation, s)
+}
+
+func NewErrSceneSave(s string) error {
+	return fmt.Errorf("%w: %s", ErrSceneSave, s)
+}
+
+func NewErrNotFound(s string) error {
+	return fmt.Errorf("%w: %s", ErrNotFound, s)
+}
+
+func NewErrWidgetParse(widgetName, widgetType string, widgetUUID uuid.UUID, reason string) error {
+	return fmt.Errorf("%w: %s of type %s with UUID %v: %s", ErrWidgetParse, widgetName, widgetType, widgetUUID, reason)
 }

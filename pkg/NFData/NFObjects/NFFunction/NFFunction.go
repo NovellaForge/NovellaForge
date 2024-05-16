@@ -4,32 +4,35 @@ import (
 	"encoding/json"
 	"errors"
 	"fyne.io/fyne/v2"
+	"github.com/google/uuid"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-//TODO turn this into an Object that can be created in the editor and then run in the scene, it will function
-// Almost identically to widgets and layouts just without children and it won't return a fyne.CanvasObject
-// But it will act as a child to the widget/layout that it is attached to so that it can be given specific traits
-// Like running on scene load or just on a button press
-// This will include ID validation since it will be used in the editor and will need an ID to be referenced
-// Functions will be allowed to be called in two ways, direct parsing via Type, as well as via child invocation
-// By specifying which actions the functions will be called on, this will allow for more complex interactions
-// For example we could have a function that is called by name, like error. Or we could have a button call its OnTapped
-// Which will execute all child functions that have their ActionField set to OnTapped
-// Child Functions will be in their own Functions field in the widget layout and scene structs
-// I will potentially add a ChildFunctions field to the Function struct that will allow for functions
-// to be called on function failure or success and stuff like that
-// Widgets and layouts will be updated to include which action fields they support in their exported types
+// TODO add in a priority field so that action based functions can be run in a specific order
+
+func NewFunction(id, action, functionType string) *Function {
+	return &Function{
+		UUID:   uuid.New(),
+		Action: action,
+		Type:   functionType,
+		Args:   NFData.NewNFInterfaceMap(),
+	}
+}
 
 type Function struct {
-	//ID is the name of the function for later reference in editing
-	ID string `json:"ID"`
+	// Name is the name of the function for later reference in editing
+	Name string `json:"Name"`
+	// UUID is the Universally Unique Identifier of the function
+	UUID uuid.UUID `json:"UUID"`
 	// Action is the action that the function will be called on(OnTapped, OnHover, etc)
 	Action string `json:"Action"`
+	//Priority is the order in which the function will be called in relation to other action based functions
+	Priority int `json:"Priority"`
 	//Type is the type of function that is used to parse the function this should be Globally Unique, so when making
 	//custom ones prefix it with your package name like "MyPackage.MyFunction"
 	Type string `json:"Type"`
@@ -41,16 +44,44 @@ type Function struct {
 	Args *NFData.NFInterfaceMap `json:"Args"`
 }
 
-func NewFunction(id, action, functionType string) *Function {
-	return &Function{
-		ID:     id,
-		Action: action,
-		Type:   functionType,
-		Args:   NFData.NewNFInterfaceMap(),
+func (f *Function) Validate() error {
+	name := f.GetName()
+	f.SetName(f.GetName())
+	newName := f.GetName()
+	var fullErr error
+	if name != newName {
+		errors.Join(fullErr, NFError.NewErrSceneValidation("Name was changed from "+name+" to "+newName))
+	}
+	if err := f.CheckArgs(); err != nil {
+		errors.Join(fullErr, err)
+	}
+	return fullErr
+}
+
+func (f *Function) MakeId() {
+	f.UUID = uuid.New()
+}
+
+func (f *Function) FetchIDs() []uuid.UUID {
+	return []uuid.UUID{f.UUID}
+}
+
+func (f *Function) GetName() string {
+	return f.Name
+}
+
+func (f *Function) SetName(newName string) {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		f.Name = f.Type
+	} else {
+		f.Name = newName
 	}
 }
 
-//Functions for the NFData.NFObject interface
+func (f *Function) GetID() uuid.UUID {
+	return f.UUID
+}
 
 func (f *Function) GetType() string {
 	return f.Type
@@ -68,11 +99,9 @@ func (f *Function) SetArgs(args *NFData.NFInterfaceMap) {
 	f.Args = args
 }
 
-func (f *Function) Run(window fyne.Window) (*NFData.NFInterfaceMap, error) {
-	return ParseAndRun(window, f.Type, f.Args)
+func (f *Function) Run(window fyne.Window, newValues *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
+	return ParseAndRun(window, f.Type, f.Args.Merge(newValues))
 }
-
-//End of Functions for the NFData.NFObject interface
 
 // CheckArgs checks if the function has all the required arguments
 func (f *Function) CheckArgs() error {
@@ -87,7 +116,7 @@ func (f *Function) CheckArgs() error {
 	}
 	var missArgs error
 	for _, m := range miss {
-		errors.Join(missArgs, NFError.NewErrMissingArgument(f.ID, m))
+		errors.Join(missArgs, NFError.NewErrMissingArgument(f.GetID().String(), m))
 	}
 	return missArgs
 }

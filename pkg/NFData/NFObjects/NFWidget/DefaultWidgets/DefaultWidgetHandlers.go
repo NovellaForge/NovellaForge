@@ -20,19 +20,21 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 )
 
+//TODO Create an error box widget instead of a function that creates an error box with an option to unwrap the error
+// Also need to set up the new Action based function system to possibly run actions on errors
+// Make it so that we can call the new Error box from either the parser or directly with a window and error passed in
+
 // VBoxContainerHandler creates a vertical box container
 func VBoxContainerHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
-	ID, Type := w.GetInfo()
-	errText := fmt.Sprintf("Error parsing Widget %s of type %s: ", ID, Type)
+	var widgetError error
 	vbox := container.NewVBox()
 	if len(w.Children) == 0 {
 		vbox.Add(layout.NewSpacer())
 	} else {
 		for _, child := range w.Children {
-			ChildID, ChildType := child.GetInfo()
 			parsedChild, err := child.Parse(window)
 			if err != nil {
-				log.Println(errText + fmt.Sprintf("Error parsing child %s of type %s: %s", ChildID, ChildType, err.Error()))
+				widgetError = errors.Join(widgetError, err)
 				continue
 			}
 			vbox.Add(parsedChild)
@@ -59,23 +61,23 @@ func VBoxContainerHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWid
 	if err == nil {
 		vbox.Resize(size)
 	}
-
-	return vbox, nil
+	if widgetError != nil {
+		widgetError = errors.Join(NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Wrapped Errors"), widgetError)
+	}
+	return vbox, widgetError
 }
 
 // HBoxContainerHandler creates a horizontal box container
 func HBoxContainerHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
-	ID, Type := w.GetInfo()
-	errText := fmt.Sprintf("Error parsing Widget %s of type %s: ", ID, Type)
+	var widgetError error
 	hbox := container.NewHBox()
 	if len(w.Children) == 0 {
 		hbox.Add(layout.NewSpacer())
 	} else {
 		for _, child := range w.Children {
-			ChildID, ChildType := child.GetInfo()
 			parsedChild, err := child.Parse(window)
 			if err != nil {
-				log.Println(errText + fmt.Sprintf("Error parsing child %s of type %s: %s", ChildID, ChildType, err.Error()))
+				widgetError = errors.Join(widgetError, err)
 				continue
 			}
 			hbox.Add(parsedChild)
@@ -103,30 +105,31 @@ func HBoxContainerHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWid
 	if err == nil {
 		hbox.Resize(size)
 	}
-
-	return hbox, nil
+	if widgetError != nil {
+		widgetError = errors.Join(NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Wrapped Errors"), widgetError)
+	}
+	return hbox, widgetError
 }
 
 // FormHandler creates a form container
 func FormHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
-	ID, Type := w.GetInfo()
-	errText := fmt.Sprintf("Error parsing Widget %s of type %s: ", ID, Type)
+	var widgetError error
 	form := widget.NewForm()
 	if len(w.Children) == 0 {
-		log.Println(errText + "Form Empty")
+		log.Println("Form Empty")
 		form.Append("Form Empty", widget.NewLabel(""))
 	} else {
 		for _, child := range w.Children {
-			ChildID, ChildType := child.GetInfo()
 			parsedChild, err := child.Parse(window)
 			if err != nil {
-				log.Println(errText + fmt.Sprintf("Error parsing child %s of type %s: %s", ChildID, ChildType, err.Error()))
+				widgetError = errors.Join(widgetError, err)
 				continue
 			}
 			var label string
 			err = child.Args.Get("FormLabel", &label)
 			if err != nil || label == "" {
-				log.Println(errText + fmt.Sprintf("Error getting FormLabel for child %s of type %s: %s", ChildID, ChildType, err.Error()))
+				childErr := NFError.NewErrWidgetParse(child.GetName(), child.GetType(), child.GetID(), "Error Getting Form Label")
+				widgetError = errors.Join(widgetError, childErr)
 				form.Append("Unknown", parsedChild)
 			} else {
 				form.Append(label, parsedChild)
@@ -168,41 +171,21 @@ func FormHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widge
 		form.CancelText = cancelText
 	}
 
-	var onSubmitted string
-	err = w.Args.Get("OnSubmitted", &onSubmitted)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnSubmitted found for form %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = w.Args.Get("OnSubmittedArgs", &functionArgs)
+	form.OnSubmit = func() {
+		results, err := w.RunAction("OnSubmit", window, nil)
 		if err != nil {
-			log.Println(fmt.Sprintf("No OnSubmittedArgs found for form %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		form.OnSubmit = func() {
-			_, err := NFFunction.ParseAndRun(window, onSubmitted, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnSubmitted for form %s: %s", w.ID, err.Error()))
-			}
+			errText := fmt.Sprintf("Error running OnSubmit for form %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
 		}
 	}
 
-	var onCancelled string
-	err = w.Args.Get("OnCancelled", &onCancelled)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnCancelled found for form %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = w.Args.Get("OnCancelledArgs", &functionArgs)
+	form.OnCancel = func() {
+		results, err := w.RunAction("OnCancel", window, nil)
 		if err != nil {
-			log.Println(fmt.Sprintf("No OnCancelledArgs found for form %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		form.OnCancel = func() {
-			_, err := NFFunction.ParseAndRun(window, onCancelled, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnCancelled for form %s: %s", w.ID, err.Error()))
-			}
+			errText := fmt.Sprintf("Error running OnCancel for form %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
 		}
 	}
 
@@ -232,15 +215,13 @@ func LabelHandler(_ fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget
 		var reference NFData.NFReference
 		err = args.Get("Text", &reference)
 		if err != nil {
-			log.Println(fmt.Sprintf("Error getting Text for label %s: %s", w.ID, err.Error()))
-			return nil, NFError.NewErrMissingArgument(w.Type, "Text")
+			return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Text")
 		}
 		//Check if the reference is a binding
 		if reference.IsBinding {
 			textBinding, err := reference.GetBinding()
 			if err != nil {
-				log.Println(fmt.Sprintf("Error getting Text for label %s: %s", w.ID, err.Error()))
-				return nil, NFError.NewErrInvalidArgument(w.Type, "Text is an invalid binding reference")
+				return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Text Binding")
 			}
 			label := widget.NewLabelWithData(textBinding.(binding.String))
 			label.TextStyle = styling.TextStyle
@@ -248,8 +229,7 @@ func LabelHandler(_ fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget
 			label.Refresh()
 			return label, nil
 		} else {
-			log.Println(fmt.Sprintf("Error getting Text for label %s: %s", w.ID, err.Error()))
-			return nil, NFError.NewErrInvalidArgument(w.Type, "Text is not a valid reference or binding")
+			return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Text")
 		}
 	}
 	label := widget.NewLabel(text)
@@ -266,9 +246,6 @@ func ButtonHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 	_ = args.Get("Text", &text)
 	var iconPath string
 	_ = args.Get("Icon", &iconPath)
-	var onTapped string
-	_ = args.Get("OnTapped", &onTapped)
-	ID, _ := w.GetInfo()
 	if iconPath != "" {
 		icon := canvas.NewImageFromFile(iconPath)
 		button = widget.NewButtonWithIcon(text, icon.Resource, func() {})
@@ -281,25 +258,16 @@ func ButtonHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 	} else {
 		button = widget.NewButton(text, func() {})
 	}
-	if onTapped != "" {
-		var functionArgs *NFData.NFInterfaceMap
-		err := args.Get("OnTappedArgs", &functionArgs)
+
+	button.OnTapped = func() {
+		results, err := w.RunAction("OnTapped", window, nil)
 		if err != nil {
-			functionArgs = NFData.NewNFInterfaceMap()
+			errText := fmt.Sprintf("Error running OnTapped for button %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
 		}
-		functionArgs.Set("WidgetID", ID)
-		functionArgs.Set("WidgetType", "Button")
-		button.OnTapped = func() {
-			_, err = NFFunction.ParseAndRun(window, onTapped, functionArgs)
-			if err != nil {
-				errText := fmt.Sprintf("Error running onTapped %s for button %s: ", onTapped, ID)
-				args.Set("Error", errText+err.Error())
-				_, _ = NFFunction.ParseAndRun(window, "Error", args)
-			}
-		}
-	} else {
-		log.Println(fmt.Sprintf("No OnTapped found for button %s", ID))
 	}
+
 	var hidden = button.Hidden
 	err := w.Args.Get("Hidden", &hidden)
 	if err == nil {
@@ -340,16 +308,14 @@ func ImageHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.W
 	var path string
 	err := args.Get("Path", &path)
 	if err != nil {
-		log.Printf("No Path found for image %s", w.ID)
-		return nil, err
+		return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Image Path")
 	}
 
-	// Check if there is an image at the the path, or at assets/image/path
+	// Check if there is an image at the path, or at assets/image/path
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		path = "assets/image/" + path
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			log.Printf("No image found at path %s for image %s", path, w.ID)
-			return nil, err
+			return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Image From Path")
 		}
 	}
 
@@ -389,44 +355,31 @@ func ImageHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.W
 // ToolBarHandler creates a toolbar with the given widget
 func ToolBarHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
 	toolbar := widget.NewToolbar()
-	ID, Type := w.GetInfo()
-	errText := fmt.Sprintf("Error parsing Widget %s of type %s: ", ID, Type)
+	var widgetError error
 	if len(w.Children) == 0 {
-		log.Println(errText + "Toolbar Empty")
-		return nil, errors.New("toolbar Empty")
+		widgetError = errors.Join(widgetError, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "No Children Found"))
 	}
 	for _, child := range w.Children {
 		switch child.Type {
 		case "ToolbarAction":
-			var action string
-			_ = child.Args.Get("Action", &action)
 			var iconPath string
 			err := child.Args.Get("Icon", &iconPath)
 			var icon *widget.Icon
 			if err != nil {
-				log.Println(errText + fmt.Sprintf("Error getting Icon for toolbar %s: %s", ID, err.Error()))
-				icon = widget.NewIcon(theme.CancelIcon())
+				log.Println(NFError.NewErrWidgetParse(child.GetName(), child.GetType(), child.GetID(), "Error Getting Icon Path"))
+				icon = widget.NewIcon(theme.BrokenImageIcon())
 			} else {
 				iconObject := canvas.NewImageFromFile(iconPath)
 				icon = widget.NewIcon(iconObject.Resource)
 			}
-			toolbarAction := widget.NewToolbarAction(icon.Resource, func() {})
-			if action != "" {
-				var functionArgs *NFData.NFInterfaceMap
-				err = child.Args.Get("OnActivatedArgs", &functionArgs)
+			toolbarAction := widget.NewToolbarAction(icon.Resource, func() {
+				results, err := child.RunAction("OnActivated", window, nil)
 				if err != nil {
-					log.Println(fmt.Sprintf("Error getting OnActivatedArgs for toolbar %s: %s", ID, err.Error()))
-					functionArgs = NFData.NewNFInterfaceMap()
+					errText := fmt.Sprintf("Error running OnActivated for toolbar action %s: ", child.GetName())
+					results.Set("Error", errText+err.Error())
+					_, _ = NFFunction.ParseAndRun(window, "Error", results)
 				}
-				toolbarAction.OnActivated = func() {
-					_, err = NFFunction.ParseAndRun(window, action, functionArgs)
-					if err != nil {
-						eText := fmt.Sprintf("%s Error running action %s for toolbar %s: ", errText, action, child.ID)
-						child.Args.Set("Error", eText+err.Error())
-						_, _ = NFFunction.ParseAndRun(window, "Error", child.Args)
-					}
-				}
-			}
+			})
 			toolbar.Append(toolbarAction)
 		case "ToolbarSeparator":
 			toolbarSeparator := widget.NewToolbarSeparator()
@@ -436,7 +389,7 @@ func ToolBarHandler(window fyne.Window, _ *NFData.NFInterfaceMap, w *NFWidget.Wi
 			toolbar.Append(toolbarSpacer)
 		}
 	}
-	return toolbar, nil
+	return toolbar, widgetError
 }
 
 // EntryHandler creates an entry with an optional onchange function
@@ -444,157 +397,13 @@ func EntryHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.W
 	entry := widget.NewEntry()
 	var placeHolder string
 	err := args.Get("PlaceHolder", &placeHolder)
-	if err != nil {
-		log.Println(fmt.Sprintf("No placeholder found for entry %s", w.ID))
-	} else {
+	if err == nil {
 		entry.SetPlaceHolder(placeHolder)
 	}
 	var text string
 	err = args.Get("Text", &text)
-	if err != nil {
-		log.Println(fmt.Sprintf("No text found for entry %s", w.ID))
-	} else {
+	if err == nil {
 		entry.SetText(text)
-	}
-	var onChanged string
-	err = args.Get("OnChanged", &onChanged)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnChanged found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnChangedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnChangedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		entry.OnChanged = func(s string) {
-			functionArgs.Set("Value", s)
-			_, err := NFFunction.ParseAndRun(window, onChanged, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnChanged for entry %s: %s", w.ID, err.Error()))
-			}
-		}
-	}
-	var onSubmitted string
-	err = args.Get("OnSubmitted", &onSubmitted)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnSubmitted found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnSubmittedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnSubmittedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		entry.OnSubmitted = func(s string) {
-			functionArgs.Set("Value", s)
-			_, err := NFFunction.ParseAndRun(window, onSubmitted, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnSubmitted for entry %s: %s", w.ID, err.Error()))
-			}
-		}
-	}
-
-	var onCursorChanged string
-	err = args.Get("OnCursorChanged", &onCursorChanged)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnCursorChanged found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnCursorChangedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnCursorChangedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		entry.OnCursorChanged = func() {
-			_, err := NFFunction.ParseAndRun(window, onCursorChanged, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnCursorChanged for entry %s: %s", w.ID, err.Error()))
-			}
-		}
-	}
-	return entry, nil
-}
-
-// PasswordEntryHandler creates a password entry with an optional onchange function
-func PasswordEntryHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
-	entry := widget.NewPasswordEntry()
-	var placeHolder string
-	err := args.Get("PlaceHolder", &placeHolder)
-	if err != nil {
-		log.Println(fmt.Sprintf("No placeholder found for entry %s", w.ID))
-	} else {
-		entry.SetPlaceHolder(placeHolder)
-	}
-	var text string
-	err = args.Get("Text", &text)
-	if err != nil {
-		log.Println(fmt.Sprintf("No text found for entry %s", w.ID))
-	} else {
-		entry.SetText(text)
-	}
-	var onChanged string
-	err = args.Get("OnChanged", &onChanged)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnChanged found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnChangedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnChangedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		functionArgs.Set("WidgetID", w.ID)
-		functionArgs.Set("WidgetType", "PasswordEntry")
-		entry.OnChanged = func(s string) {
-			functionArgs.Set("Value", s)
-			_, err := NFFunction.ParseAndRun(window, onChanged, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnChanged for entry %s: %s", w.ID, err.Error()))
-			}
-		}
-	}
-	var onSubmitted string
-	err = args.Get("OnSubmitted", &onSubmitted)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnSubmitted found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnSubmittedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnSubmittedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		functionArgs.Set("WidgetID", w.ID)
-		functionArgs.Set("WidgetType", "PasswordEntry")
-		entry.OnSubmitted = func(s string) {
-			functionArgs.Set("Value", s)
-			_, err := NFFunction.ParseAndRun(window, onSubmitted, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnSubmitted for entry %s: %s", w.ID, err.Error()))
-			}
-		}
-	}
-
-	var onCursorChanged string
-	err = args.Get("OnCursorChanged", &onCursorChanged)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnCursorChanged found for entry %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnCursorChangedArgs", &functionArgs)
-		if err != nil {
-			log.Println(fmt.Sprintf("No OnCursorChangedArgs found for entry %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		functionArgs.Set("WidgetID", w.ID)
-		functionArgs.Set("WidgetType", "PasswordEntry")
-		entry.OnCursorChanged = func() {
-			_, err := NFFunction.ParseAndRun(window, onCursorChanged, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnCursorChanged for entry %s: %s", w.ID, err.Error()))
-			}
-		}
 	}
 
 	var hidden = entry.Hidden
@@ -629,6 +438,79 @@ func PasswordEntryHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NF
 		}
 	}
 
+	entry.OnChanged = func(s string) {
+		newArgs := NFData.NewNFInterfaceMap(NFData.NewKeyVal("EntryValue", s))
+		results, err := w.RunAction("OnChanged", window, newArgs)
+		if err != nil {
+			errText := fmt.Sprintf("Error running OnChanged for entry %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
+		}
+	}
+
+	//TODO other entry actions
+
+	return entry, nil
+}
+
+// PasswordEntryHandler creates a password entry with an optional onchange function
+func PasswordEntryHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.Widget) (fyne.CanvasObject, error) {
+	entry := widget.NewPasswordEntry()
+	var placeHolder string
+	err := args.Get("PlaceHolder", &placeHolder)
+	if err == nil {
+		entry.SetPlaceHolder(placeHolder)
+	}
+	var text string
+	err = args.Get("Text", &text)
+	if err == nil {
+		entry.SetText(text)
+	}
+
+	var hidden = entry.Hidden
+	err = w.Args.Get("Hidden", &hidden)
+	if err == nil {
+		if hidden {
+			entry.Hide()
+		} else {
+			entry.Show() //The default state is actually shown, this is just for clarity
+		}
+	}
+
+	var position = entry.Position()
+	err = w.Args.Get("Position", &position)
+	if err == nil {
+		entry.Move(position)
+	}
+
+	var size = entry.Size()
+	err = w.Args.Get("Size", &size)
+	if err == nil {
+		entry.Resize(size)
+	}
+
+	var enabled = true
+	err = w.Args.Get("Enabled", &enabled)
+	if err == nil {
+		if enabled {
+			entry.Enable()
+		} else {
+			entry.Disable()
+		}
+	}
+
+	entry.OnChanged = func(s string) {
+		newArgs := NFData.NewNFInterfaceMap(NFData.NewKeyVal("EntryValue", s))
+		results, err := w.RunAction("OnChanged", window, newArgs)
+		if err != nil {
+			errText := fmt.Sprintf("Error running OnChanged for entry %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
+		}
+	}
+
+	//TODO Other entry actions
+
 	return entry, nil
 }
 
@@ -637,14 +519,12 @@ func SliderHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 	var sMin float64
 	err := args.Get("Min", &sMin)
 	if err != nil {
-		log.Println(fmt.Sprintf("No Min found for slider %s", w.ID))
-		return nil, err
+		return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Min")
 	}
 	var sMax float64
 	err = args.Get("Max", &sMax)
 	if err != nil {
-		log.Println(fmt.Sprintf("No Max found for slider %s", w.ID))
-		return nil, err
+		return nil, NFError.NewErrWidgetParse(w.GetName(), w.GetType(), w.GetID(), "Error Getting Max")
 	}
 	slider := widget.NewSlider(sMin, sMax)
 
@@ -660,25 +540,13 @@ func SliderHandler(window fyne.Window, args *NFData.NFInterfaceMap, w *NFWidget.
 		slider.Step = sStep
 	}
 
-	var onChanged string
-	err = args.Get("OnChanged", &onChanged)
-	if err != nil {
-		log.Println(fmt.Sprintf("No OnChanged found for slider %s", w.ID))
-	} else {
-		var functionArgs *NFData.NFInterfaceMap
-		err = args.Get("OnChangedArgs", &functionArgs)
+	slider.OnChanged = func(f float64) {
+		newArgs := NFData.NewNFInterfaceMap(NFData.NewKeyVal("SliderValue", f))
+		results, err := w.RunAction("OnChanged", window, newArgs)
 		if err != nil {
-			log.Println(fmt.Sprintf("No OnChangedArgs found for slider %s", w.ID))
-			functionArgs = NFData.NewNFInterfaceMap()
-		}
-		functionArgs.Set("WidgetID", w.ID)
-		functionArgs.Set("WidgetType", "Slider")
-		slider.OnChanged = func(f float64) {
-			functionArgs.Set("Value", f)
-			_, err = NFFunction.ParseAndRun(window, onChanged, functionArgs)
-			if err != nil {
-				log.Println(fmt.Sprintf("Error running OnChanged for slider %s: %s", w.ID, err.Error()))
-			}
+			errText := fmt.Sprintf("Error running OnChanged for slider %s: ", w.GetName())
+			results.Set("Error", errText+err.Error())
+			_, _ = NFFunction.ParseAndRun(window, "Error", results)
 		}
 	}
 	return slider, nil
