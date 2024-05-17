@@ -18,6 +18,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// HelloWorld is a simple function that prints "Hello World" to the console
+func HelloWorld(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
+	dialog.ShowInformation("Hello World", "Hello World", window)
+	return args, nil
+}
+
 // Quit simply closes the window after prompting the user for confirmation
 func Quit(window fyne.Window, args *NFData.NFInterfaceMap) (*NFData.NFInterfaceMap, error) {
 	dialog.ShowConfirm("Are you sure you want to quit?", "Are you sure you want to quit?", func(b bool) {

@@ -15,12 +15,13 @@ import (
 
 // TODO add in a priority field so that action based functions can be run in a specific order
 
-func NewFunction(id, action, functionType string) *Function {
+func New(action, functionType string, args *NFData.NFInterfaceMap) *Function {
 	return &Function{
+		Name:   action,
 		UUID:   uuid.New(),
 		Action: action,
 		Type:   functionType,
-		Args:   NFData.NewNFInterfaceMap(),
+		Args:   args,
 	}
 }
 

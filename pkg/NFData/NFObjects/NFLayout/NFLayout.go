@@ -353,6 +353,16 @@ func (l *Layout) SetArgs(args *NFData.NFInterfaceMap) {
 	l.Args = args
 }
 
+// New creates a new layout with the given type and generates a new UUID.
+func New(layoutType string, children []*NFWidget.Widget, args *NFData.NFInterfaceMap) *Layout {
+	return &Layout{
+		Type:     layoutType,
+		Children: children,
+		Args:     args,
+		UUID:     uuid.New(),
+	}
+}
+
 // NewLayout creates a new layout with the given type.
 func NewLayout(layoutType string, children []*NFWidget.Widget, args *NFData.NFInterfaceMap) *Layout {
 	return &Layout{

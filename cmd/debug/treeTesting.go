@@ -31,11 +31,13 @@ func main() {
 		},
 		func(dataItem binding.DataItem, branch bool, object fyne.CanvasObject) {
 			strBind := dataItem.(binding.String)
+			log.Println("DataItem: ", strBind)
 			value, err := strBind.Get()
 			if err != nil {
 				log.Println(err)
 				return
 			}
+			log.Println("Value: ", value)
 			object.(*widget.Label).SetText(value)
 		},
 	)

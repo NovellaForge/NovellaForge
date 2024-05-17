@@ -21,6 +21,13 @@ func init() {
 	Import()
 	log.Println("Registering Default Functions")
 
+	helloWorld := NFFunction.Function{
+		Type:         "HelloWorld",
+		RequiredArgs: NFData.NewNFInterfaceMap(),
+		OptionalArgs: NFData.NewNFInterfaceMap(),
+	}
+	helloWorld.Register(HelloWorld)
+
 	quit := NFFunction.Function{
 		Type:         "Quit",
 		RequiredArgs: NFData.NewNFInterfaceMap(),
