@@ -996,6 +996,8 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 	return objectsCanvas
 }
 
+//TODO Clean this up and move it back inside the CreateSceneObjects function
+
 func UpdateObjectTreeItem(window fyne.Window, tree *widget.Tree, idMap map[string][]string, valueMap map[string]string, treeBinding binding.StringTree) func(binding.DataItem, bool, fyne.CanvasObject) {
 	return func(value binding.DataItem, branch bool, node fyne.CanvasObject) {
 		strBinding := value.(binding.String)
