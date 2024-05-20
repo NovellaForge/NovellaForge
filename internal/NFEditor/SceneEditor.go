@@ -703,7 +703,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			}
 			base := filepath.Base(node.Path)
 			isScene := filepath.Ext(base) == ".NFScene"
-			fullPath := filepath.Join(scenesFolder, value)
 			noExt := strings.TrimSuffix(base, filepath.Ext(base))
 			objectContainer := object.(*fyne.Container)
 			objectContainer.Objects = []fyne.CanvasObject{widget.NewLabel(noExt)}
@@ -711,9 +710,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			selected := selectedSceneTreeNodeID == value
 			if isScene {
 				if selected {
-					copyButton := copySceneButton(fullPath, noExt, window)
-					moveButton := moveSceneButton(fullPath, noExt, window)
-					deleteButton := deleteSceneButton(fullPath, noExt, window)
+					copyButton := copySceneButton(node.Path, noExt, window)
+					moveButton := moveSceneButton(node.Path, noExt, window)
+					deleteButton := deleteSceneButton(node.Path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					copyButton.Disable()
 					moveButton.Disable()
@@ -727,9 +726,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				}
 			} else {
 				if selected || open {
-					newGroup := newGroupButton(fullPath, noExt, window)
-					newScene := newSceneButton(fullPath, noExt, window)
-					deleteGroup := deleteGroupButton(fullPath, noExt, window)
+					newGroup := newGroupButton(node.Path, noExt, window)
+					newScene := newSceneButton(node.Path, noExt, window)
+					deleteGroup := deleteGroupButton(node.Path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					newGroup.Disable()
 					newScene.Disable()

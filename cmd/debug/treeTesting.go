@@ -6,41 +6,61 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
 	"log"
+	"strconv"
 )
 
 func main() {
 	a := app.New()
 	w := a.NewWindow("Hello")
 	simpleData := map[string][]string{
-		"":                                     {"332a52af-8376-495f-a45f-675257b59a93", "4"},
-		"332a52af-8376-495f-a45f-675257b59a93": {"2", "3"},
-		"4":                                    {"5", "6"},
+		"":  {"1", "4"},
+		"1": {"2", "3"},
+		"4": {"5", "6"},
 	}
-	simpleValues := map[string]string{
-		"332a52af-8376-495f-a45f-675257b59a93": "1",
-		"2":                                    "2",
-		"3":                                    "3",
-		"4":                                    "4",
-		"5":                                    "5",
-		"6":                                    "6",
+	simpleValues := map[string]int{
+		"1": 5,
+		"2": 4,
+		"3": 3,
+		"4": 2,
+		"5": 1,
+		"6": 0,
 	}
-	simpleBinding := binding.BindStringTree(&simpleData, &simpleValues)
+
+	simpleBinding := binding.BindIntTree(&simpleData, &simpleValues)
 	simpleTree := widget.NewTreeWithData(simpleBinding,
 		func(branch bool) fyne.CanvasObject {
 			return widget.NewLabel("Branch")
 		},
 		func(dataItem binding.DataItem, branch bool, object fyne.CanvasObject) {
-			strBind := dataItem.(binding.String)
-			log.Println("DataItem: ", strBind)
-			value, err := strBind.Get()
-			if err != nil {
-				log.Println(err)
-				return
+			strBind, ok := dataItem.(binding.String)
+			if !ok {
+				log.Println("DataItem is not a string")
+			} else {
+				log.Println("DataItem: ", strBind)
+				value, err := strBind.Get()
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				log.Println("Value: ", value)
+				object.(*widget.Label).SetText(value)
 			}
-			log.Println("Value: ", value)
-			object.(*widget.Label).SetText(value)
+			intBind, ok := dataItem.(binding.Int)
+			if !ok {
+				log.Println("DataItem is not an int")
+			} else {
+				log.Println("DataItem: ", intBind)
+				value, err := intBind.Get()
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				log.Println("Value: ", value)
+				object.(*widget.Label).SetText(strconv.Itoa(value))
+			}
 		},
 	)
+
 	w.SetContent(simpleTree)
 	w.ShowAndRun()
 
