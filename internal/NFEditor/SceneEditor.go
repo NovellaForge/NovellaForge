@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -44,24 +43,24 @@ TODO: SceneEditor
  [ ] Build Manager to build the project
  [ ] Migrate Preview to a separate window
  [ ] Add run game button to launch the game from source
- [ ] Convert the function parser to make it an actual object
+ [X] Convert the function parser to make it an actual object
      so that the user can choose from added functions and specify the args
+ [] Clean up tree creation and updates using tree data binding
+ 	[ ] Fix the old create button functions to update the new binding and add a refresh button to reload changes from disk
+    [ ] Fix the weird update bug with the objects when switching scenes(Probably make both bindings global variables)
 */
 
 type sceneNode struct {
-	Name     string
-	Leaf     bool
-	Parent   string
-	Children []string
-	FullPath string
-	Selected bool
-	Data     interface{}
+	UUID uuid.UUID
+	Name string
+	Dir  bool
+	Path string
 }
 
 var (
-	sceneNodes       = make(map[string]*sceneNode)
-	selectedObjectID = ""
-	sceneNameBinding = binding.NewString()
+	selectedObjectTreeId    = ""
+	selectedSceneTreeNodeID = ""
+	sceneNameBinding        = binding.NewString()
 
 	functions = make(map[string]NFData.AssetProperties)
 	layouts   = make(map[string]NFData.AssetProperties)
@@ -83,6 +82,67 @@ var (
 	objectsCanvas      fyne.CanvasObject
 )
 
+func generateTreeMap(initialPath string) (map[string][]string, map[string]string, map[string]*sceneNode, error) {
+	treeMap := make(map[string]*sceneNode)      // Maps UUID to sceneNode
+	parentChildMap := make(map[string][]string) //Maps parent directory to a slice of UUIDs of its children
+	valueMap := make(map[string]string)         //Maps UUID to UUID (for value map, it seems redundant, but it's needed for the StringTree)
+	pathToUUID := make(map[string]string)       //Maps relative path to UUID
+
+	err := filepath.Walk(initialPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		//Skip the initial path
+		if path == initialPath {
+			return nil
+		}
+
+		dir, file := filepath.Split(path)
+
+		// remove trailing slash from dir
+		dir = filepath.Clean(dir)
+
+		if info.IsDir() || filepath.Ext(path) == ".NFScene" {
+			newNode := &sceneNode{
+				UUID: uuid.New(),
+				Name: file,
+				Dir:  info.IsDir(),
+				Path: path,
+			}
+			uuidStr := newNode.UUID.String()
+			treeMap[uuidStr] = newNode
+			pathToUUID[path] = uuidStr // Store the path to UUID mapping
+
+			// Add the new node to the parent's slice in the parent-child map
+			if dir == initialPath {
+				parentChildMap[""] = append(parentChildMap[""], uuidStr)
+			} else {
+				parentChildMap[dir] = append(parentChildMap[dir], uuidStr)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Convert the parent-child map to use the UUIDs of the nodes
+	idMap := make(map[string][]string)
+	for parentPath, childrenUUIDs := range parentChildMap {
+		parentID := pathToUUID[parentPath] // Use the path to UUID map here
+		idMap[parentID] = childrenUUIDs
+	}
+
+	// Create the value map
+	for _, node := range treeMap {
+		valueMap[node.UUID.String()] = node.UUID.String()
+	}
+
+	return idMap, valueMap, treeMap, nil
+}
 func refreshForm(objectKey string, form *widget.Form, object NFData.CoupledObject, window fyne.Window) {
 	form.Items = nil
 	form.Refresh()
@@ -148,71 +208,6 @@ func saveScene(window fyne.Window) {
 		time.Sleep(1 * time.Second)
 		popup.Hide()
 	}
-}
-
-func scanScenesFolder(rootPath string) error {
-	sceneNodes = make(map[string]*sceneNode)
-	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Create a new node
-		node := &sceneNode{
-			Name:     info.Name(),
-			Leaf:     !info.IsDir(), // Set Leaf to true if it's a file, false if it's a directory
-			FullPath: path,
-			Selected: false,
-		}
-
-		// Use the full path from the root folder as the id removing leading and trailing slashes and replacing the rest with underscores
-		relativePath, err := filepath.Rel(rootPath, path)
-		if err != nil {
-			return err
-		}
-		id := strings.ReplaceAll(relativePath, "\\", "_")
-		if info.IsDir() {
-			id = "group_" + id
-		} else {
-			id = "scene_" + strings.TrimSuffix(id, filepath.Ext(info.Name()))
-			node.Name = strings.TrimSuffix(node.Name, filepath.Ext(node.Name))
-		}
-
-		// Add the node to its parent's children and set the parent of the node
-		parentPath := filepath.Dir(path)
-		if rootPath != parentPath {
-			relativePath, err = filepath.Rel(rootPath, parentPath)
-			if err != nil {
-				return err
-			}
-			parentID := "group_" + strings.ReplaceAll(relativePath, "\\", "_")
-			if parentID != "group_.." && parentID != "group_." {
-				parentNode, ok := sceneNodes[parentID]
-				if !ok {
-					// If the parent node does not exist yet, create it
-					parentNode = &sceneNode{
-						Name: filepath.Base(parentPath),
-						Leaf: false,
-					}
-				}
-				parentNode.Children = append(parentNode.Children, id)
-				sceneNodes[parentID] = parentNode // Update the parent node in the map
-				node.Parent = parentID
-			}
-		}
-
-		// Add the node to the map if it's not the root directory
-		if id != "group_." {
-			sceneNodes[id] = node
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func CreateSceneEditor(window fyne.Window) fyne.CanvasObject {
@@ -383,6 +378,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 }
 
 func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
+	//TODO finish converting buttons to new tree
 	if selectorCanvas == nil {
 		selectorCanvas = container.NewStack()
 	}
@@ -393,155 +389,409 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	scenesFolder := filepath.Join(projectPath, "data/scenes/")
 	scenesFolder = filepath.Clean(scenesFolder)
 	if !fs.ValidPath(scenesFolder) {
-		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder Path"))
+		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder"))
 	}
-	err := scanScenesFolder(scenesFolder)
+
+	idMap, valueMap, treeMap, err := generateTreeMap(scenesFolder)
 	if err != nil {
-		log.Println(err)
-		return container.NewVBox(widget.NewLabel("Error scanning scenes folder"))
+		dialog.ShowError(err, window)
+		return container.NewVBox(widget.NewLabel("Error generating tree map"))
 	}
-	var tree *widget.Tree
-	tree = widget.NewTree(
-		func(id widget.TreeNodeID) []widget.TreeNodeID {
-			if id == "" {
-				branchNodes := make([]widget.TreeNodeID, 0)
-				leafNodes := make([]widget.TreeNodeID, 0)
-				for nodeID, node := range sceneNodes {
-					if node.Parent == "" {
-						if node.Leaf {
-							leafNodes = append(leafNodes, nodeID)
-						} else {
-							branchNodes = append(branchNodes, nodeID)
-						}
-					}
+
+	//Group Buttons
+	newSceneButton := func(path, text string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon(text, theme.ContentAddIcon(), func() {
+			var newSceneDialog *dialog.CustomDialog
+			entry := widget.NewEntry()
+			entry.SetPlaceHolder("Scene Name")
+			entry.Validator = func(s string) error {
+				re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
+				if !re.MatchString(s) {
+					return errors.New("invalid characters in scene name")
 				}
-				sort.Strings(branchNodes)
-				sort.Strings(leafNodes)
-				nodes := make([]widget.TreeNodeID, 0)
-				nodes = append(nodes, branchNodes...)
-				nodes = append(nodes, leafNodes...)
-				return nodes
+				return nil
 			}
-			if node, ok := sceneNodes[id]; ok {
-				branchNodes := make([]widget.TreeNodeID, 0)
-				leafNodes := make([]widget.TreeNodeID, 0)
-				for _, childID := range node.Children {
-					if sceneNodes[childID].Leaf {
-						leafNodes = append(leafNodes, childID)
-					} else {
-						branchNodes = append(branchNodes, childID)
-					}
+			confirmButton := widget.NewButton("Create", func() {
+				if entry.Validate() != nil {
+					return
 				}
-				sort.Strings(branchNodes)
-				sort.Strings(leafNodes)
-				nodes := make([]widget.TreeNodeID, 0)
-				nodes = append(nodes, branchNodes...)
-				nodes = append(nodes, leafNodes...)
-				return nodes
-			}
-			return nil
-		},
-		func(id widget.TreeNodeID) bool {
-			if node, ok := sceneNodes[id]; ok {
-				return !node.Leaf
-			}
-			return true
-		},
-		func(b bool) fyne.CanvasObject {
-			if b {
-				hbox := container.NewHBox(
-					widget.NewLabel("Group"),
+				sceneName := entry.Text
+				if sceneName == "" {
+					return
+				}
+				scenePath := filepath.Join(path, sceneName+".NFScene")
+				log.Println("Creating Scene at " + scenePath)
+				newScene := NFScene.NewScene(
+					sceneName,
+					NFLayout.NewLayout(
+						"VBox",
+						NFLayout.NewChildren(
+							NFWidget.New(
+								"Label",
+								NFWidget.NewChildren(),
+								NFData.NewNFInterfaceMap(
+									NFData.NewKeyVal(
+										"Text",
+										"Hello World",
+									),
+								),
+							),
+						),
+						NFData.NewNFInterfaceMap(),
+					),
+					NFData.NewNFInterfaceMap(),
 				)
-				return hbox
-			} else {
-				hbox := container.NewHBox(
-					widget.NewLabel("Scene"),
-				)
-				return hbox
-			}
-		},
-		func(id widget.TreeNodeID, b bool, object fyne.CanvasObject) {
-			if node, ok := sceneNodes[id]; ok {
-				if b {
-					open := tree.IsBranchOpen(id)
-					if open || node.Selected {
-						object.(*fyne.Container).Objects = []fyne.CanvasObject{
-							widget.NewLabel(node.Name),
-							layout.NewSpacer(),
-							CreateNewSceneButton(node.FullPath, "", window),
-							CreateNewGroupButton(node.FullPath, "", window),
-							CreateNewGroupDeleteButton(node.FullPath, node.Name, window),
-						}
-					} else {
-						object.(*fyne.Container).Objects = []fyne.CanvasObject{
-							widget.NewLabel(node.Name),
-							layout.NewSpacer(),
-						}
-					}
-				} else {
-					if node.Selected {
-						object.(*fyne.Container).Objects = []fyne.CanvasObject{
-							widget.NewLabel(node.Name),
-							layout.NewSpacer(),
-							CreateNewCopyButton(node.FullPath, node.Name, window),
-							CreateNewMoveButton(node.FullPath, node.Name, window),
-							CreateNewDeleteButton(node.FullPath, node.Name, window),
-						}
-					} else {
-						object.(*fyne.Container).Objects = []fyne.CanvasObject{
-							widget.NewLabel(node.Name),
-							layout.NewSpacer(),
-						}
-					}
-				}
-			}
-		},
-	)
-	tree.OnSelected = func(id widget.TreeNodeID) {
-		if node, ok := sceneNodes[id]; ok {
-			node.Selected = true
-			if node.Leaf {
-				scenePath := node.FullPath
-				log.Println("Selected Scene: " + scenePath)
-				// Send empty struct to sceneChangeEvent
-				// Close the scene preview window if it exists
-				if scenePreviewWindow != nil {
-					scenePreviewWindow.Close()
-				}
-				scene, err := NFScene.Load(scenePath)
+				err := newScene.Save(scenePath)
 				if err != nil {
-					log.Println(err)
 					dialog.ShowError(err, window)
 					return
 				}
-				if !reflect.DeepEqual(selectedScene, scene) {
-					//Get the param list out of the sceneObjects if it exists
-					if selectedScene != nil && selectedScenePath != "" && changesMade {
-						dialog.ShowConfirm("Save before switching", "Do you want to save the current scene before switching?", func(b bool) {
+				CreateSceneSelector(window)
+				newSceneDialog.Hide()
+			})
+			cancelButton := widget.NewButton("Cancel", func() {
+				newSceneDialog.Hide()
+			})
+
+			entry.SetOnValidationChanged(func(e error) {
+				if e != nil {
+					confirmButton.Disable()
+				} else {
+					confirmButton.Enable()
+				}
+			})
+
+			hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
+			content := container.NewVBox(entry, hbox)
+			newSceneDialog = dialog.NewCustomWithoutButtons("Create New Scene", content, window)
+			newSceneDialog.Show()
+		})
+	}
+	newGroupButton := func(path, text string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon(text, theme.FolderNewIcon(), func() {
+			var newGroupDialog *dialog.CustomDialog
+			entry := widget.NewEntry()
+			entry.SetPlaceHolder("Group Name")
+			entry.Validator = func(s string) error {
+				re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
+				if !re.MatchString(s) {
+					return errors.New("invalid characters in group name")
+				}
+				return nil
+			}
+			confirmButton := widget.NewButton("Create", func() {
+				if entry.Validate() != nil {
+					return
+				}
+				groupName := entry.Text
+				if groupName == "" {
+					return
+				}
+				groupPath := filepath.Join(path, groupName)
+				log.Println("Creating Group at " + groupPath)
+				err := os.MkdirAll(groupPath, os.ModePerm)
+				if err != nil {
+					return
+				}
+				CreateSceneSelector(window)
+				newGroupDialog.Hide()
+			})
+			cancelButton := widget.NewButton("Cancel", func() {
+				newGroupDialog.Hide()
+			})
+
+			entry.SetOnValidationChanged(func(e error) {
+				if e != nil {
+					confirmButton.Disable()
+				} else {
+					confirmButton.Enable()
+				}
+			})
+
+			hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
+			content := container.NewVBox(entry, hbox)
+			newGroupDialog = dialog.NewCustomWithoutButtons("Create New Group", content, window)
+			newGroupDialog.Show()
+		})
+	}
+	deleteGroupButton := func(path, text string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the group: "+text, func(b bool) {
+				if b {
+					log.Println("Delete Group at " + path)
+					//Check if the group is empty
+					empty := true
+					err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
+						if path != innerPath {
+							empty = false
+						}
+						return nil
+					})
+					if err != nil {
+						dialog.ShowError(err, window)
+					}
+					if !empty {
+						dialog.ShowCustomConfirm("Keep Files", "Keep", "Delete", widget.NewLabel("Do you want to keep the files in the group?"), func(b bool) {
 							if b {
-								saveScene(window)
+								//Get all the files in the group and move them to the parent directory
+								err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
+									if path != innerPath {
+										newPath := filepath.Join(filepath.Dir(path), info.Name())
+										//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
+										for i := 1; ; i++ {
+											if _, err := os.Stat(newPath); os.IsNotExist(err) {
+												break
+											}
+											newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))+"_"+strconv.Itoa(i)+filepath.Ext(info.Name()))
+										}
+										err := os.Rename(innerPath, newPath)
+										if err != nil {
+											return err
+										}
+									}
+									return nil
+								})
+								if err != nil {
+									dialog.ShowError(err, window)
+								}
+								err = os.RemoveAll(path)
+								if err != nil {
+									dialog.ShowError(err, window)
+								}
+							} else {
+								err := os.RemoveAll(path)
+								if err != nil {
+									dialog.ShowError(err, window)
+								}
 							}
-							changesMade = false
-							selectedScenePath = scenePath
-							selectedScene = scene
-							CreateScenePreview(window) // This one may not need to be here since it should hit the next one after the else, but it's here for now as a safety
+							CreateSceneSelector(window)
 						}, window)
 					} else {
+						log.Println("Group is empty, deleting group")
+						err := os.Remove(path)
+						if err != nil {
+							dialog.ShowError(err, window)
+						} else {
+							CreateSceneSelector(window)
+						}
+					}
+				}
+			}, window)
+		})
+	}
+	//Scene Buttons
+	copySceneButton := func(path, _ string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
+			log.Println("Copy Scene at " + path)
+			//Copy the scene to the same directory with a _copy suffix
+			newPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_copy" + filepath.Ext(path)
+			//Copy not Link the file
+			fileBytes, err := os.ReadFile(path)
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			err = os.WriteFile(newPath, fileBytes, os.ModePerm)
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			CreateSceneSelector(window)
+		})
+	}
+	moveSceneButton := func(path, _ string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
+			openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+				if err != nil {
+					dialog.ShowError(err, window)
+					return
+				}
+				newPath := uri.Path()
+				newPath = filepath.Clean(newPath)
+				log.Println("Move Scene at " + path + " to " + newPath)
+				//Move the scene to the new directory
+				newPath = filepath.Join(newPath, filepath.Base(path))
+
+				// Ensure the destination directory exists
+				destDir := filepath.Dir(newPath)
+				if _, err := os.Stat(destDir); os.IsNotExist(err) {
+					err = os.MkdirAll(destDir, os.ModePerm)
+					if err != nil {
+						dialog.ShowError(err, window)
+						return
+					}
+				}
+
+				// Check if the file already exists in the destination directory
+				if _, err := os.Stat(newPath); !os.IsNotExist(err) {
+					// Handle the case where the file already exists (e.g., rename, overwrite, or skip)
+					// For now, let's skip the move operation
+					dialog.ShowInformation("File Exists", "A file with the same name already exists in the destination directory.", window)
+					return
+				}
+
+				// Move the file
+				err = os.Rename(path, newPath)
+				if err != nil {
+					dialog.ShowError(err, window)
+				} else {
+					//Check if the old file still exists and if it does delete it
+					if _, err := os.Stat(path); !os.IsNotExist(err) {
+						err := os.Remove(path)
+						if err != nil {
+							dialog.ShowError(err, window)
+						}
+					}
+				}
+				CreateSceneSelector(window)
+			}, window)
+			// Check if the path is a directory
+			fileInfo, err := os.Stat(filepath.Dir(path))
+			if err != nil {
+				log.Println("Failed to get file info")
+				return
+			}
+			if !fileInfo.IsDir() {
+				log.Println("Path is not a directory")
+				return
+			}
+			// Convert the path to a fyne.URI
+			uri := storage.NewFileURI(filepath.Dir(path))
+			URI, err := storage.ListerForURI(uri)
+			if err != nil {
+				log.Println("Failed to get URI")
+				return
+			}
+			openDialog.SetLocation(URI)
+			openDialog.Show()
+		})
+	}
+	deleteSceneButton := func(path, text string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the scene: "+text, func(b bool) {
+				if b {
+					log.Println("Delete Scene at " + path)
+					err := os.Remove(path)
+					if err != nil {
+						dialog.ShowError(err, window)
+					} else {
+						CreateSceneSelector(window)
+					}
+				}
+			}, window)
+		})
+	}
+
+	createItem := func(branch bool) fyne.CanvasObject {
+		return container.NewHBox(widget.NewLabel("Object"))
+	}
+
+	treeBinding := binding.BindStringTree(&idMap, &valueMap)
+	var tree *widget.Tree
+	tree = widget.NewTreeWithData(treeBinding, createItem,
+		func(item binding.DataItem, b bool, object fyne.CanvasObject) {
+			strBind := item.(binding.String)
+			value, err := strBind.Get()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			node := treeMap[value]
+			if node == nil {
+				log.Println("Node not found")
+				return
+			}
+			base := filepath.Base(node.Path)
+			isScene := filepath.Ext(base) == ".NFScene"
+			fullPath := filepath.Join(scenesFolder, value)
+			noExt := strings.TrimSuffix(base, filepath.Ext(base))
+			objectContainer := object.(*fyne.Container)
+			objectContainer.Objects = []fyne.CanvasObject{widget.NewLabel(noExt)}
+			open := tree.IsBranchOpen(value)
+			selected := selectedSceneTreeNodeID == value
+			if isScene {
+				if selected {
+					copyButton := copySceneButton(fullPath, noExt, window)
+					moveButton := moveSceneButton(fullPath, noExt, window)
+					deleteButton := deleteSceneButton(fullPath, noExt, window)
+					//Disable them all temporarily until I fix them to work with the new tree
+					copyButton.Disable()
+					moveButton.Disable()
+					deleteButton.Disable()
+					objectContainer.Objects = append(objectContainer.Objects,
+						layout.NewSpacer(),
+						copyButton,
+						moveButton,
+						deleteButton,
+					)
+				}
+			} else {
+				if selected || open {
+					newGroup := newGroupButton(fullPath, noExt, window)
+					newScene := newSceneButton(fullPath, noExt, window)
+					deleteGroup := deleteGroupButton(fullPath, noExt, window)
+					//Disable them all temporarily until I fix them to work with the new tree
+					newGroup.Disable()
+					newScene.Disable()
+					deleteGroup.Disable()
+					objectContainer.Objects = append(objectContainer.Objects,
+						layout.NewSpacer(),
+						newGroup,
+						newScene,
+						deleteGroup,
+					)
+				}
+			}
+		})
+
+	tree.OnSelected = func(id widget.TreeNodeID) {
+		selectedSceneTreeNodeID = id // This is for the node not actual scene
+		node := treeMap[id]
+		if node == nil {
+			log.Println("Node not found")
+			return
+		}
+		if node.Dir {
+			return
+		} else {
+			scenePath := node.Path
+			log.Println("Selected Scene: " + scenePath)
+			// Close the scene preview window if it exists
+			if scenePreviewWindow != nil {
+				scenePreviewWindow.Close()
+			}
+			scene, err := NFScene.Load(scenePath)
+			if err != nil {
+				log.Println(err)
+				dialog.ShowError(err, window)
+				return
+			}
+			if !reflect.DeepEqual(selectedScene, scene) {
+				//Get the param list out of the sceneObjects if it exists
+				if selectedScene != nil && selectedScenePath != "" && changesMade {
+					dialog.ShowConfirm("Save before switching", "Do you want to save the current scene before switching?", func(b bool) {
+						if b {
+							saveScene(window)
+						}
 						changesMade = false
 						selectedScenePath = scenePath
 						selectedScene = scene
-					}
+						CreateScenePreview(window) // This one may not need to be here since it should hit the next one after the else, but it's here for now as a safety
+					}, window)
+				} else {
+					changesMade = false
+					selectedScenePath = scenePath
+					selectedScene = scene
+					CreateScenePreview(window)
 				}
-				CreateScenePreview(window)
 			}
 		}
 	}
 	tree.OnUnselected = func(id widget.TreeNodeID) {
-		if node, ok := sceneNodes[id]; ok {
-			node.Selected = false
-		}
+		selectedSceneTreeNodeID = ""
+
 	}
-	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), CreateNewSceneButton(scenesFolder, "", window), CreateNewGroupButton(scenesFolder, "", window))
+	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), newSceneButton(scenesFolder, "", window), newGroupButton(scenesFolder, "", window))
 	vbox := container.NewVBox(CreateProjectSettings(window), hbox)
 	border := container.NewBorder(vbox, nil, nil, nil, tree)
 	scroll := container.NewVScroll(border)
@@ -551,293 +801,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	selector.Add(scroll)
 	selectorCanvas.Refresh()
 	return selectorCanvas
-}
-
-func CreateNewSceneButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon(text, theme.ContentAddIcon(), func() {
-		var newSceneDialog *dialog.CustomDialog
-		entry := widget.NewEntry()
-		entry.SetPlaceHolder("Scene Name")
-		entry.Validator = func(s string) error {
-			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
-			if !re.MatchString(s) {
-				return errors.New("invalid characters in scene name")
-			}
-			return nil
-		}
-		confirmButton := widget.NewButton("Create", func() {
-			if entry.Validate() != nil {
-				return
-			}
-			sceneName := entry.Text
-			if sceneName == "" {
-				return
-			}
-			scenePath := filepath.Join(path, sceneName+".NFScene")
-			log.Println("Creating Scene at " + scenePath)
-			newScene := NFScene.NewScene(
-				sceneName,
-				NFLayout.NewLayout(
-					"VBox",
-					NFLayout.NewChildren(
-						NFWidget.New(
-							"Label",
-							NFWidget.NewChildren(),
-							NFData.NewNFInterfaceMap(
-								NFData.NewKeyVal(
-									"Text",
-									"Hello World",
-								),
-							),
-						),
-					),
-					NFData.NewNFInterfaceMap(),
-				),
-				NFData.NewNFInterfaceMap(),
-			)
-			err := newScene.Save(scenePath)
-			if err != nil {
-				dialog.ShowError(err, window)
-				return
-			}
-			CreateSceneSelector(window)
-			newSceneDialog.Hide()
-		})
-		cancelButton := widget.NewButton("Cancel", func() {
-			newSceneDialog.Hide()
-		})
-
-		entry.SetOnValidationChanged(func(e error) {
-			if e != nil {
-				confirmButton.Disable()
-			} else {
-				confirmButton.Enable()
-			}
-		})
-
-		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
-		content := container.NewVBox(entry, hbox)
-		newSceneDialog = dialog.NewCustomWithoutButtons("Create New Scene", content, window)
-		newSceneDialog.Show()
-	})
-}
-
-func CreateNewGroupButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon(text, theme.FolderNewIcon(), func() {
-		var newGroupDialog *dialog.CustomDialog
-		entry := widget.NewEntry()
-		entry.SetPlaceHolder("Group Name")
-		entry.Validator = func(s string) error {
-			re := regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
-			if !re.MatchString(s) {
-				return errors.New("invalid characters in group name")
-			}
-			return nil
-		}
-		confirmButton := widget.NewButton("Create", func() {
-			if entry.Validate() != nil {
-				return
-			}
-			groupName := entry.Text
-			if groupName == "" {
-				return
-			}
-			groupPath := filepath.Join(path, groupName)
-			log.Println("Creating Group at " + groupPath)
-			err := os.MkdirAll(groupPath, os.ModePerm)
-			if err != nil {
-				return
-			}
-			CreateSceneSelector(window)
-			newGroupDialog.Hide()
-		})
-		cancelButton := widget.NewButton("Cancel", func() {
-			newGroupDialog.Hide()
-		})
-
-		entry.SetOnValidationChanged(func(e error) {
-			if e != nil {
-				confirmButton.Disable()
-			} else {
-				confirmButton.Enable()
-			}
-		})
-
-		hbox := container.NewHBox(layout.NewSpacer(), cancelButton, confirmButton, layout.NewSpacer())
-		content := container.NewVBox(entry, hbox)
-		newGroupDialog = dialog.NewCustomWithoutButtons("Create New Group", content, window)
-		newGroupDialog.Show()
-	})
-}
-
-func CreateNewGroupDeleteButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the group: "+text, func(b bool) {
-			if b {
-				log.Println("Delete Group at " + path)
-				//Check if the group is empty
-				empty := true
-				err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
-					if path != innerPath {
-						empty = false
-					}
-					return nil
-				})
-				if err != nil {
-					dialog.ShowError(err, window)
-				}
-				if !empty {
-					dialog.ShowCustomConfirm("Keep Files", "Keep", "Delete", widget.NewLabel("Do you want to keep the files in the group?"), func(b bool) {
-						if b {
-							//Get all the files in the group and move them to the parent directory
-							err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
-								if path != innerPath {
-									newPath := filepath.Join(filepath.Dir(path), info.Name())
-									//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
-									for i := 1; ; i++ {
-										if _, err := os.Stat(newPath); os.IsNotExist(err) {
-											break
-										}
-										newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))+"_"+strconv.Itoa(i)+filepath.Ext(info.Name()))
-									}
-									err := os.Rename(innerPath, newPath)
-									if err != nil {
-										return err
-									}
-								}
-								return nil
-							})
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-							err = os.RemoveAll(path)
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-						} else {
-							err := os.RemoveAll(path)
-							if err != nil {
-								dialog.ShowError(err, window)
-							}
-						}
-						CreateSceneSelector(window)
-					}, window)
-				} else {
-					log.Println("Group is empty, deleting group")
-					err := os.Remove(path)
-					if err != nil {
-						dialog.ShowError(err, window)
-					} else {
-						CreateSceneSelector(window)
-					}
-				}
-			}
-		}, window)
-	})
-}
-
-func CreateNewDeleteButton(path, text string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the scene: "+text, func(b bool) {
-			if b {
-				log.Println("Delete Scene at " + path)
-				err := os.Remove(path)
-				if err != nil {
-					dialog.ShowError(err, window)
-				} else {
-					CreateSceneSelector(window)
-				}
-			}
-		}, window)
-	})
-}
-
-func CreateNewCopyButton(path, _ string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
-		log.Println("Copy Scene at " + path)
-		//Copy the scene to the same directory with a _copy suffix
-		newPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_copy" + filepath.Ext(path)
-		//Copy not Link the file
-		fileBytes, err := os.ReadFile(path)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		err = os.WriteFile(newPath, fileBytes, os.ModePerm)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		CreateSceneSelector(window)
-	})
-}
-
-func CreateNewMoveButton(path, _ string, window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
-		openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
-			if err != nil {
-				dialog.ShowError(err, window)
-				return
-			}
-			newPath := uri.Path()
-			newPath = filepath.Clean(newPath)
-			log.Println("Move Scene at " + path + " to " + newPath)
-			//Move the scene to the new directory
-			newPath = filepath.Join(newPath, filepath.Base(path))
-
-			// Ensure the destination directory exists
-			destDir := filepath.Dir(newPath)
-			if _, err := os.Stat(destDir); os.IsNotExist(err) {
-				err = os.MkdirAll(destDir, os.ModePerm)
-				if err != nil {
-					dialog.ShowError(err, window)
-					return
-				}
-			}
-
-			// Check if the file already exists in the destination directory
-			if _, err := os.Stat(newPath); !os.IsNotExist(err) {
-				// Handle the case where the file already exists (e.g., rename, overwrite, or skip)
-				// For now, let's skip the move operation
-				dialog.ShowInformation("File Exists", "A file with the same name already exists in the destination directory.", window)
-				return
-			}
-
-			// Move the file
-			err = os.Rename(path, newPath)
-			if err != nil {
-				dialog.ShowError(err, window)
-			} else {
-				//Check if the old file still exists and if it does delete it
-				if _, err := os.Stat(path); !os.IsNotExist(err) {
-					err := os.Remove(path)
-					if err != nil {
-						dialog.ShowError(err, window)
-					}
-				}
-			}
-			CreateSceneSelector(window)
-		}, window)
-		// Check if the path is a directory
-		fileInfo, err := os.Stat(filepath.Dir(path))
-		if err != nil {
-			log.Println("Failed to get file info")
-			return
-		}
-		if !fileInfo.IsDir() {
-			log.Println("Path is not a directory")
-			return
-		}
-		// Convert the path to a fyne.URI
-		uri := storage.NewFileURI(filepath.Dir(path))
-		URI, err := storage.ListerForURI(uri)
-		if err != nil {
-			log.Println("Failed to get URI")
-			return
-		}
-		openDialog.SetLocation(URI)
-		openDialog.Show()
-	})
 }
 
 func CreateProjectSettings(window fyne.Window) fyne.CanvasObject {
@@ -1009,19 +972,19 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 		var bindingTree *widget.Tree
 		bindingTree = widget.NewTreeWithData(treeBinding, createItem, UpdateObjectTreeItem(window, bindingTree, idMap, valueMap, treeBinding))
 		bindingTree.OnSelected = func(id widget.TreeNodeID) {
-			selectedObjectID = id
+			selectedObjectTreeId = id
 			bindingTree.RefreshItem(id)
 			selectedObject = selectedScene.GetByID(uuid.MustParse(id))
 			CreateSceneProperties(window)
 		}
 		bindingTree.OnUnselected = func(id widget.TreeNodeID) {
-			oldId := selectedObjectID
-			selectedObjectID = ""
+			oldId := selectedObjectTreeId
+			selectedObjectTreeId = ""
 			bindingTree.RefreshItem(oldId)
 		}
 		bindingTree.OpenAllBranches()
-		if selectedObjectID != "" {
-			bindingTree.Select(selectedObjectID)
+		if selectedObjectTreeId != "" {
+			bindingTree.Select(selectedObjectTreeId)
 		}
 		bindingTree.Refresh()
 		treeStack.Add(bindingTree)
@@ -1181,7 +1144,7 @@ func UpdateObjectTreeItem(window fyne.Window, tree *widget.Tree, idMap map[strin
 		node.(*fyne.Container).Objects = []fyne.CanvasObject{widget.NewLabel(object.GetName())}
 		addItemButton.Disable()
 		deleteItemButton.Disable()
-		if level == 2 && selectedObjectID == idStr {
+		if level == 2 && selectedObjectTreeId == idStr {
 			addItemButton.Enable()
 			if id != selectedScene.Layout.GetID() {
 				deleteItemButton.Enable()
