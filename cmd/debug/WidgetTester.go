@@ -35,7 +35,7 @@ func main() {
 	}()
 	NFData.GlobalVars.Set("TestText", "Global Text")
 
-	testScene := NFScene.NewScene("TestScene",
+	testScene := NFScene.New("TestScene",
 		NFLayout.NewLayout(
 			"VBox",
 			NFWidget.NewChildren(

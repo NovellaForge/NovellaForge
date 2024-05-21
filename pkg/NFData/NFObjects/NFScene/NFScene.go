@@ -336,9 +336,10 @@ func (scene *Scene) SetArgs(args *NFData.NFInterfaceMap) {
 //END of NFObject interface implementation
 //
 
-// NewScene creates a new scene with the given name, layout, and arguments
-func NewScene(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap) *Scene {
+// New creates a new scene with the given name, layout, and arguments
+func New(name string, layout *NFLayout.Layout, args *NFData.NFInterfaceMap) *Scene {
 	return &Scene{
+		UUID:   uuid.New(),
 		Name:   name,
 		Layout: layout,
 		Args:   args,

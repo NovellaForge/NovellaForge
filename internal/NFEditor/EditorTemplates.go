@@ -7,7 +7,7 @@ import (
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects/NFWidget"
 )
 
-var MainMenuSceneTemplate = NFScene.NewScene(
+var MainMenuSceneTemplate = NFScene.New(
 	"MainMenu", NFLayout.NewLayout(
 		"VBox",
 		NFLayout.NewChildren(
@@ -59,7 +59,7 @@ var MainMenuSceneTemplate = NFScene.NewScene(
 	NFData.NewNFInterfaceMap(),
 )
 
-var NewGameSceneTemplate = NFScene.NewScene(
+var NewGameSceneTemplate = NFScene.New(
 	"NewGame", NFLayout.NewLayout(
 		"ExampleLayout",
 		NFLayout.NewChildren(
