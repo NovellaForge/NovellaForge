@@ -476,10 +476,11 @@ func (l *Layout) Export() error {
 		ExportPath += "/"
 	}
 
-	lBytes := NFData.AssetProperties{
-		Type:         l.Type,
-		RequiredArgs: l.RequiredArgs.Export(),
-		OptionalArgs: l.OptionalArgs.Export(),
+	lBytes := NFObjects.AssetProperties{
+		Type:             l.Type,
+		RequiredArgs:     l.RequiredArgs.Export(),
+		SupportedActions: l.SupportedActions,
+		OptionalArgs:     l.OptionalArgs.Export(),
 	}
 
 	jsonBytes, err := json.MarshalIndent(lBytes, "", "  ")
@@ -489,22 +490,22 @@ func (l *Layout) Export() error {
 
 	_, err = os.Stat(ExportPath)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(ExportPath, 0755)
+		err = os.MkdirAll(ExportPath, os.ModePerm)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = os.WriteFile(ExportPath+l.Type+".NFLayout", jsonBytes, 0644)
+	err = os.WriteFile(ExportPath+l.Type+".NFLayout", jsonBytes, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func Load(path string) (a NFData.AssetProperties, err error) {
+func Load(path string) (a NFObjects.AssetProperties, err error) {
 	if filepath.Ext(path) != ".NFLayout" {
-		return NFData.AssetProperties{}, errors.New("invalid file type")
+		return NFObjects.AssetProperties{}, errors.New("invalid file type")
 	}
 	err = a.Load(path)
 	return a, err

@@ -461,14 +461,11 @@ func (w *Widget) Export() error {
 		ExportPath += "/"
 	}
 	//Make the json safe struct
-	wBytes := struct {
-		Type         string              `json:"Type"`
-		RequiredArgs map[string][]string `json:"RequiredArgs"`
-		OptionalArgs map[string][]string `json:"OptionalArgs"`
-	}{
-		Type:         w.Type,
-		RequiredArgs: w.RequiredArgs.Export(),
-		OptionalArgs: w.OptionalArgs.Export(),
+	wBytes := NFObjects.AssetProperties{
+		Type:             w.Type,
+		SupportedActions: w.SupportedActions,
+		RequiredArgs:     w.RequiredArgs.Export(),
+		OptionalArgs:     w.OptionalArgs.Export(),
 	}
 
 	//Export the function to a json file
@@ -487,16 +484,16 @@ func (w *Widget) Export() error {
 	}
 
 	//Write the file to the export path
-	err = os.WriteFile(ExportPath+w.Type+".NFWidget", jsonBytes, 0644)
+	err = os.WriteFile(ExportPath+w.Type+".NFWidget", jsonBytes, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func Load(path string) (a NFData.AssetProperties, err error) {
+func Load(path string) (a NFObjects.AssetProperties, err error) {
 	if filepath.Ext(path) != ".NFWidget" {
-		return NFData.AssetProperties{}, errors.New("invalid file type")
+		return NFObjects.AssetProperties{}, errors.New("invalid file type")
 	}
 	err = a.Load(path)
 	return a, err

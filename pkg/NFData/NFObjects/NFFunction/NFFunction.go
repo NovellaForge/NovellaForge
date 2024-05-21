@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFError"
+	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
 	"log"
 	"os"
 	"path/filepath"
@@ -227,9 +228,9 @@ func (f *Function) Export() error {
 }
 
 // Load is a function that is used to load a function from a .NFFunction file
-func Load(path string) (a NFData.AssetProperties, err error) {
+func Load(path string) (a NFObjects.AssetProperties, err error) {
 	if filepath.Ext(path) != ".NFFunction" {
-		return NFData.AssetProperties{}, errors.New("invalid file type")
+		return NFObjects.AssetProperties{}, errors.New("invalid file type")
 	}
 	err = a.Load(path)
 	return a, err

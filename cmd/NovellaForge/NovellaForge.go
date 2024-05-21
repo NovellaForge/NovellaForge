@@ -23,11 +23,8 @@ import (
 
 /*
 
-TODO Need to add in an overlay type which is similar to scenes but has a string map of layout slices
- that will be drawn on top of the scene if the scene has an OverLayGroup property set to a matching overlay name
-
-
-
+TODO
+ Extract the default assets from the framework and move them to their own project for easier management and updating
 
 TODO 0.0.1: [ ] = Required, ( ) = Optional, X = Done, - = Alternative implementation
  [X] Finish the parsing refactor to use the new interface system.

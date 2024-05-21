@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -50,29 +51,22 @@ TODO: SceneEditor
     [ ] Fix the weird update bug with the objects when switching scenes(Probably make both bindings global variables)
 */
 
-type sceneNode struct {
-	UUID uuid.UUID
-	Name string
-	Dir  bool
-	Path string
-}
-
 var (
 	objectTreeData       = map[string][]string{}
 	objectTreeValue      = map[string]string{}
 	objectTreeBinding    = binding.BindStringTree(&objectTreeData, &objectTreeValue)
 	selectedObjectTreeId = ""
 
-	sceneTreeData           = map[string][]string{}
-	sceneTreeValue          = map[string]string{}
-	sceneTreeMap            = map[string]*sceneNode{}
+	sceneTreeData           = make(map[string][]string)  //ID to Children IDs
+	sceneTreeValue          = make(map[string]string)    //ID to Value(In our case it is Path to ID)
+	sceneTreeMap            = make(map[uuid.UUID]string) //ID to Path
 	sceneTreeBinding        = binding.BindStringTree(&sceneTreeData, &sceneTreeValue)
 	sceneNameBinding        = binding.NewString()
 	selectedSceneTreeNodeID = ""
 
-	functions = make(map[string]NFData.AssetProperties)
-	layouts   = make(map[string]NFData.AssetProperties)
-	widgets   = make(map[string]NFData.AssetProperties)
+	functions = make(map[string]NFObjects.AssetProperties)
+	layouts   = make(map[string]NFObjects.AssetProperties)
+	widgets   = make(map[string]NFObjects.AssetProperties)
 
 	selectedScenePath string
 	selectedScene     *NFScene.Scene
@@ -90,46 +84,109 @@ var (
 	objectsCanvas      fyne.CanvasObject
 )
 
-func generateTreeMap(initialPath string) error {
-	treeMap := make(map[string]*sceneNode)      // Maps UUID to sceneNode
-	parentChildMap := make(map[string][]string) //Maps parent directory to a slice of UUIDs of its children
-	valueMap := make(map[string]string)         //Maps UUID to UUID (for value map, it seems redundant, but it's needed for the StringTree)
-	pathToUUID := make(map[string]string)       //Maps relative path to UUID
-
+func loadAssets(initialPath string) error {
+	functions = make(map[string]NFObjects.AssetProperties)
+	layouts = make(map[string]NFObjects.AssetProperties)
+	widgets = make(map[string]NFObjects.AssetProperties)
+	initialPath = filepath.Clean(initialPath)
 	err := filepath.Walk(initialPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+		asset := NFObjects.AssetProperties{}
+		isFunc := filepath.Ext(path) == ".NFFunction"
+		isLayout := filepath.Ext(path) == ".NFLayout"
+		isWidget := filepath.Ext(path) == ".NFWidget"
+		if isFunc || isLayout || isWidget {
+			err := asset.Load(path)
+			if err != nil {
+				return err
+			}
+			if isFunc {
+				if _, ok := functions[asset.Type]; ok {
+					log.Println("Function Type already exists, overwriting: " + asset.Type)
+					log.Println("To prevent this, make sure all function types are unique")
+				}
+				functions[asset.Type] = asset
+			} else if isLayout {
+				if _, ok := layouts[asset.Type]; ok {
+					log.Println("Layout Type already exists, overwriting: " + asset.Type)
+					log.Println("To prevent this, make sure all layout types are unique")
+				}
+				layouts[asset.Type] = asset
+			} else if isWidget {
+				if _, ok := widgets[asset.Type]; ok {
+					log.Println("Widget Type already exists, overwriting: " + asset.Type)
+					log.Println("To prevent this, make sure all widget types are unique")
+				}
+				widgets[asset.Type] = asset
+			}
+		}
+		return nil
+	})
+	return err
+}
+
+func generateTreeMap(initialPath string) error {
+
+	//Nil the maps
+	sceneTreeData = make(map[string][]string)
+	sceneTreeValue = make(map[string]string)
+	sceneTreeMap = make(map[uuid.UUID]string)
+
+	type path string
+	//UUID to children UUID
+	tempData := make(map[uuid.UUID][]uuid.UUID)
+	//Path to UUID
+	tempValue := make(map[path]uuid.UUID)
+	//UUID to Path
+	tempMap := make(map[uuid.UUID]path)
+	//UUID List for unique UUIDs (Probably not needed, but I am covering all bases)
+	uuidList := make([]uuid.UUID, 0)
+	err := filepath.Walk(initialPath, func(walkPath string, info os.FileInfo, err error) error {
+		newUUID := uuid.New()
+		for slices.Contains(uuidList, newUUID) {
+			newUUID = uuid.New()
 		}
 
-		//Skip the initial path
-		if path == initialPath {
+		uuidList = append(uuidList, newUUID)
+		//Map the UUID to path
+		tempMap[newUUID] = path(walkPath)
+		//Map the path to the UUID
+		tempValue[path(walkPath)] = newUUID
+		//If it is a directory add it to the data map as a parent
+		if info.IsDir() {
+			tempData[newUUID] = make([]uuid.UUID, 0)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	//Walk again adding the children to the parent only if the parent is in the map
+	err = filepath.Walk(initialPath, func(walkPath string, info os.FileInfo, err error) error {
+		if info.IsDir() {
 			return nil
 		}
-
-		dir, file := filepath.Split(path)
-
-		// remove trailing slash from dir
-		dir = filepath.Clean(dir)
-
-		if info.IsDir() || filepath.Ext(path) == ".NFScene" {
-			newNode := &sceneNode{
-				UUID: uuid.New(),
-				Name: file,
-				Dir:  info.IsDir(),
-				Path: path,
-			}
-			uuidStr := newNode.UUID.String()
-			treeMap[uuidStr] = newNode
-			pathToUUID[path] = uuidStr // Store the path to UUID mapping
-
-			// Add the new node to the parent's slice in the parent-child map
-			if dir == initialPath {
-				parentChildMap[""] = append(parentChildMap[""], uuidStr)
-			} else {
-				parentChildMap[dir] = append(parentChildMap[dir], uuidStr)
-			}
+		//Check if the path has a UUID
+		curID, ok := tempValue[path(walkPath)]
+		if !ok {
+			return errors.New("UUID not found")
 		}
 
+		parent := path(filepath.Dir(walkPath))
+		//Check if the parent has a UUID
+		parentUUID, ok := tempValue[parent]
+		if !ok {
+			return errors.New("parent not found")
+		}
+
+		//Check if the parent is in the data map
+		parentChildren, ok := tempData[parentUUID]
+		if !ok {
+			return errors.New("parent not in data map")
+		}
+
+		//Add the child to the parent
+		tempData[parentUUID] = append(parentChildren, curID)
 		return nil
 	})
 
@@ -137,22 +194,36 @@ func generateTreeMap(initialPath string) error {
 		return err
 	}
 
-	// Convert the parent-child map to use the UUIDs of the nodes
-	idMap := make(map[string][]string)
-	for parentPath, childrenUUIDs := range parentChildMap {
-		parentID := pathToUUID[parentPath] // Use the path to UUID map here
-		idMap[parentID] = childrenUUIDs
+	//Convert the temp maps to the actual maps
+	for key, val := range tempData {
+		keyPath := tempMap[key]
+		if string(keyPath) == initialPath {
+			sceneTreeData[""] = append(sceneTreeData[""], key.String())
+		}
+		children := make([]string, 0) //Ensure that any directories without children are not nil
+		for _, child := range val {
+			children = append(children, child.String()) //Add any children to the parent
+		}
+		sceneTreeData[key.String()] = children //Convert the UUID to a string and add it to the scene data
+	}
+	for key := range tempMap {
+		sceneTreeValue[key.String()] = key.String() //Convert the UUID to a string and add it to the scene value
+	}
+	for key, val := range tempMap {
+		sceneTreeMap[key] = string(val) //Convert the path to a string
 	}
 
-	// Create the value map
-	for _, node := range treeMap {
-		valueMap[node.UUID.String()] = node.UUID.String()
+	for key, val := range sceneTreeData {
+		log.Println("Key: " + key)
+		for _, child := range val {
+			log.Println("Child: " + child)
+		}
 	}
 
-	//set the tree data
-	sceneTreeData = idMap
-	sceneTreeValue = valueMap
-	sceneTreeMap = treeMap
+	for key, val := range sceneTreeValue {
+		log.Println("Key: " + key + " Value: " + val)
+	}
+
 	return sceneTreeBinding.Reload()
 }
 
@@ -313,6 +384,13 @@ func UpdateMenuBar(window fyne.Window) {
 }
 
 func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
+	err := loadAssets(filepath.Join(ActiveProject.Info.Path, "data", "assets"))
+	if err != nil {
+		dialog.ShowError(err, window)
+	}
+
+	//If any are 0 run the export registered functions by creating it via template
+
 	if propertiesCanvas == nil {
 		propertiesCanvas = container.NewVBox(widget.NewLabel("Scene Properties"))
 	}
@@ -333,58 +411,6 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 		refreshForm("Properties", form, coupledArgs, window)
 		properties.Add(typeLabel)
 		properties.Add(form)
-	}
-
-	functions = make(map[string]NFData.AssetProperties)
-	layouts = make(map[string]NFData.AssetProperties)
-	widgets = make(map[string]NFData.AssetProperties)
-	//Walk the assets folder for all .NFLayout files
-	assetsFolder := filepath.Join(filepath.Dir(ActiveProject.Info.Path), "data/assets/")
-	assetsFolder = filepath.Clean(assetsFolder)
-	err := filepath.Walk(assetsFolder, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		switch filepath.Ext(path) {
-		case ".NFLayout":
-			l, lErr := NFLayout.Load(path)
-			if lErr != nil {
-				errors.Join(err, errors.New(fmt.Sprintf("Error loading layout at %s", path)))
-			} else {
-				if _, ok := layouts[l.Type]; !ok {
-					errors.Join(err, errors.New(fmt.Sprintf("Layout Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", l.Type)))
-				} else {
-					layouts[l.Type] = l
-				}
-			}
-		case ".NFWidget":
-			w, wErr := NFWidget.Load(path)
-			if wErr != nil {
-				errors.Join(err, errors.New(fmt.Sprintf("Error loading widget at %s", path)))
-			} else {
-				if _, ok := widgets[w.Type]; !ok {
-					errors.Join(err, errors.New(fmt.Sprintf("Widget Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", w.Type)))
-				} else {
-					widgets[w.Type] = w
-				}
-			}
-		case ".NFFunction":
-			f, fErr := NFFunction.Load(path)
-			if fErr != nil {
-				errors.Join(err, errors.New(fmt.Sprintf("Error loading function at %s", path)))
-			} else {
-				if _, ok := functions[f.Type]; !ok {
-					errors.Join(err, errors.New(fmt.Sprintf("Function Type %s already exists, if you are using third party widgets/layouts the developer has not properly namespaced", f.Type)))
-				} else {
-					functions[f.Type] = f
-				}
-			}
-		}
-		return err
-	})
-	if err != nil {
-		log.Println(err)
-		dialog.ShowError(err, window)
 	}
 	propertiesCanvas.Refresh()
 	return propertiesCanvas
@@ -714,6 +740,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			}, window)
 		})
 	}
+	//TODO convert this to a URI tree instead of a string tree
 	var tree *widget.Tree
 	tree = widget.NewTreeWithData(sceneTreeBinding,
 		func(branch bool) fyne.CanvasObject {
@@ -726,12 +753,13 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				log.Println(err)
 				return
 			}
-			node := sceneTreeMap[value]
-			if node == nil {
-				log.Println("Node not found")
+			id, err := uuid.Parse(value)
+			if err != nil {
+				log.Println(err)
 				return
 			}
-			base := filepath.Base(node.Path)
+			path := sceneTreeMap[id]
+			base := filepath.Base(path)
 			isScene := filepath.Ext(base) == ".NFScene"
 			noExt := strings.TrimSuffix(base, filepath.Ext(base))
 			objectContainer := object.(*fyne.Container)
@@ -740,9 +768,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			selected := selectedSceneTreeNodeID == value
 			if isScene {
 				if selected {
-					copyButton := copySceneButton(node.Path, noExt, window)
-					moveButton := moveSceneButton(node.Path, noExt, window)
-					deleteButton := deleteSceneButton(node.Path, noExt, window)
+					copyButton := copySceneButton(path, noExt, window)
+					moveButton := moveSceneButton(path, noExt, window)
+					deleteButton := deleteSceneButton(path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					copyButton.Disable()
 					moveButton.Disable()
@@ -756,9 +784,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				}
 			} else {
 				if selected || open {
-					newGroup := newGroupButton(node.Path, noExt, window)
-					newScene := newSceneButton(node.Path, noExt, window)
-					deleteGroup := deleteGroupButton(node.Path, noExt, window)
+					newGroup := newGroupButton(path, noExt, window)
+					newScene := newSceneButton(path, noExt, window)
+					deleteGroup := deleteGroupButton(path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					newGroup.Disable()
 					deleteGroup.Disable()
@@ -774,21 +802,26 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 
 	tree.OnSelected = func(id widget.TreeNodeID) {
 		selectedSceneTreeNodeID = id // This is for the node not actual scene
-		node := sceneTreeMap[id]
-		if node == nil {
-			log.Println("Node not found")
+		parsedID, err := uuid.Parse(id)
+		if err != nil {
+			dialog.ShowError(err, window)
 			return
 		}
-		if node.Dir {
+		path := sceneTreeMap[parsedID]
+		info, err := os.Stat(path)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		if info.IsDir() {
 			return
 		} else {
-			scenePath := node.Path
-			log.Println("Selected Scene: " + scenePath)
+			log.Println("Selected Scene: " + path)
 			// Close the scene preview window if it exists
 			if scenePreviewWindow != nil {
 				scenePreviewWindow.Close()
 			}
-			scene, err := NFScene.Load(scenePath)
+			scene, err := NFScene.Load(path)
 			if err != nil {
 				log.Println(err)
 				dialog.ShowError(err, window)
@@ -802,13 +835,13 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 							saveScene(window)
 						}
 						changesMade = false
-						selectedScenePath = scenePath
+						selectedScenePath = path
 						selectedScene = scene
 						CreateScenePreview(window) // This one may not need to be here since it should hit the next one after the else, but it's here for now as a safety
 					}, window)
 				} else {
 					changesMade = false
-					selectedScenePath = scenePath
+					selectedScenePath = path
 					selectedScene = scene
 					CreateScenePreview(window)
 				}

@@ -1,9 +1,13 @@
 package NFObjects
 
 import (
+	"encoding/json"
+	"errors"
 	"fyne.io/fyne/v2"
 	"github.com/google/uuid"
 	"go.novellaforge.dev/novellaforge/pkg/NFData"
+	"os"
+	"path/filepath"
 )
 
 type NFObject interface {
@@ -45,4 +49,29 @@ type NFRoot interface {
 	FetchAll() (map[uuid.UUID][]NFObject, int)          // FetchAll Should be called on the highest level object in the hierarchy to fetch all the objects and their children and functions all the way down the hierarchy nesting them according to their parent
 	FetchAllChildren() (map[uuid.UUID][]NFObject, int)  // FetchAllChildren Should be called on the highest level object in the hierarchy to fetch all the children of the object all the way down the hierarchy nesting them according to their parent
 	FetchAllFunctions() (map[uuid.UUID][]NFObject, int) // FetchAllFunctions Should be called on the highest level object in the hierarchy to fetch all the functions of the object all the way down the hierarchy nesting them according to their parent
+}
+
+type AssetProperties struct {
+	Type             string              `json:"Type"`
+	SupportedActions []string            `json:"SupportedActions"`
+	RequiredArgs     map[string][]string `json:"RequiredArgs"`
+	OptionalArgs     map[string][]string `json:"OptionalArgs"`
+}
+
+func (a *AssetProperties) Load(path string) error {
+	//Check if the path is a file
+	if filepath.Ext(path) == "" {
+		return errors.New("invalid file type")
+	}
+	//Read the file
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	//Unmarshal the json file
+	err = json.Unmarshal(file, a)
+	if err != nil {
+		return err
+	}
+	return nil
 }
