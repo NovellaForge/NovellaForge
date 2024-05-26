@@ -57,10 +57,8 @@ var (
 	objectTreeBinding    = binding.BindStringTree(&objectTreeData, &objectTreeValue)
 	selectedObjectTreeId = ""
 
-	sceneTreeData           = make(map[string][]string)  //ID to Children IDs
-	sceneTreeValue          = make(map[string]string)    //ID to Value(In our case it is Path to ID)
 	sceneTreeMap            = make(map[uuid.UUID]string) //ID to Path
-	sceneTreeBinding        = binding.BindStringTree(&sceneTreeData, &sceneTreeValue)
+	sceneTreeBinding        = binding.NewStringTree()
 	sceneNameBinding        = binding.NewString()
 	selectedSceneTreeNodeID = ""
 
@@ -131,6 +129,7 @@ func regenSceneMap(initialPath string) error {
 	newSceneTreeValue := make(map[string]string)
 
 	type path string
+	var initialUUID uuid.UUID
 	//UUID to children UUID
 	tempData := make(map[uuid.UUID][]uuid.UUID)
 	//Path to UUID
@@ -139,20 +138,18 @@ func regenSceneMap(initialPath string) error {
 	tempMap := make(map[uuid.UUID]path)
 	//UUID List for unique UUIDs (Probably not needed, but I am covering all bases)
 	uuidList := make([]uuid.UUID, 0)
+
+	//First walk initializing each path with a UUID
 	err := filepath.Walk(initialPath, func(walkPath string, info os.FileInfo, err error) error {
 		newUUID := uuid.New()
 		for slices.Contains(uuidList, newUUID) {
 			newUUID = uuid.New()
 		}
-
 		uuidList = append(uuidList, newUUID)
-		//Map the UUID to path
 		tempMap[newUUID] = path(walkPath)
-		//Map the path to the UUID
 		tempValue[path(walkPath)] = newUUID
-		//If it is a directory add it to the data map as a parent
-		if info.IsDir() {
-			tempData[newUUID] = make([]uuid.UUID, 0)
+		if walkPath == initialPath {
+			initialUUID = newUUID
 		}
 		return nil
 	})
@@ -160,63 +157,49 @@ func regenSceneMap(initialPath string) error {
 		return err
 	}
 
-	//Walk again adding the children to the parent only if the parent is in the map
+	//Second walk to create the tree
 	err = filepath.Walk(initialPath, func(walkPath string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if walkPath == initialPath {
 			return nil
 		}
-		//Check if the path has a UUID
-		curID, ok := tempValue[path(walkPath)]
-		if !ok {
-			return errors.New("UUID not found")
-		}
-
-		parent := path(filepath.Dir(walkPath))
-		//Check if the parent has a UUID
-		parentUUID, ok := tempValue[parent]
-		if !ok {
-			return errors.New("parent not found")
-		}
-
-		//Check if the parent is in the data map
-		parentChildren, ok := tempData[parentUUID]
-		if !ok {
-			return errors.New("parent not in data map")
-		}
-
-		//Add the child to the parent
-		tempData[parentUUID] = append(parentChildren, curID)
+		//Get the parent path
+		parentPath := filepath.Dir(walkPath)
+		parentUUID := tempValue[path(parentPath)]
+		//Get the current path
+		currentUUID := tempValue[path(walkPath)]
+		//Add the current path to the parent path
+		tempData[parentUUID] = append(tempData[parentUUID], currentUUID)
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	//Convert the temp maps to the actual maps
+	//Convert the temp maps to the new maps the InitialPath is the root and should have an id of "" in the new maps
 	for key, val := range tempData {
-		keyPath := tempMap[key]
-		if string(keyPath) == initialPath {
-			newSceneTreeData[""] = append(newSceneTreeData[""], key.String())
+		newKey := key.String()
+		if key == initialUUID {
+			newKey = ""
 		}
-		children := make([]string, 0) //Ensure that any directories without children are not nil
-		for _, child := range val {
-			children = append(children, child.String()) //Add any children to the parent
+		newSceneTreeData[newKey] = make([]string, 0)
+		for _, v := range val {
+			if v == initialUUID {
+				continue
+			}
+			newSceneTreeData[newKey] = append(newSceneTreeData[newKey], v.String())
 		}
-		newSceneTreeData[key.String()] = children //Convert the UUID to a string and add it to the scene data
 	}
-	for key := range tempMap {
-		newSceneTreeValue[key.String()] = key.String() //Convert the UUID to a string and add it to the scene value
+	for key, val := range tempMap {
+		newKey := key.String()
+		if key == initialUUID {
+			continue
+		}
+		newSceneTreeValue[newKey] = tempValue[val].String()
 	}
 
+	log.Println("Reloading Scene Tree")
 	//Nil the scene tree map
 	sceneTreeMap = make(map[uuid.UUID]string)
 	for key, val := range tempMap {
 		sceneTreeMap[key] = string(val) //Convert the path to a string
 	}
-	log.Println("Reloading Scene Tree")
-	sceneTreeData = newSceneTreeData
-	sceneTreeValue = newSceneTreeValue
 	return sceneTreeBinding.Set(newSceneTreeData, newSceneTreeValue)
 }
 
@@ -430,8 +413,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 	}
 
 	//Group Buttons
-	newSceneButton := func(path, text string, window fyne.Window) *widget.Button {
-		return widget.NewButtonWithIcon(text, theme.ContentAddIcon(), func() {
+	newSceneButton := func(path string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
 			var newSceneDialog *dialog.CustomDialog
 			entry := widget.NewEntry()
 			entry.SetPlaceHolder("Scene Name")
@@ -501,8 +484,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			newSceneDialog.Show()
 		})
 	}
-	newGroupButton := func(path, text string, window fyne.Window) *widget.Button {
-		return widget.NewButtonWithIcon(text, theme.FolderNewIcon(), func() {
+	newGroupButton := func(path string, window fyne.Window) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.FolderNewIcon(), func() {
 			var newGroupDialog *dialog.CustomDialog
 			entry := widget.NewEntry()
 			entry.SetPlaceHolder("Group Name")
@@ -551,9 +534,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			newGroupDialog.Show()
 		})
 	}
-	deleteGroupButton := func(path, text string, window fyne.Window) *widget.Button {
+	deleteGroupButton := func(path, group string, window fyne.Window) *widget.Button {
 		return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-			dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the group: "+text, func(b bool) {
+			dialog.ShowConfirm("Delete "+group, "Are you sure you want to delete the group: "+group, func(b bool) {
 				if b {
 					log.Println("Delete Group at " + path)
 					//Check if the group is empty
@@ -623,7 +606,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		})
 	}
 	//Scene Buttons
-	copySceneButton := func(path, _ string, window fyne.Window) *widget.Button {
+	copySceneButton := func(path string, window fyne.Window) *widget.Button {
 		return widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {
 			log.Println("Copy Scene at " + path)
 			//Copy the scene to the same directory with a _copy suffix
@@ -645,7 +628,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			}
 		})
 	}
-	moveSceneButton := func(path, _ string, window fyne.Window) *widget.Button {
+	moveSceneButton := func(path string, window fyne.Window) *widget.Button {
 		return widget.NewButtonWithIcon("", theme.ContentCutIcon(), func() {
 			openDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
 				if err != nil {
@@ -715,9 +698,9 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			openDialog.Show()
 		})
 	}
-	deleteSceneButton := func(path, text string, window fyne.Window) *widget.Button {
+	deleteSceneButton := func(path, sceneName string, window fyne.Window) *widget.Button {
 		return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-			dialog.ShowConfirm("Delete "+text, "Are you sure you want to delete the scene: "+text, func(b bool) {
+			dialog.ShowConfirm("Delete "+sceneName, "Are you sure you want to delete the scene: "+sceneName, func(b bool) {
 				if b {
 					log.Println("Delete Scene at " + path)
 					err := os.Remove(path)
@@ -733,7 +716,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			}, window)
 		})
 	}
-	//TODO convert this to a URI tree instead of a string tree
 	var tree *widget.Tree
 	tree = widget.NewTreeWithData(sceneTreeBinding,
 		func(branch bool) fyne.CanvasObject {
@@ -761,8 +743,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			selected := selectedSceneTreeNodeID == value
 			if isScene {
 				if selected {
-					copyButton := copySceneButton(path, noExt, window)
-					moveButton := moveSceneButton(path, noExt, window)
+					copyButton := copySceneButton(path, window)
+					moveButton := moveSceneButton(path, window)
 					deleteButton := deleteSceneButton(path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					copyButton.Disable()
@@ -777,8 +759,8 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				}
 			} else {
 				if selected || open {
-					newGroup := newGroupButton(path, noExt, window)
-					newScene := newSceneButton(path, noExt, window)
+					newGroup := newGroupButton(path, window)
+					newScene := newSceneButton(path, window)
 					deleteGroup := deleteGroupButton(path, noExt, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					newGroup.Disable()
@@ -845,7 +827,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		selectedSceneTreeNodeID = ""
 
 	}
-	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), newSceneButton(scenesFolder, "", window), newGroupButton(scenesFolder, "", window))
+	hbox := container.NewHBox(widget.NewLabel("Scenes"), layout.NewSpacer(), newSceneButton(scenesFolder, window), newGroupButton(scenesFolder, window))
 	vbox := container.NewVBox(CreateProjectSettings(window), hbox)
 	border := container.NewBorder(vbox, nil, nil, nil, tree)
 	scroll := container.NewVScroll(border)
