@@ -124,12 +124,11 @@ func loadAssets(initialPath string) error {
 	return err
 }
 
-func generateTreeMap(initialPath string) error {
+func regenSceneMap(initialPath string) error {
 
 	//Nil the maps
-	sceneTreeData = make(map[string][]string)
-	sceneTreeValue = make(map[string]string)
-	sceneTreeMap = make(map[uuid.UUID]string)
+	newSceneTreeData := make(map[string][]string)
+	newSceneTreeValue := make(map[string]string)
 
 	type path string
 	//UUID to children UUID
@@ -198,33 +197,27 @@ func generateTreeMap(initialPath string) error {
 	for key, val := range tempData {
 		keyPath := tempMap[key]
 		if string(keyPath) == initialPath {
-			sceneTreeData[""] = append(sceneTreeData[""], key.String())
+			newSceneTreeData[""] = append(newSceneTreeData[""], key.String())
 		}
 		children := make([]string, 0) //Ensure that any directories without children are not nil
 		for _, child := range val {
 			children = append(children, child.String()) //Add any children to the parent
 		}
-		sceneTreeData[key.String()] = children //Convert the UUID to a string and add it to the scene data
+		newSceneTreeData[key.String()] = children //Convert the UUID to a string and add it to the scene data
 	}
 	for key := range tempMap {
-		sceneTreeValue[key.String()] = key.String() //Convert the UUID to a string and add it to the scene value
+		newSceneTreeValue[key.String()] = key.String() //Convert the UUID to a string and add it to the scene value
 	}
+
+	//Nil the scene tree map
+	sceneTreeMap = make(map[uuid.UUID]string)
 	for key, val := range tempMap {
 		sceneTreeMap[key] = string(val) //Convert the path to a string
 	}
-
-	for key, val := range sceneTreeData {
-		log.Println("Key: " + key)
-		for _, child := range val {
-			log.Println("Child: " + child)
-		}
-	}
-
-	for key, val := range sceneTreeValue {
-		log.Println("Key: " + key + " Value: " + val)
-	}
-
-	return sceneTreeBinding.Reload()
+	log.Println("Reloading Scene Tree")
+	sceneTreeData = newSceneTreeData
+	sceneTreeValue = newSceneTreeValue
+	return sceneTreeBinding.Set(newSceneTreeData, newSceneTreeValue)
 }
 
 func refreshForm(objectKey string, form *widget.Form, object NFData.CoupledObject, window fyne.Window) {
@@ -430,7 +423,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 		return container.NewVBox(widget.NewLabel("Invalid Scenes Folder"))
 	}
 
-	err := generateTreeMap(scenesFolder)
+	err := regenSceneMap(scenesFolder)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return container.NewVBox(widget.NewLabel("Error generating tree map"))
@@ -484,7 +477,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					dialog.ShowError(err, window)
 					return
 				}
-				err = generateTreeMap(scenesFolder)
+				err = regenSceneMap(scenesFolder)
 				if err != nil {
 					dialog.ShowError(err, window)
 				}
@@ -534,7 +527,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				if err != nil {
 					return
 				}
-				err = generateTreeMap(scenesFolder)
+				err = regenSceneMap(scenesFolder)
 				if err != nil {
 					dialog.ShowError(err, window)
 				}
@@ -608,7 +601,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 									dialog.ShowError(err, window)
 								}
 							}
-							err = generateTreeMap(scenesFolder)
+							err = regenSceneMap(scenesFolder)
 							if err != nil {
 								dialog.ShowError(err, window)
 							}
@@ -619,7 +612,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 						if err != nil {
 							dialog.ShowError(err, window)
 						} else {
-							err = generateTreeMap(scenesFolder)
+							err = regenSceneMap(scenesFolder)
 							if err != nil {
 								dialog.ShowError(err, window)
 							}
@@ -646,7 +639,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				dialog.ShowError(err, window)
 				return
 			}
-			err = generateTreeMap(scenesFolder)
+			err = regenSceneMap(scenesFolder)
 			if err != nil {
 				dialog.ShowError(err, window)
 			}
@@ -696,7 +689,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 						}
 					}
 				}
-				err = generateTreeMap(scenesFolder)
+				err = regenSceneMap(scenesFolder)
 				if err != nil {
 					dialog.ShowError(err, window)
 				}
@@ -731,7 +724,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					if err != nil {
 						dialog.ShowError(err, window)
 					} else {
-						err = generateTreeMap(scenesFolder)
+						err = regenSceneMap(scenesFolder)
 						if err != nil {
 							dialog.ShowError(err, window)
 						}
