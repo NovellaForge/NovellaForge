@@ -393,6 +393,7 @@ func CreateSceneProperties(window fyne.Window) fyne.CanvasObject {
 }
 
 func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
+	//TODO add in an empty folder icon for nodes that are folders but have no children
 	if selectorCanvas == nil {
 		selectorCanvas = container.NewStack()
 	}
