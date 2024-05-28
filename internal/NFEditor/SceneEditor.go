@@ -3,8 +3,6 @@ package NFEditor
 import (
 	"errors"
 	"fmt"
-	"fyne.io/fyne/v2/data/binding"
-	"github.com/google/uuid"
 	"io/fs"
 	"log"
 	"os"
@@ -15,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"fyne.io/fyne/v2/data/binding"
+	"github.com/google/uuid"
 
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFConfig"
 	"go.novellaforge.dev/novellaforge/pkg/NFData/NFObjects"
@@ -572,24 +573,55 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					if !empty {
 						dialog.ShowCustomConfirm("Keep Files", "Keep", "Delete", widget.NewLabel("Do you want to keep the files in the group?"), func(b bool) {
 							if b {
-								//Get all the files in the group and move them to the parent directory
+								// Create an empty slice of paths to move
+								paths := make([]string, 0)
+
+								// Walk the directory and get a list of all paths directly in the directory and add them to the list
 								err := filepath.Walk(path, func(innerPath string, info os.FileInfo, err error) error {
 									if path != innerPath {
-										newPath := filepath.Join(filepath.Dir(path), info.Name())
-										//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
-										for i := 1; ; i++ {
-											if _, err := os.Stat(newPath); os.IsNotExist(err) {
-												break
-											}
-											newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))+"_"+strconv.Itoa(i)+filepath.Ext(info.Name()))
-										}
-										err := os.Rename(innerPath, newPath)
-										if err != nil {
-											return err
-										}
+										paths = append(paths, innerPath)
 									}
 									return nil
 								})
+
+								if err != nil {
+									dialog.ShowError(err, window)
+									return
+								}
+
+								// If any folders are found in the list, remove files from inside the folder from the list
+								for _, innerPath := range paths {
+									if _, err := os.Stat(innerPath); err == nil {
+										// Check if the path is a directory
+										fileInfo, _ := os.Stat(innerPath)
+										if fileInfo.IsDir() {
+											// Remove all files from the list that are in the directory
+											paths = slices.DeleteFunc(paths, func(s string) bool {
+												return strings.HasPrefix(s, innerPath)
+											})
+											paths = append(paths, innerPath)
+										}
+									}
+								}
+
+								// Move all files in the list to the parent directory
+								for _, innerPath := range paths {
+									newPath := filepath.Join(filepath.Dir(path), filepath.Base(innerPath))
+									//Check if the new path exists and if it does loop adding numbers to the end until it doesn't
+									for i := 1; ; i++ {
+										if _, err := os.Stat(newPath); os.IsNotExist(err) {
+											break
+										}
+										newPath = filepath.Join(filepath.Dir(path), strings.TrimSuffix(filepath.Base(innerPath), filepath.Ext(filepath.Base(innerPath)))+"_"+strconv.Itoa(i)+filepath.Ext(filepath.Base(innerPath)))
+									}
+									log.Println("Moving " + innerPath + " to " + newPath)
+									err := os.Rename(innerPath, newPath)
+									if err != nil {
+										dialog.ShowError(err, window)
+										return
+									}
+								}
+
 								if err != nil {
 									dialog.ShowError(err, window)
 								}
@@ -795,8 +827,6 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 					newScene := newSceneButton(path, window)
 					deleteGroup := deleteGroupButton(path, label, window)
 					//Disable them all temporarily until I fix them to work with the new tree
-					newGroup.Disable()
-					deleteGroup.Disable()
 					objectContainer.Objects = append(objectContainer.Objects,
 						layout.NewSpacer(),
 						newGroup,
