@@ -195,7 +195,7 @@ func regenSceneMap(initialPath string) error {
 	}
 
 	log.Println("Reloading Scene Tree")
-	//Nil the scene tree map
+	//Nil the scene tree map which is uuid to path
 	sceneTreeMap = make(map[uuid.UUID]string)
 	for key, val := range tempMap {
 		sceneTreeMap[key] = string(val) //Convert the path to a string
@@ -321,7 +321,27 @@ func UpdateMenuBar(window fyne.Window) {
 			}
 		}
 		prefForm.Append("Auto Save Time", autoSaveTimeEntry)
-		dialog.ShowCustom("Scene Editor Preferences", "Close", prefForm, window)
+		iconChangesMade := false
+		folderIconCheck := widget.NewCheck("", func(b bool) {
+			fyne.CurrentApp().Preferences().SetBool("SceneEditor_FolderIcons", b)
+			iconChangesMade = true
+		})
+		folderIconCheck.Checked = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_FolderIcons", true)
+		prefForm.Append("Folder Icons", folderIconCheck)
+		sceneIconCheck := widget.NewCheck("", func(b bool) {
+			fyne.CurrentApp().Preferences().SetBool("SceneEditor_SceneIcons", b)
+			iconChangesMade = true
+		})
+		sceneIconCheck.Checked = fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_SceneIcons", true)
+		prefForm.Append("Scene Icons", sceneIconCheck)
+		formDialog := dialog.NewCustom("Scene Editor Preferences", "Close", prefForm, window)
+		formDialog.SetOnClosed(func() {
+			if iconChangesMade {
+				dialog.ShowInformation("Restart Required", "Changes to the icon settings require a restart or scene tree refresh to take effect", window)
+				iconChangesMade = false
+			}
+		})
+		formDialog.Show()
 	})
 	editMenu.Items = append(editMenu.Items, preferencesItem)
 	saveItem := fyne.NewMenuItem("Save", func() {
@@ -737,16 +757,29 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 			path := sceneTreeMap[id]
 			base := filepath.Base(path)
 			isScene := filepath.Ext(base) == ".NFScene"
-			noExt := strings.TrimSuffix(base, filepath.Ext(base))
+			label := strings.TrimSuffix(base, filepath.Ext(base))
+			if !isScene {
+				folderIconPref := fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_FolderIcons", true)
+				if folderIconPref {
+					//Prepend a folder icon to the label
+					label = "📁 " + label
+				}
+			} else {
+				sceneIconPref := fyne.CurrentApp().Preferences().BoolWithFallback("SceneEditor_SceneIcons", true)
+				if sceneIconPref {
+					//Prepend a scene icon to the label
+					label = "🎬 " + label
+				}
+			}
 			objectContainer := object.(*fyne.Container)
-			objectContainer.Objects = []fyne.CanvasObject{widget.NewLabel(noExt)}
+			objectContainer.Objects = []fyne.CanvasObject{widget.NewLabel(label)}
 			open := tree.IsBranchOpen(value)
 			selected := selectedSceneTreeNodeID == value
 			if isScene {
 				if selected {
 					copyButton := copySceneButton(path, window)
 					moveButton := moveSceneButton(path, window)
-					deleteButton := deleteSceneButton(path, noExt, window)
+					deleteButton := deleteSceneButton(path, label, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					copyButton.Disable()
 					moveButton.Disable()
@@ -762,7 +795,7 @@ func CreateSceneSelector(window fyne.Window) fyne.CanvasObject {
 				if selected || open {
 					newGroup := newGroupButton(path, window)
 					newScene := newSceneButton(path, window)
-					deleteGroup := deleteGroupButton(path, noExt, window)
+					deleteGroup := deleteGroupButton(path, label, window)
 					//Disable them all temporarily until I fix them to work with the new tree
 					newGroup.Disable()
 					deleteGroup.Disable()
