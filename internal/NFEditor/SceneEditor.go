@@ -57,6 +57,7 @@ var (
 	selectedObjectTreeId = ""
 
 	sceneTreeMap            = make(map[uuid.UUID]string) //ID to Path
+	openSceneBranches       = make([]string, 0)          //Should be paths NOT UUIDs so that it can persist between uuid changes
 	sceneTreeBinding        = binding.NewStringTree()
 	sceneNameBinding        = binding.NewString()
 	selectedSceneTreeNodeID = ""
@@ -990,7 +991,7 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 			log.Println(err)
 			dialog.ShowError(err, window)
 		}
-		err = updatedSceneObjects(selectedScene)
+		err = updateSceneObjects(nil)
 		if err != nil {
 			log.Println(err)
 			dialog.ShowError(err, window)
@@ -1013,12 +1014,19 @@ func CreateScenePreview(window fyne.Window) fyne.CanvasObject {
 	return previewCanvas
 }
 
-func updatedSceneObjects(curScene *NFScene.Scene) error {
-	if curScene == nil {
+//TODO Fix the tree not updating fully
+
+func updateSceneObjects(tree *widget.Tree) error {
+	if selectedScene == nil {
 		return nil
 	}
-	childrenMap, count := curScene.FetchAll()
+	childrenMap, count := selectedScene.FetchAll()
 	log.Println("Scene has", count, "objects")
+	err := selectedScene.Validate()
+	if err != nil {
+		selectedScene.MakeId()
+		return updateSceneObjects(tree)
+	}
 	sceneObjectData := make(map[string][]string)
 	sceneObjectValue := make(map[string]string)
 	for parent, children := range childrenMap {
@@ -1029,7 +1037,12 @@ func updatedSceneObjects(curScene *NFScene.Scene) error {
 			sceneObjectData[parent.String()] = append(sceneObjectData[parent.String()], child.GetID().String())
 		}
 	}
-	return objectTreeBinding.Set(sceneObjectData, sceneObjectValue)
+	err = objectTreeBinding.Set(sceneObjectData, sceneObjectValue)
+	if tree != nil && err == nil {
+		tree.OpenAllBranches()
+		tree.Refresh()
+	}
+	return err
 }
 
 // TODO Delete makes tree go invisible
@@ -1049,7 +1062,7 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 			dialog.ShowError(err, window)
 		}
 	}
-
+	var bindingTree *widget.Tree
 	previewSceneButton := widget.NewButtonWithIcon("Preview Scene", theme.MediaSkipNextIcon(), func() {
 		if selectedScene != nil {
 			if scenePreviewWindow == nil {
@@ -1069,12 +1082,122 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 		//Todo: Add in code to run the game
 	})
 	topBox.Add(runGameButton)
-	err := updatedSceneObjects(selectedScene)
+	refreshObjectsButton := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
+		err := updateSceneObjects(bindingTree)
+		if err != nil {
+			log.Println(err)
+			dialog.ShowError(err, window)
+		}
+	})
+	topBox.Add(refreshObjectsButton)
+	err := updateSceneObjects(bindingTree)
 	if err != nil {
 		log.Println(err)
 		dialog.ShowError(err, window)
 	}
-	var bindingTree *widget.Tree
+
+	createAddItemButton := func(level int, object NFObjects.NFObject) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+			if level < 2 {
+				return
+			}
+			var addDialog *dialog.CustomDialog
+			rendered := object.(NFObjects.NFRendered)
+			createChildButton := widget.NewButton("Add Child", func() {
+				children := NFLayout.NewChildren()
+				args := NFData.NewNFInterfaceMap()
+				if level == 3 {
+					if selectedScene.Layout != nil {
+						log.Println("Cannot add another layout to the scene")
+					} else {
+						newLayout := NFLayout.New("VBox", children, args)
+						//Loop while the newUUIDStr is in the valueMap
+						ids := selectedScene.FetchIDs()
+						for slices.Contains(ids, newLayout.GetID()) {
+							newLayout = NFLayout.New("VBox", children, args)
+						}
+						selectedScene.Layout = newLayout
+						changesMade = true
+					}
+				} else {
+					args.Set("Text", "Hello World")
+					newWidget := NFWidget.New("Label", children, args)
+					//Loop while the newUUIDStr is in the valueMap
+					ids := selectedScene.FetchIDs()
+					for slices.Contains(ids, newWidget.GetID()) {
+						newWidget = NFWidget.New("Label", children, args)
+					}
+					rendered.AddChild(newWidget)
+					changesMade = true
+				}
+				if addDialog != nil {
+					addDialog.Hide()
+				}
+				err = updateSceneObjects(bindingTree)
+				if err != nil {
+					log.Println(err)
+					dialog.ShowError(err, window)
+				}
+			})
+			createFunctionButton := widget.NewButton("Add Action", func() {
+				if level != 2 {
+					return
+				}
+				args := NFData.NewNFInterfaceMap()
+				newFunction := NFFunction.New("OnParse", "HelloWorld", args)
+				//Loop while the newUUIDStr is in the valueMap
+				ids := selectedScene.FetchIDs()
+				for slices.Contains(ids, newFunction.GetID()) {
+					newFunction = NFFunction.New("Function", "HelloWorld", args)
+				}
+				rendered.AddFunction(newFunction)
+				changesMade = true
+				if addDialog != nil {
+					addDialog.Hide()
+				}
+				err = updateSceneObjects(bindingTree)
+				if err != nil {
+					log.Println(err)
+					dialog.ShowError(err, window)
+				}
+			})
+			addDialog = dialog.NewCustom("Add Item", "Close", container.NewHBox(createChildButton, createFunctionButton), window)
+			addDialog.Show()
+		})
+	}
+
+	createDeleteItemButton := func(level int, object NFObjects.NFObject) *widget.Button {
+		return widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			id := object.GetID()
+			if level != 2 || id == selectedScene.Layout.GetID() {
+				return
+			}
+			idStr := id.String()
+			vbox := container.NewVBox(widget.NewLabel("Are you sure you want to delete this item?"),
+				widget.NewLabel("ID: "+idStr),
+				widget.NewLabel("Name: "+object.GetName()),
+				widget.NewLabel("Type: "+object.GetType()),
+				widget.NewLabel("This action cannot be undone"),
+				widget.NewLabel("This will also delete all children and functions of this item"),
+				layout.NewSpacer(),
+			)
+			dialog.ShowCustomConfirm("Delete Item", "Delete", "Cancel", vbox, func(b bool) {
+				if b {
+					if id == selectedScene.Layout.GetID() {
+						return
+					} else {
+						err := selectedScene.DeleteChild(id, true)
+						if err != nil {
+							return
+						}
+					}
+					changesMade = true
+					CreateSceneObjects(window)
+				}
+			}, window)
+		})
+	}
+
 	bindingTree = widget.NewTreeWithData(objectTreeBinding,
 		func(bool) fyne.CanvasObject {
 			return container.NewHBox(widget.NewLabel("Object"))
@@ -1110,118 +1233,30 @@ func CreateSceneObjects(window fyne.Window) fyne.CanvasObject {
 			if level == 0 {
 				return //This means the object is not a valid object
 			}
-
-			addItemButton := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-				if level < 2 {
-					return
-				}
-				var addDialog *dialog.CustomDialog
-				rendered := object.(NFObjects.NFRendered)
-				createChildButton := widget.NewButton("Add Child", func() {
-					children := NFLayout.NewChildren()
-					args := NFData.NewNFInterfaceMap()
-					if level == 3 {
-						if selectedScene.Layout != nil {
-							log.Println("Cannot add another layout to the scene")
-						} else {
-							newLayout := NFLayout.New("VBox", children, args)
-							//Loop while the newUUIDStr is in the valueMap
-							ids := selectedScene.FetchIDs()
-							for slices.Contains(ids, newLayout.GetID()) {
-								newLayout = NFLayout.New("VBox", children, args)
-							}
-							selectedScene.Layout = newLayout
-							changesMade = true
-						}
-					} else {
-						args.Set("Text", "Hello World")
-						newWidget := NFWidget.New("Label", children, args)
-						//Loop while the newUUIDStr is in the valueMap
-						ids := selectedScene.FetchIDs()
-						for slices.Contains(ids, newWidget.GetID()) {
-							newWidget = NFWidget.New("Label", children, args)
-						}
-						rendered.AddChild(newWidget)
-						changesMade = true
-					}
-					if addDialog != nil {
-						addDialog.Hide()
-					}
-					err = updatedSceneObjects(selectedScene)
-					if err != nil {
-						log.Println(err)
-						dialog.ShowError(err, window)
-					}
-				})
-				createFunctionButton := widget.NewButton("Add Action", func() {
-					if level != 2 {
-						return
-					}
-					args := NFData.NewNFInterfaceMap()
-					newFunction := NFFunction.New("OnParse", "HelloWorld", args)
-					//Loop while the newUUIDStr is in the valueMap
-					ids := selectedScene.FetchIDs()
-					for slices.Contains(ids, newFunction.GetID()) {
-						newFunction = NFFunction.New("Function", "HelloWorld", args)
-					}
-					rendered.AddFunction(newFunction)
-					changesMade = true
-					if addDialog != nil {
-						addDialog.Hide()
-					}
-					err = updatedSceneObjects(selectedScene)
-					if err != nil {
-						log.Println(err)
-						dialog.ShowError(err, window)
-					}
-				})
-				addDialog = dialog.NewCustom("Add Item", "Close", container.NewHBox(createChildButton, createFunctionButton), window)
-				addDialog.Show()
-			})
-			deleteItemButton := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-				if level != 2 || id == selectedScene.Layout.GetID() {
-					return
-				}
-				vbox := container.NewVBox(widget.NewLabel("Are you sure you want to delete this item?"),
-					widget.NewLabel("ID: "+idStr),
-					widget.NewLabel("Name: "+object.GetName()),
-					widget.NewLabel("Type: "+object.GetType()),
-					widget.NewLabel("This action cannot be undone"),
-					widget.NewLabel("This will also delete all children and functions of this item"),
-					layout.NewSpacer(),
-				)
-				dialog.ShowCustomConfirm("Delete Item", "Delete", "Cancel", vbox, func(b bool) {
-					if b {
-						if id == selectedScene.Layout.GetID() {
-							return
-						} else {
-							err := selectedScene.DeleteChild(id, true)
-							if err != nil {
-								return
-							}
-						}
-						changesMade = true
-						err = updatedSceneObjects(selectedScene)
-						if err != nil {
-							log.Println(err)
-							dialog.ShowError(err, window)
-						}
-					}
-				}, window)
-			})
-
+			isOpen := bindingTree.IsBranchOpen(idStr)
 			node.(*fyne.Container).Objects = []fyne.CanvasObject{widget.NewLabel(object.GetName())}
-			addItemButton.Disable()
-			deleteItemButton.Disable()
-			if level == 2 && selectedObjectTreeId == idStr {
+			if !(selectedObjectTreeId == idStr || isOpen) {
+				return
+			}
+			addItemButton := createAddItemButton(level, object)
+			deleteItemButton := createDeleteItemButton(level, object)
+			node.(*fyne.Container).Objects = append(node.(*fyne.Container).Objects, layout.NewSpacer(), addItemButton, deleteItemButton)
+			switch level {
+			case 1:
+				addItemButton.Enable()
+				deleteItemButton.Enable()
+			case 2:
 				addItemButton.Enable()
 				if id != selectedScene.Layout.GetID() {
 					deleteItemButton.Enable()
 				}
-				node.(*fyne.Container).Objects = append(node.(*fyne.Container).Objects, addItemButton, deleteItemButton)
-			} else if level == 1 {
-				deleteItemButton.Enable()
-				node.(*fyne.Container).Objects = append(node.(*fyne.Container).Objects, deleteItemButton)
+			case 3:
+				if selectedScene.Layout == nil {
+					addItemButton.Enable()
+				}
+			default:
+				deleteItemButton.Disable()
+				addItemButton.Disable()
 			}
 		})
 	bindingTree.OnSelected = func(id widget.TreeNodeID) {
