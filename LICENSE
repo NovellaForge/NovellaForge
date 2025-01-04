@@ -1,38 +1,76 @@
+                        NovellaForge Engine License
 
+This software is distributed under the terms of the GNU General Public License,
+version 3.0 (GPL v3), with additional terms and conditions outlined in the
+"Additional Terms for NovellaForge Engine" section below.
 
+The full text of the GPL v3 license follows this preamble.
 
 Additional Terms for NovellaForge Engine:
-Official Contributors:
-For the purposes of this license, "Official Contributors" include:
-a. Individuals or entities who submit modifications, enhancements, or other contributions directly to the official NovellaForge repository maintained by the NovellaForge project team, and whose contributions are accepted into the official version of the software.
-b. Maintainers of derivative works or forks of this software who:
-   i. Retain the GNU General Public License, version 3.0 (GPL v3), along with the additional terms and conditions outlined by NovellaForge.
-   ii. Include and enforce the Terms of Service (TOS) requirements outlined by NovellaForge in all distributed versions.
-   iii. Maintain the security, transparency, and user protection principles established by the original software.
 
-User Transparency and Safety:
-a. Modifications and Derivatives:
-If you modify this software in a way that reduces, removes, or bypasses security safeguards, or introduces features that may increase the risk of malicious use (including but not limited to unauthorized access to user data, execution of arbitrary code, or unvalidated network interactions), you must:
-   i. Clearly disclose these changes to users of the modified version.
-   ii. Provide an unambiguous notice at the launch of the modified software or any games/applications built with it, outlining the specific changes and their potential impact on security.
-b. Terms of Service Requirement:
-Any distribution of this software, whether modified or unmodified, must include a Terms of Service (TOS) that:
-   i. Requires developers of games/applications to disclose any features or functionality that may access user information or expose users to risks.
-   ii. States that NovellaForge and its contributors are not liable for modifications or third-party content created with the software.
-   iii. Ensures that all end users are informed of their rights and any potential risks.
+1. Official Contributors:
+   For the purposes of this license, "Official Contributors" include:
+   a. Individuals or entities who submit modifications, enhancements, or other
+      contributions directly to the official NovellaForge repository maintained
+      by the NovellaForge project team, and whose contributions are accepted
+      into the official version of the software.
+   b. Maintainers of derivative works or forks of this software who:
+      i.   Retain the GNU General Public License, version 3.0 (GPL v3), along
+           with the additional terms and conditions outlined by NovellaForge.
+      ii.  Include and enforce the Terms of Service (TOS) requirements outlined
+           by NovellaForge in all distributed versions.
+      iii. Maintain the security, transparency, and user protection principles
+           established by the original software.
 
-Responsibility for Derivatives:
-a. Derivative works or forks of the NovellaForge engine that comply with this license and include the required Terms of Service (TOS) are considered good-faith contributions and are granted the same protections as contributors to the official version.
-b. Forks or derivatives that remove or weaken security safeguards, transparency measures, or user protection requirements, or that violate the license or TOS, are the sole responsibility of their maintainers and are not covered under the protections granted to official contributors.
+2. User Transparency and Safety:
+   a. Modifications and Derivatives:
+      If you modify this software in a way that reduces, removes, or bypasses
+      security safeguards, or introduces features that may increase the risk of
+      malicious use (including but not limited to unauthorized access to user
+      data, execution of arbitrary code, or unvalidated network interactions),
+      you must:
+      i.   Clearly disclose these changes to users of the modified version.
+      ii.  Provide an unambiguous notice at the launch of the modified software
+           or any games/applications built with it, outlining the specific
+           changes and their potential impact on security.
+   b. Terms of Service Requirement:
+      Any distribution of this software, whether modified or unmodified, must
+      include a Terms of Service (TOS) that:
+      i.   Requires developers of games/applications to disclose any features
+           or functionality that may access user information or expose users to
+           risks.
+      ii.  States that NovellaForge and its contributors are not liable for
+           modifications or third-party content created with the software.
+      iii. Ensures that all end users are informed of their rights and any
+           potential risks.
 
-Good-Faith Derivatives:
-Derivative works or forks that comply with this license and the accompanying Terms of Service (TOS) are valued as extensions of the NovellaForge ecosystem. These projects are granted the same protections as contributors to the official project, provided they:
-  a. Retain the integrity of the original software's security features.
-  b. Do not introduce changes that compromise end-user safety or privacy without explicit disclosure and user consent.
-  c. Clearly distinguish themselves as forks to prevent confusion with the official NovellaForge project.
+3. Responsibility for Derivatives:
+   a. Derivative works or forks of the NovellaForge engine that comply with this
+      license and include the required Terms of Service (TOS) are considered
+      good-faith contributions and are granted the same protections as
+      contributors to the official version.
+   b. Forks or derivatives that remove or weaken security safeguards,
+      transparency measures, or user protection requirements, or that violate
+      the license or TOS, are the sole responsibility of their maintainers and
+      are not covered under the protections granted to official contributors.
 
-Alignment with GPL v3:
-These additional terms clarify and expand upon the definitions and conditions set forth in the GNU General Public License, version 3.0. They are intended to preserve the security, transparency, and integrity of the NovellaForge project while respecting the freedoms guaranteed under GPL v3.
+4. Good-Faith Derivatives:
+   Derivative works or forks that comply with this license and the accompanying
+   Terms of Service (TOS) are valued as extensions of the NovellaForge
+   ecosystem. These projects are granted the same protections as contributors
+   to the official project, provided they:
+   a. Retain the integrity of the original software's security features.
+   b. Do not introduce changes that compromise end-user safety or privacy
+      without explicit disclosure and user consent.
+   c. Clearly distinguish themselves as forks to prevent confusion with the
+      official NovellaForge project.
+
+5. Alignment with GPL v3:
+   These additional terms clarify and expand upon the definitions and
+   conditions set forth in the GNU General Public License, version 3.0. They
+   are intended to preserve the security, transparency, and integrity of the
+   NovellaForge project while respecting the freedoms guaranteed under GPL v3.
+
 
 
                     GNU GENERAL PUBLIC LICENSE
