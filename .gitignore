@@ -35,4 +35,4 @@ go.work
 /data/assets/videos/
 
 *.mp3
-assets/
+/assets/
